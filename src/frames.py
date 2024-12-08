@@ -9,7 +9,16 @@ from letters import LetterType, Letter
 from utils import Point, unique, ALEPH, FONT, WINDOW_BG, \
     BUTTON_HEIGHT, BUTTON_WIDTH, BUTTON_IMAGE_SIZE, \
     CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_BG
-from writing import Syllable, WritingSystem, Consonant, Word
+from writing import Syllable, WritingSystem, Consonant, Vowel, Word
+
+
+def get_letter(text: str, typ: LetterType, border: str, decoration_code: str):
+    match typ:
+        case LetterType.CONSONANT:
+            return Consonant.get_consonant(text, border, decoration_code)
+        case LetterType.VOWEL:
+            return Vowel.get_vowel(text, border, decoration_code)
+    raise ValueError(f'There is no such letter type: {typ} (letter={text})')
 
 
 class LetterButton(tk.Button):
@@ -168,7 +177,7 @@ class CanvasFrame(tk.Frame):
                     if valid:
                         index = int(str_index)
 
-                        inserted_letters = [Letter.get_letter(letter, *self.writing_system.letters[letter])
+                        inserted_letters = [get_letter(letter, *self.writing_system.letters[letter])
                                             for letter in inserted]
 
                         if index > 0:

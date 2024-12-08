@@ -26,17 +26,6 @@ class Letter(ABC):
         self._half_line_distance = None
         self._image: ImageDraw = None
 
-    @staticmethod
-    def get_letter(text: str, typ: LetterType, border: str, decoration_code: str):
-        from consonants import Consonant
-        from vowels import Vowel
-        match typ:
-            case LetterType.CONSONANT:
-                return Consonant.get_consonant(text, border, decoration_code)
-            case LetterType.VOWEL:
-                return Vowel.get_vowel(text, border, decoration_code)
-        raise ValueError(f'There is no such letter type: {typ} (letter={text})')
-
     def set_image(self, image):
         self._image = image
 

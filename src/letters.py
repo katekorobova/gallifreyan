@@ -1,0 +1,63 @@
+import math
+import random
+from abc import ABC
+from enum import auto, Enum
+
+from PIL import ImageDraw
+
+from utils import Point, line_width
+
+
+class LetterType(Enum):
+    CONSONANT = auto()
+    VOWEL = auto()
+
+
+class Letter(ABC):
+
+    def __init__(self, text: str, letter_type: LetterType, borders: str):
+        self.text = text
+        self.letter_type = letter_type
+        self.borders = borders
+        self.direction = random.uniform(-math.pi, math.pi)
+
+        self.widths, self.half_widths = None, None
+
+        self._half_line_distance = None
+        self._image: ImageDraw = None
+
+    @staticmethod
+    def get_letter(text: str, typ: LetterType, border: str, decoration_code: str):
+        from consonants import Consonant
+        from vowels import Vowel
+        match typ:
+            case LetterType.CONSONANT:
+                return Consonant.get_consonant(text, border, decoration_code)
+            case LetterType.VOWEL:
+                return Vowel.get_vowel(text, border, decoration_code)
+        raise ValueError(f'There is no such letter type: {typ} (letter={text})')
+
+    def set_image(self, image):
+        self._image = image
+
+    def press(self, point: Point) -> bool:
+        # implement where necessary
+        pass
+
+    def move(self, point: Point):
+        # implement where necessary
+        pass
+
+    def update_syllable_properties(self, syllable):
+        self.widths = list(map(lambda x: line_width(x, syllable.scale), self.borders))
+        self.half_widths = list(map(lambda x: x / 2, self.widths))
+
+        self._half_line_distance = syllable.half_line_distance
+
+    def _update_image_properties(self):
+        # implement where necessary
+        pass
+
+    def draw_decoration(self):
+        # implement where necessary
+        pass

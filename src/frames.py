@@ -37,62 +37,37 @@ class LetterButton(tk.Button):
         return button_command
 
 
-class ConsonantFrame(tk.Frame):
-
+class LetterFrame(tk.Frame):
     def __init__(self, win: tk.Tk, borders: List[str], decorations: List[str],
                  letters: List[List[str]], entry: tk.Entry):
         super().__init__(win, bg=WINDOW_BG)
         self.images = []
-        button = tk.Button(self, state='disabled')
-        button.grid(row=0, column=0, sticky='news')
-        for i, b in enumerate(borders):
-            image = Image.open(f'images/{b}.png').resize((BUTTON_IMAGE_SIZE, BUTTON_IMAGE_SIZE))
-            image_tk = ImageTk.PhotoImage(image)
-            self.images.append(image_tk)
-            button = tk.Button(self, image=image_tk, state='disabled')
-            button.grid(row=i + 1, column=0, sticky='news')
-        for j, d in enumerate(decorations):
-            image = Image.open(f'images/{d}.png').resize((BUTTON_IMAGE_SIZE, BUTTON_IMAGE_SIZE))
-            image_tk = ImageTk.PhotoImage(image)
-            self.images.append(image_tk)
-            button = tk.Button(self, image=image_tk, state='disabled')
-            button.grid(row=0, column=j + 1, sticky='news')
         self.buttons: Dict[str, tk.Button] = {}
-        for i in range(len(letters)):
-            for j in range(len(letters[i])):
-                letter = letters[i][j]
+
+        self._initialize_grid(borders, decorations)
+        self._add_buttons(letters, entry)
+
+    def _initialize_grid(self, borders: List[str], decorations: List[str]):
+        tk.Button(self, state='disabled').grid(row=0, column=0, sticky='news')
+
+        for i, border in enumerate(borders):
+            self._add_image_button(f'images/{border}.png', row=i + 1, column=0)
+
+        for j, decoration in enumerate(decorations):
+            self._add_image_button(f'images/{decoration}.png', row=0, column=j + 1)
+
+    def _add_image_button(self, path: str, row: int, column: int):
+        image = Image.open(path).resize((BUTTON_IMAGE_SIZE, BUTTON_IMAGE_SIZE))
+        image_tk = ImageTk.PhotoImage(image)
+        self.images.append(image_tk)
+        tk.Button(self, image=image_tk, state='disabled').grid(row=row, column=column, sticky='news')
+
+    def _add_buttons(self, letters: List[List[str]], entry: tk.Entry):
+        for i, row in enumerate(letters):
+            for j, letter in enumerate(row):
                 button = LetterButton(self, letter, entry)
                 self.buttons[letter] = button
                 button.grid(row=i + 1, column=j + 1, sticky='news')
-
-
-class VowelFrame(tk.Frame):
-
-    def __init__(self, win: tk.Tk, borders: List[str], decorations: List[str],
-                 letters: List[List[str]], entry: tk.Entry):
-        super().__init__(win, bg=WINDOW_BG)
-        self.images = []
-        button = tk.Button(self, state='disabled')
-        button.grid(row=0, column=0, sticky='news')
-        for i, b in enumerate(borders):
-            image = Image.open(f'images/{b}.png').resize((BUTTON_IMAGE_SIZE, BUTTON_IMAGE_SIZE))
-            image_tk = ImageTk.PhotoImage(image)
-            self.images.append(image_tk)
-            button = tk.Button(self, image=image_tk, state='disabled')
-            button.grid(row=i + 1, column=0, sticky='news')
-        for j, d in enumerate(decorations):
-            image = Image.open(f'images/{d}.png').resize((BUTTON_IMAGE_SIZE, BUTTON_IMAGE_SIZE))
-            image_tk = ImageTk.PhotoImage(image)
-            self.images.append(image_tk)
-            button = tk.Button(self, image=image_tk, state='disabled')
-            button.grid(row=0, column=j + 1, sticky='news')
-        self.buttons: Dict[str, tk.Button] = {}
-        for i in range(len(letters)):
-            for j in range(len(letters[i])):
-                letter = letters[i][j]
-                button = LetterButton(self, letter, entry)
-                self.buttons[letter] = button
-                button.grid(row=i + 1, column=j + 1, stick='news')
 
 
 class CanvasFrame(tk.Frame):

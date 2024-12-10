@@ -1,3 +1,4 @@
+from __future__ import annotations
 import math
 from typing import List
 from enum import Enum, auto
@@ -15,6 +16,9 @@ PADX = 10
 PADY = 10
 CANVAS_WIDTH = 800
 CANVAS_HEIGHT = 600
+
+
+WORD_INITIAL_POSITION = (300, 300)
 
 WORD_INITIAL_SCALE_MIN = 0.8
 WORD_SCALE_MIN = 0.3
@@ -59,15 +63,18 @@ class PressedType(Enum):
 
 
 class Point:
-    def __init__(self, x, y):
+    def __init__(self, x=0.0, y=0.0):
         self.x = x
         self.y = y
 
-    def __add__(self, other):
+    def __add__(self, other) -> Point:
         return Point(self.x + other.x, self.y + other.y)
 
-    def __sub__(self, other):
+    def __sub__(self, other) -> Point:
         return Point(self.x - other.x, self.y - other.y)
+
+    def distance(self) -> float:
+        return math.sqrt(self.x * self.x + self.y * self.y)
 
     def shift(self, x, y):
         return Point(self.x + x, self.y + y)

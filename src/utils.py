@@ -7,18 +7,18 @@ BUTTON_WIDTH = 3
 BUTTON_HEIGHT = 1
 WINDOW_BG = 'midnightblue'
 CANVAS_BG = 'white'
-SYLLABLE_BG = (150, 150, 255, 200)
-WORD_BG = (200, 220, 255, 255)
-SYLLABLE_COLOR = (34, 42, 131, 255)
-WORD_COLOR = (0, 50, 150, 255)
-FONT = ('Segoe UI', 14)
+SYLLABLE_BG = 150, 150, 255, 200
+WORD_BG = 200, 220, 255, 255
+SYLLABLE_COLOR = 34, 42, 131, 255
+WORD_COLOR = 0, 50, 150, 255
+FONT = 'Segoe UI', 14
 PADX = 10
 PADY = 10
 CANVAS_WIDTH = 800
 CANVAS_HEIGHT = 600
 
 
-WORD_INITIAL_POSITION = (300, 300)
+WORD_INITIAL_POSITION = 300, 300
 
 WORD_INITIAL_SCALE_MIN = 0.8
 WORD_SCALE_MIN = 0.3
@@ -62,22 +62,24 @@ class PressedType(Enum):
     CHILD = auto()
 
 
-class Point:
-    def __init__(self, x=0.0, y=0.0):
-        self.x = x
-        self.y = y
+class Point(tuple):
+    def __new__(cls, x=0.0, y=0.0):
+        return super().__new__(cls, (x, y))
 
-    def __add__(self, other) -> Point:
-        return Point(self.x + other.x, self.y + other.y)
+    def __add__(self, other):
+        return Point(self[0] + other[0], self[1] + other[1])
 
-    def __sub__(self, other) -> Point:
-        return Point(self.x - other.x, self.y - other.y)
+    def __sub__(self, other):
+        return Point(self[0] - other[0], self[1] - other[1])
 
     def distance(self) -> float:
-        return math.sqrt(self.x * self.x + self.y * self.y)
+        return math.sqrt(self[0] ** 2 + self[1] ** 2)
+
+    def direction(self) -> float:
+        return math.atan2(self[1], self[0])
 
     def shift(self, x, y):
-        return Point(self.x + x, self.y + y)
+        return Point(self[0] + x, self[1] + y)
 
 
 def unique(items: List) -> List:

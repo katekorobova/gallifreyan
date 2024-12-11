@@ -16,6 +16,7 @@ PADY = 10
 
 FONT = ('Segoe UI', 14)
 WINDOW_BG = 'midnightblue'
+BUTTON_BG = '#11114D'
 CANVAS_BG = 'white'
 CANVAS_WIDTH = 800
 CANVAS_HEIGHT = 600

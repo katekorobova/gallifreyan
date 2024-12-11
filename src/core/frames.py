@@ -8,7 +8,7 @@ from PIL import Image, ImageTk
 from src.utils import Point, unique, ALEPH, FONT, WINDOW_BG, \
     BUTTON_HEIGHT, BUTTON_WIDTH, BUTTON_IMAGE_SIZE, \
     CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_BG, \
-    WORD_INITIAL_POSITION
+    WORD_INITIAL_POSITION, BUTTON_BG
 from .characters import CharacterRepository
 from .components import LetterType, Letter, Consonant, Vowel, Syllable, Word
 
@@ -41,7 +41,7 @@ class LetterFrame(tk.Frame):
         self._add_buttons(letters, entry)
 
     def _initialize_grid(self, borders: List[str], decorations: List[str]):
-        tk.Button(self, state='disabled').grid(row=0, column=0, sticky='news')
+        tk.Label(self, relief='raised', bg=BUTTON_BG).grid(row=0, column=0, sticky='news')
 
         for i, border in enumerate(borders):
             self._add_image_button(f'assets/images/borders/{border}.png', row=i + 1, column=0)
@@ -53,7 +53,7 @@ class LetterFrame(tk.Frame):
         image = Image.open(path).resize((BUTTON_IMAGE_SIZE, BUTTON_IMAGE_SIZE))
         image_tk = ImageTk.PhotoImage(image)
         self.images.append(image_tk)
-        tk.Button(self, image=image_tk, state='disabled').grid(row=row, column=column, sticky='news')
+        tk.Label(self, image=image_tk, bg=BUTTON_BG, relief='raised').grid(row=row, column=column, sticky='news')
 
     def _add_buttons(self, letters: List[List[str]], entry: tk.Entry):
         for i, row in enumerate(letters):

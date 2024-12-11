@@ -1,4 +1,5 @@
 import tkinter as tk
+from dataclasses import dataclass
 from itertools import count, repeat
 from typing import Dict, List, Optional
 
@@ -115,16 +116,19 @@ class CanvasFrame(tk.Frame):
             self.word.create_image(self.canvas)
 
     def _attempt_action(self, action: str, str_index: str, inserted: str) -> bool:
-        match action:
-            case '0':   # Deletion
-                self._remove_letters(str_index, inserted)
-                return True
+        try:
+            match action:
+                case '0':   # Deletion
+                    self._remove_letters(str_index, inserted)
+                    return True
 
-            case '1':   # Insertion
-                return self._attempt_insertion(str_index, inserted)
+                case '1':   # Insertion
+                    return self._attempt_insertion(str_index, inserted)
 
-            case _:
-                return False
+                case _:
+                    return False
+        except Exception:
+            print('boop')
 
     def _remove_letters(self, str_index: str, deleted: str):
         """Remove letters from the word and update syllables."""
@@ -204,53 +208,58 @@ class CanvasFrame(tk.Frame):
                     break
         return start
 
+    @dataclass
+    class RedistributionState:
+        syllable: Optional[Syllable] = None
+        cons2: Optional[Consonant] = None
+        completed = False
+
     def _redistribute(self, start: int) -> None:
         """Redistribute syllables starting from a given index."""
-        syllable: Optional[Syllable] = None
-        cons2: Optional[Letter] = None
-
+        state = self.RedistributionState()
         for i, letter in zip(count(start), self.letters[start:]):
             if isinstance(letter, Consonant):
-                syllable, cons2 = self._process_consonant(i, letter, syllable, cons2)
+                self._process_consonant(i, letter, state)
             elif isinstance(letter, Vowel):
-                syllable, cons2 = self._process_vowel(i, letter, syllable)
+                self._process_vowel(i, letter, state)
             else:
                 raise ValueError(f"No such letter type: {letter.letter_type} (letter={letter.text})")
+            if state.completed:
+                break
 
-    def _process_consonant(self, index: int, letter: Consonant, syllable: Optional[Syllable], cons2: Optional[Letter])\
-            -> (Optional[Syllable], Optional[Consonant]):
+    def _process_consonant(self, index: int, letter: Consonant, state: RedistributionState) -> None:
         """Process consonant letters and update syllables."""
-        if syllable:
-            if not cons2 and syllable.add(letter):
-                cons2 = letter
-                self.syllables[index] = syllable
+        if state.syllable:
+            if not state.cons2 and state.syllable.add(letter):
+                state.cons2 = letter
+                self.syllables[index] = state.syllable
             else:
-                if self._same_letter(index, letter):
-                    return syllable, cons2
+                if self._check_syllable_start(index, letter):
+                    state.completed = True
                 else:
-                    syllable = Syllable(letter)
-                    cons2 = None
-                    self.syllables[index] = syllable
+                    state.syllable = Syllable(letter)
+                    state.cons2 = None
+                    self.syllables[index] = state.syllable
         else:
-            if self._same_letter(index, letter):
-                return syllable, cons2
+            if self._check_syllable_start(index, letter):
+                state.completed = True
             else:
-                syllable = Syllable(letter)
-                self.syllables[index] = syllable
-        return syllable, cons2
+                state.syllable = Syllable(letter)
+                self.syllables[index] = state.syllable
 
-    def _process_vowel(self, index: int, letter: Vowel, syllable: Optional[Syllable]) -> \
-            (Optional[Syllable], Optional[Consonant]):
+    def _process_vowel(self, index: int, letter: Vowel, state: RedistributionState) -> None:
         """Process vowel letters and update syllables."""
-        if syllable:
-            syllable.add(letter)
-            self.syllables[index] = syllable
-            syllable = None
+        if state.syllable:
+            state.syllable.add(letter)
+            self.syllables[index] = state.syllable
+            state.syllable = None
+            state.cons2 = None
         else:
-            if not self.syllables[index]:
+            if self.syllables[index]:
+                state.completed = True
+            else:
                 aleph = Consonant.get_consonant(ALEPH, *self.writing_system.consonants[ALEPH])
                 self.syllables[index] = Syllable(aleph, vowel=letter)
-        return syllable, None
 
-    def _same_letter(self, index, letter) -> bool:
+    def _check_syllable_start(self, index, letter) -> bool:
         return self.syllables[index] and self.syllables[index].cons1 is letter

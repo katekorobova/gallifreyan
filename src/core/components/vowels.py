@@ -1,12 +1,11 @@
 import math
+from abc import ABC
 from enum import Enum
 from typing import List, Dict
 
-from letters import Letter, LetterType
-from utils import Point, PressedType, line_width, half_line_distance, MIN_RADIUS, \
+from src.utils import Point, PressedType, line_width, half_line_distance, MIN_RADIUS, \
     SYLLABLE_IMAGE_RADIUS, SYLLABLE_COLOR, SYLLABLE_BG
-
-from abc import ABC
+from .letters import Letter, LetterType
 
 
 class VowelDecoration(str, Enum):

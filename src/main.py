@@ -1,7 +1,7 @@
 import tkinter as tk
-from frames import LetterFrame, CanvasFrame
+
+from core import CharacterRepository, LetterFrame, CanvasFrame
 from utils import PADX, PADY, WINDOW_BG
-from writing import WritingSystem
 
 
 class App(tk.Tk):
@@ -16,12 +16,12 @@ class App(tk.Tk):
         """Set up the main application window."""
         self.title('Gallifreyan')
         self.config(bg=WINDOW_BG)
-        icon = tk.PhotoImage(file='images/icon.png')
+        icon = tk.PhotoImage(file='assets/icon.png')
         self.iconphoto(False, icon)
 
     def _initialize_writing_system(self):
         """Initialize the writing system from configuration files."""
-        self.writing_system = WritingSystem('config/consonants.json', 'config/vowels.json')
+        self.writing_system = CharacterRepository('config/consonants.json', 'config/vowels.json')
 
     def _create_frames(self):
         """Create all the frames used in the application."""

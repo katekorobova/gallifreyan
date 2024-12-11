@@ -29,7 +29,8 @@ class Letter(ABC):
         self.text = text
         self.letter_type = letter_type
         self.borders = borders
-        self.direction = random.uniform(-math.pi, math.pi)
+        self.parent_direction = 0.0
+        self._set_personal_direction(random.uniform(0.9 * math.pi, 1.1 * math.pi))
 
         self.line_widths: List[float] = []
         self.half_line_widths: List[float] = []
@@ -74,6 +75,17 @@ class Letter(ABC):
         self.line_widths = [line_width(border, syllable.scale) for border in self.borders]
         self.half_line_widths = [width / 2 for width in self.line_widths]
         self._half_line_distance = syllable.half_line_distance
+
+        self.parent_direction = syllable.direction
+        self.direction = self.parent_direction + self.personal_direction
+
+    def _set_direction(self, direction: float):
+        self.direction = direction
+        self.personal_direction = self.direction - self.parent_direction
+
+    def _set_personal_direction(self, personal_direction: float):
+        self.personal_direction = personal_direction
+        self.direction = self.parent_direction + self.personal_direction
 
     def update_properties(self, syllable):
         self._update_syllable_properties(syllable)

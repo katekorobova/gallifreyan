@@ -131,7 +131,7 @@ class LineBasedConsonant(Consonant, ABC):
     def move(self, point: Point):
         """Move the line based on interaction."""
         point -= self._bias
-        self.direction = point.direction() + (-self.ANGLE if self._pressed_id else self.ANGLE)
+        self._set_direction(point.direction() + (-self.ANGLE if self._pressed_id else self.ANGLE))
         self._update_image_properties()
 
     def _update_syllable_properties(self, syllable):
@@ -179,7 +179,7 @@ class RadialLineConsonant(LineBasedConsonant):
     def move(self, point: Point):
         """Update direction based on moved point."""
         point -= self._bias
-        self.direction = point.direction()
+        self._set_direction(point.direction())
         self._update_image_properties()
 
     def _update_image_properties(self):
@@ -211,6 +211,7 @@ class DiametralLineConsonant(LineBasedConsonant):
     def __init__(self, text: str, borders: str):
         super().__init__(text, borders, ConsonantDecoration.DIAMETRAL_LINE)
 
+        self._set_personal_direction(0)
         self._polygon_args = {}
 
     def _update_image_properties(self):
@@ -284,6 +285,8 @@ class StraightAngleConsonant(AngleBasedConsonant):
     def __init__(self, text: str, borders: str):
         super().__init__(text, borders, ConsonantDecoration.STRAIGHT_ANGLE)
 
+        self._set_personal_direction(0)
+
 
 class ObtuseAngleConsonant(AngleBasedConsonant):
     ANGLE = 0.3 * math.pi
@@ -297,6 +300,8 @@ class ReflexAngleConsonant(AngleBasedConsonant):
 
     def __init__(self, text: str, borders: str):
         super().__init__(text, borders, ConsonantDecoration.REFLEX_ANGLE)
+
+        self._set_personal_direction(0)
 
 
 class DotConsonant(Consonant, ABC):
@@ -344,9 +349,9 @@ class DualDotConsonant(DotConsonant):
         point -= self._bias
         direction = point.direction()
         if self._pressed_id:
-            self.direction = direction - self.ANGLE
+            self._set_direction(direction - self.ANGLE)
         else:
-            self.direction = direction + self.ANGLE
+            self._set_direction(direction + self.ANGLE)
         self._update_image_properties()
 
     @abstractmethod
@@ -401,7 +406,7 @@ class SingleDotConsonant(DotConsonant, ABC):
 
     def move(self, point: Point):
         point -= self._bias
-        self.direction = point.direction()
+        self._set_direction(point.direction())
         self._update_image_properties()
 
     def _calculate_center(self):
@@ -451,7 +456,7 @@ class CircleConsonant(Consonant):
 
     def move(self, point: Point):
         point -= self._bias
-        self.direction = point.direction()
+        self._set_direction(point.direction())
         self._update_image_properties()
 
     def _update_syllable_properties(self, syllable):

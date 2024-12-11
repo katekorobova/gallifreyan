@@ -43,7 +43,7 @@ class Vowel(Letter, ABC):
     def move(self, point: Point):
         if self.pressed_type == PressedType.PARENT:
             point -= self._bias
-            self.direction = point.direction()
+            self._set_direction(point.direction())
             self._update_image_properties()
 
     def draw_decoration(self):

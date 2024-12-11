@@ -19,80 +19,102 @@ from vowels import Vowel, VowelDecoration
 class WritingSystem:
     def __init__(self, consonant_file: str, vowel_file: str):
         self.consonant_table: List[List[str]] = []
+        self.consonant_borders: List[str] = []
+        self.consonant_decorations: List[str] = []
+
         self.vowel_table: List[List[str]] = []
+        self.vowel_borders: List[str] = []
+        self.vowel_decorations: List[str] = []
+
         self.consonants: Dict[str, Tuple[str, str]] = {}
         self.vowels: Dict[str, Tuple[str, str]] = {}
         self.letters: Dict[str, Tuple[LetterType, str, str]] = {}
 
-        f = open(consonant_file, 'r', encoding='utf-8')
-        data = json.loads(f.read())
-        self.consonant_table = data['letters']
-        self.consonant_borders = data['borders']
-        self.consonant_decorations = data['decorations']
-        # disabled = data['disabled']
-        f.close()
+        # Load data for consonants and vowels
+        self._load_letters(consonant_file, LetterType.CONSONANT)
+        self._load_letters(vowel_file, LetterType.VOWEL)
 
-        for i in range(len(self.consonant_table)):
-            for j in range(len(self.consonant_table[i])):
-                letter = self.consonant_table[i][j]
-                self.consonants[letter] = self.consonant_borders[i], self.consonant_decorations[j]
-                self.letters[letter] = LetterType.CONSONANT, self.consonant_borders[i], self.consonant_decorations[j]
+    def _load_letters(self, file_path: str, letter_type: LetterType) -> None:
+        """
+        A helper method to load letters, borders, and decorations from a file.
+        Updates corresponding tables and dictionaries.
+        """
+        with open(file_path, 'r', encoding='utf-8') as file:
+            data = json.load(file)
 
-        f = open(vowel_file, 'r', encoding='utf-8')
-        data = json.loads(f.read())
-        self.vowel_table = data['letters']
-        self.vowel_borders = data['borders']
-        self.vowel_decorations = data['decorations']
-        # disabled = data['disabled']
-        f.close()
+        # Determine which attributes to update based on letter type
+        table_attr = 'consonant_table' if letter_type == LetterType.CONSONANT else 'vowel_table'
+        table = data['letters']
+        setattr(self, table_attr, table)
 
-        for i in range(len(self.vowel_table)):
-            for j in range(len(self.vowel_table[i])):
-                letter = self.vowel_table[i][j]
-                self.vowels[letter] = self.vowel_borders[i], self.vowel_decorations[j]
-                self.letters[letter] = LetterType.VOWEL, self.vowel_borders[i], self.vowel_decorations[j]
+        borders = data['borders']
+        decorations = data['decorations']
+
+        # Populate dictionaries
+        for i, row in enumerate(table):
+            for j, letter in enumerate(row):
+                border, decoration = borders[i], decorations[j]
+                if letter_type == LetterType.CONSONANT:
+                    self.consonants[letter] = (border, decoration)
+                else:
+                    self.vowels[letter] = (border, decoration)
+
+                self.letters[letter] = (letter_type, border, decoration)
+
+        if letter_type == LetterType.CONSONANT:
+            self.consonant_table = table
+            self.consonant_borders = borders
+            self.consonant_decorations = decorations
+        else:
+            self.vowel_table = table
+            self.vowel_borders = borders
+            self.vowel_decorations = decorations
 
 
 class Syllable:
     def __init__(self, cons1: Consonant, cons2: Optional[Consonant] = None, vowel: Optional[Vowel] = None):
+        # Core attributes
         self.cons1, self.cons2, self.vowel = cons1, cons2, vowel
         self.direction = random.uniform(-math.pi, math.pi)
         self._parent_scale = 1.0
         self._personal_scale = random.uniform(SYLLABLE_INITIAL_SCALE_MIN, SYLLABLE_INITIAL_SCALE_MAX)
-
         self._inner: Optional[Consonant] = None
         self.offset = 0.0
         self._following: Optional[Syllable] = None
         self.consonants: List[Consonant] = []
         self.letters: List[Letter] = []
         self.text = ''
-        self._update_syllable_properties()
 
+        # Scales and radii
         self.inner_scale = random.uniform(INNER_INITIAL_SCALE_MIN, INNER_INITIAL_SCALE_MAX)
         self.scale = 0.0
         self.outer_radius = 0.0
         self.inner_radius = 0.0
         self.half_line_distance = 0.0
+        self._update_syllable_properties()
 
-        self._image_ready = False
-        self._image = Image.new('RGBA', (2 * SYLLABLE_IMAGE_RADIUS, 2 * SYLLABLE_IMAGE_RADIUS))
-        self._draw = ImageDraw.Draw(self._image)
-
-        self._border_image = Image.new('RGBA', self._image.size)
-        self._border_draw = ImageDraw.Draw(self._border_image)
-
-        self._mask_image = Image.new('1', self._image.size)
-        self._mask_draw = ImageDraw.Draw(self._mask_image)
-
+        # Image properties
+        self._image, self._draw = self._create_empty_image()
+        self._border_image, self._border_draw = self._create_empty_image()
+        self._mask_image, self._mask_draw = self._create_empty_image('1')
         self._inner_circle_arg_dict: List[Dict] = []
+        self._image_ready = False
 
         for letter in self.letters:
             letter.set_image(self._draw)
         self._update_image_properties()
 
+        # Interaction properties
         self.pressed_type: Optional[PressedType] = None
         self._pressed: Optional[Letter] = None
-        self._bias: float | Point | None = None
+        self._distance_bias = 0.0
+        self._point_bias = Point()
+
+    @staticmethod
+    def _create_empty_image(mode='RGBA') -> tuple[Image.Image, ImageDraw.Draw]:
+        """Creates an empty image and its corresponding drawing object."""
+        image = Image.new(mode, (2 * SYLLABLE_IMAGE_RADIUS, 2 * SYLLABLE_IMAGE_RADIUS))
+        return image, ImageDraw.Draw(image)
 
     def _update_syllable_properties(self):
         self._inner = self.cons2 or self.cons1
@@ -163,24 +185,24 @@ class Syllable:
         return True
 
     def press(self, point: Point):
-        radius = math.sqrt(point.x * point.x + point.y * point.y)
-        if radius > self.outer_radius + self.half_line_distance:
+        distance = point.distance()
+        if distance > self.outer_radius + self.half_line_distance:
             return False
-        if radius > self.outer_radius - self.half_line_distance:
+        if distance > self.outer_radius - self.half_line_distance:
             self.pressed_type = PressedType.BORDER
-            self._bias = radius - self.outer_radius
+            self._distance_bias = distance - self.outer_radius
             return True
         if self.vowel and self.vowel.decoration_type is not VowelDecoration.HIDDEN and self.vowel.press(point):
             self.pressed_type = PressedType.CHILD
             self._pressed = self.vowel
             return True
-        if self.inner_radius - self.half_line_distance < radius < self.inner_radius + self.half_line_distance:
+        if self.inner_radius - self.half_line_distance < distance < self.inner_radius + self.half_line_distance:
             self.pressed_type = PressedType.INNER
-            self._bias = radius - self.inner_radius
+            self._distance_bias = distance - self.inner_radius
             return True
-        if radius <= self.inner_radius - self.half_line_distance:
+        if distance <= self.inner_radius - self.half_line_distance:
             self.pressed_type = PressedType.PARENT
-            self._bias = point
+            self._point_bias = point
             return True
         for cons in reversed(self.consonants):
             if cons.press(point):
@@ -192,7 +214,7 @@ class Syllable:
             self._pressed = self.vowel
             return True
         self.pressed_type = PressedType.PARENT
-        self._bias = point
+        self._point_bias = point
         return True
 
     def move(self, point: Point, radius=0.0):
@@ -200,11 +222,11 @@ class Syllable:
                               -round(math.sin(self.direction) * radius))
         match self.pressed_type:
             case PressedType.INNER:
-                new_radius = math.sqrt(shifted.x * shifted.x + shifted.y * shifted.y) - self._bias
+                new_radius = shifted.distance() - self._distance_bias
                 self.inner_scale = min(max(new_radius / self.outer_radius, INNER_SCALE_MIN), INNER_SCALE_MAX)
                 self._update_image_properties()
             case PressedType.BORDER:
-                new_radius = math.sqrt(shifted.x * shifted.x + shifted.y * shifted.y) - self._bias
+                new_radius = shifted.distance() - self._distance_bias
                 self._personal_scale = min(
                     max(new_radius / OUTER_CIRCLE_RADIUS / self._parent_scale, SYLLABLE_SCALE_MIN),
                     SYLLABLE_SCALE_MAX)
@@ -213,8 +235,8 @@ class Syllable:
                     self._following.resize(self.scale)
             case PressedType.PARENT:
                 if radius:
-                    point = point - self._bias
-                    self.direction = math.atan2(point.y, point.x)
+                    point = point - self._point_bias
+                    self.direction = point.direction()
                     self._update_image_properties()
             case PressedType.CHILD:
                 self._pressed.move(shifted)
@@ -321,7 +343,8 @@ class Word:
 
         self.pressed_type: Optional[PressedType] = None
         self._pressed: Optional[Syllable] = None
-        self._bias: float | Point | None = None
+        self._distance_bias = 0.0
+        self._point_bias = Point()
 
     def _update_image_properties(self):
         self.outer_radius = OUTER_CIRCLE_RADIUS * self.scale
@@ -350,7 +373,7 @@ class Word:
             if self.first.press(word_point):
                 if self.first.pressed_type == PressedType.PARENT:
                     self.pressed_type = PressedType.PARENT
-                    self._bias = point - self.center
+                    self._point_bias = point - self.center
                 else:
                     self.pressed_type = PressedType.CHILD
                     self._pressed = self.first
@@ -358,12 +381,12 @@ class Word:
             else:
                 return False
         else:
-            radius = math.sqrt(word_point.x * word_point.x + word_point.y * word_point.y)
-            if radius > self.outer_radius + self._half_line_distance:
+            distance = word_point.distance()
+            if distance > self.outer_radius + self._half_line_distance:
                 return False
-            if radius > self.outer_radius - self._half_line_distance:
+            if distance > self.outer_radius - self._half_line_distance:
                 self.pressed_type = PressedType.BORDER
-                self._bias = radius - self.outer_radius
+                self._point_bias = distance - self.outer_radius
                 return True
 
             first_radius = self.first.outer_radius
@@ -377,14 +400,14 @@ class Word:
             if self.first.press(word_point):
                 if self.first.pressed_type == PressedType.PARENT:
                     self.pressed_type = PressedType.PARENT
-                    self._bias = point - self.center
+                    self._point_bias = point - self.center
                 else:
                     self.pressed_type = PressedType.CHILD
                     self._pressed = self.first
                 return True
 
             self.pressed_type = PressedType.PARENT
-            self._bias = point - self.center
+            self._point_bias = point - self.center
             return True
 
     def move(self, point: Point):
@@ -397,12 +420,12 @@ class Word:
                     first_radius = self.first.outer_radius
                     self._pressed.move(word_point, first_radius)
             case PressedType.BORDER:
-                new_radius = math.sqrt(word_point.x * word_point.x + word_point.y * word_point.y) - self._bias
+                new_radius = word_point.distance() - self._distance_bias
                 self.scale = min(max(new_radius / OUTER_CIRCLE_RADIUS, WORD_SCALE_MIN), 1)
                 self._update_image_properties()
                 self.first.resize(self.scale)
             case PressedType.PARENT:
-                self.center = point - self._bias
+                self.center = point - self._point_bias
 
     def create_image(self, canvas: tk.Canvas):
         if not self.rest:
@@ -411,7 +434,7 @@ class Word:
             self._image.paste(image, (WORD_IMAGE_RADIUS - SYLLABLE_IMAGE_RADIUS,
                                       WORD_IMAGE_RADIUS - SYLLABLE_IMAGE_RADIUS), image)
             self._image_tk.paste(self._image)
-            canvas.create_image(self.center.x, self.center.y, image=self._image_tk)
+            canvas.create_image(self.center, image=self._image_tk)
         else:
             # clear all
             self._draw.rectangle(((0, 0), self._image.size), fill=WORD_BG)
@@ -428,7 +451,7 @@ class Word:
             # paste the outer circle image
             self._image.paste(self._border_image, mask=self._mask_image)
             self._image_tk.paste(self._image)
-            canvas.create_image(self.center.x, self.center.y, image=self._image_tk)
+            canvas.create_image(self.center, image=self._image_tk)
 
     def _create_outer_circle(self):
         self._border_draw.rectangle(((0, 0), self._border_image.size), fill=0)

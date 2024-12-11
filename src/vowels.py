@@ -19,6 +19,7 @@ class VowelDecoration(str, Enum):
 
 class Vowel(Letter, ABC):
     """Base class for vowel decorations."""
+    IMAGE_CENTER = Point(SYLLABLE_IMAGE_RADIUS, SYLLABLE_IMAGE_RADIUS)
 
     def __init__(self, text: str, borders: str, decoration_type: VowelDecoration):
         super().__init__(text, LetterType.VOWEL, borders)
@@ -33,8 +34,7 @@ class Vowel(Letter, ABC):
 
     def press(self, point: Point) -> bool:
         delta = point - self._center
-        radius = math.sqrt(delta.x ** 2 + delta.y ** 2)
-        if radius < self._radius:
+        if delta.distance() < self._radius:
             self._bias = delta
             self.pressed_type = PressedType.PARENT
             return True
@@ -43,7 +43,7 @@ class Vowel(Letter, ABC):
     def move(self, point: Point):
         if self.pressed_type == PressedType.PARENT:
             point -= self._bias
-            self.direction = math.atan2(point.y, point.x)
+            self.direction = point.direction()
             self._update_image_properties()
 
     def draw_decoration(self):
@@ -54,11 +54,10 @@ class Vowel(Letter, ABC):
         """Helper to calculate ellipse arguments."""
         self._ellipse_args = []
         for i, width in enumerate(self.line_widths):
-            left = SYLLABLE_IMAGE_RADIUS + self._center.x - radii[i] - self.half_line_widths[i]
-            right = SYLLABLE_IMAGE_RADIUS + self._center.x + radii[i] + self.half_line_widths[i]
-            top = SYLLABLE_IMAGE_RADIUS + self._center.y - radii[i] - self.half_line_widths[i]
-            bottom = SYLLABLE_IMAGE_RADIUS + self._center.y + radii[i] + self.half_line_widths[i]
-            self._ellipse_args.append({'xy': (left, top, right, bottom), 'outline': SYLLABLE_COLOR,
+            adjusted_radius = radii[i] + self.half_line_widths[i]
+            start = (self.IMAGE_CENTER + self._center).shift(-adjusted_radius, -adjusted_radius)
+            end = (self.IMAGE_CENTER + self._center).shift(adjusted_radius, adjusted_radius)
+            self._ellipse_args.append({'xy': (start, end), 'outline': SYLLABLE_COLOR,
                                        'fill': SYLLABLE_BG, 'width': width})
 
     def _calculate_center(self):

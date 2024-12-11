@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import math
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from collections import Counter
 from enum import Enum
 from typing import List, Dict
 
 from letters import Letter, LetterType
-from utils import Point, line_width, MIN_RADIUS, DOT_RADIUS, \
-    SYLLABLE_IMAGE_RADIUS, SYLLABLE_COLOR, SYLLABLE_BG
+from utils import Point, SYLLABLE_IMAGE_RADIUS, SYLLABLE_COLOR, SYLLABLE_BG, DOT_RADIUS, MIN_RADIUS
 
 
 class ConsonantDecoration(Enum):
@@ -31,23 +30,24 @@ class ConsonantDecoration(Enum):
     @classmethod
     def get_by_code(cls, code: str):
         """Retrieve a ConsonantDecoration by its code."""
-        try:
-            return next(dec for dec in cls if dec.code == code)
-        except StopIteration:
-            raise ValueError(f"Invalid decoration code: {code}")
+        for decoration in cls:
+            if decoration.code == code:
+                return decoration
+        raise ValueError(f"Invalid decoration code: {code}")
 
 
 class Consonant(Letter, ABC):
+    IMAGE_CENTER = Point(SYLLABLE_IMAGE_RADIUS, SYLLABLE_IMAGE_RADIUS)
+
     def __init__(self, text: str, borders: str, decoration_type: ConsonantDecoration):
         super().__init__(text, LetterType.CONSONANT, borders)
         self.decoration_type = decoration_type
-
         self._distance = 0.0
         self._bias = Point()
 
     @staticmethod
     def get_consonant(text: str, border: str, decoration_code: str) -> Consonant:
-        """Factory method to return the appropriate Consonant subclass."""
+        """Factory method to create an appropriate Consonant subclass."""
         decoration_type = ConsonantDecoration.get_by_code(decoration_code)
         consonant_classes = {
             ConsonantDecoration.STRAIGHT_ANGLE: StraightAngleConsonant,
@@ -60,8 +60,7 @@ class Consonant(Letter, ABC):
             ConsonantDecoration.SIMILAR_DOTS: SimilarDotConsonant,
             ConsonantDecoration.DIFFERENT_DOTS: DifferentDotConsonant,
             ConsonantDecoration.WHITE_DOT: WhiteDotConsonant,
-            ConsonantDecoration.BLACK_DOT: BlackDotConsonant
-        }
+            ConsonantDecoration.BLACK_DOT: BlackDotConsonant}
         if decoration_type in consonant_classes:
             return consonant_classes[decoration_type](text, border)
         raise ValueError(f"Unsupported decoration type: {decoration_type}")
@@ -71,8 +70,10 @@ class Consonant(Letter, ABC):
         """Determine compatibility between two consonants."""
         full_data = {ConsonantDecoration.RADIAL_LINE}
         unknown_order = {ConsonantDecoration.DIAMETRAL_LINE}
-        min_border = {ConsonantDecoration.BENT_LINE, ConsonantDecoration.STRAIGHT_ANGLE,
-                      ConsonantDecoration.OBTUSE_ANGLE, ConsonantDecoration.REFLEX_ANGLE, ConsonantDecoration.CIRCLE}
+        min_border = {
+            ConsonantDecoration.BENT_LINE, ConsonantDecoration.STRAIGHT_ANGLE,
+            ConsonantDecoration.OBTUSE_ANGLE, ConsonantDecoration.REFLEX_ANGLE,
+            ConsonantDecoration.CIRCLE}
 
         if cons1.decoration_type in full_data or cons2.decoration_type in full_data:
             return cons1.borders != cons2.borders
@@ -97,18 +98,19 @@ class LineBasedConsonant(Consonant, ABC):
         self._line_args: List[Dict] = []
 
     def _calculate_endpoints(self):
+        """Calculate the endpoints for the line."""
         self._ends = [
             self._calculate_endpoint(self.direction - self.ANGLE),
             self._calculate_endpoint(self.direction + self.ANGLE)]
 
     def _calculate_endpoint(self, angle: float) -> Point:
-        """Helper function to calculate an endpoint for a given angle."""
+        """Helper to calculate an endpoint for a given angle."""
         return Point(
             math.cos(angle) * self._distance,
             math.sin(angle) * self._distance)
 
     def press(self, point: Point) -> bool:
-        """Determine if a point interacts with this consonant."""
+        """Check if a point interacts with the line."""
         if self._is_within_bounds(point, self.direction - self.ANGLE):
             self._pressed_id = 0
             self._bias = point - self._ends[0]
@@ -121,15 +123,15 @@ class LineBasedConsonant(Consonant, ABC):
 
     def _is_within_bounds(self, point: Point, base_angle: float) -> bool:
         """Check if a point is within the interaction bounds."""
-        radius = math.sqrt(point.x ** 2 + point.y ** 2)
-        angle = math.atan2(point.y, point.x) - base_angle
-        rotated = Point(math.cos(angle) * radius, math.sin(angle) * radius)
-        return 0 < rotated.x < self._distance and -self._half_line_distance < rotated.y < self._half_line_distance
+        distance = point.distance()
+        angle = point.direction() - base_angle
+        rotated = Point(math.cos(angle) * distance, math.sin(angle) * distance)
+        return 0 < rotated[0] < self._distance and -self._half_line_distance < rotated[1] < self._half_line_distance
 
     def move(self, point: Point):
-        """Update direction based on moved point."""
+        """Move the line based on interaction."""
         point -= self._bias
-        self.direction = math.atan2(point.y, point.x) + (-self.ANGLE if self._pressed_id else self.ANGLE)
+        self.direction = point.direction() + (-self.ANGLE if self._pressed_id else self.ANGLE)
         self._update_image_properties()
 
     def _update_syllable_properties(self, syllable):
@@ -140,11 +142,10 @@ class LineBasedConsonant(Consonant, ABC):
         self._distance = syllable.outer_radius
 
     def _update_image_properties(self):
-        """Update line arguments for drawing."""
+        """Update the line arguments for drawing."""
         self._calculate_endpoints()
         self._line_args = [
-            {'xy': (SYLLABLE_IMAGE_RADIUS, SYLLABLE_IMAGE_RADIUS,
-                    SYLLABLE_IMAGE_RADIUS + end.x, SYLLABLE_IMAGE_RADIUS + end.y),
+            {'xy': (self.IMAGE_CENTER, self.IMAGE_CENTER + end),
              'fill': SYLLABLE_COLOR, 'width': self._width}
             for end in self._ends]
 
@@ -169,7 +170,7 @@ class RadialLineConsonant(LineBasedConsonant):
         self._polygon_args = {}
 
     def press(self, point: Point) -> bool:
-        """Determine if a point interacts with this consonant."""
+        """Check if a point interacts with this consonant."""
         if self._is_within_bounds(point, self.direction):
             self._bias = point - self._end
             return True
@@ -178,29 +179,30 @@ class RadialLineConsonant(LineBasedConsonant):
     def move(self, point: Point):
         """Update direction based on moved point."""
         point -= self._bias
-        self.direction = math.atan2(point.y, point.x)
+        self.direction = point.direction()
         self._update_image_properties()
 
     def _update_image_properties(self):
-        """Update line arguments for drawing."""
+        """Update line and polygon arguments for drawing."""
         self._end = self._calculate_endpoint(self.direction)
         if len(self.borders) == 1:
             self._polygon_args = {}
-            self._line_args = [
-                {'xy': (SYLLABLE_IMAGE_RADIUS, SYLLABLE_IMAGE_RADIUS,
-                        SYLLABLE_IMAGE_RADIUS + self._end.x, SYLLABLE_IMAGE_RADIUS + self._end.y),
-                 'fill': SYLLABLE_COLOR, 'width': self.line_widths[0]}]
+            self._line_args = [{
+                'xy': (self.IMAGE_CENTER, self.IMAGE_CENTER + self._end),
+                'fill': SYLLABLE_COLOR, 'width': self.line_widths[0]}]
         else:
-            dx = math.cos(self.direction + math.pi / 2) * self._half_line_distance
-            dy = math.sin(self.direction + math.pi / 2) * self._half_line_distance
-            start1 = SYLLABLE_IMAGE_RADIUS - dx, SYLLABLE_IMAGE_RADIUS - dy
-            end1 = SYLLABLE_IMAGE_RADIUS + self._end.x - dx, SYLLABLE_IMAGE_RADIUS + self._end.y - dy
-            start2 = SYLLABLE_IMAGE_RADIUS + dx, SYLLABLE_IMAGE_RADIUS + dy
-            end2 = SYLLABLE_IMAGE_RADIUS + self._end.x + dx, SYLLABLE_IMAGE_RADIUS + self._end.y + dy
+            d = Point(math.cos(self.direction + math.pi / 2) * self._half_line_distance,
+                      math.sin(self.direction + math.pi / 2) * self._half_line_distance)
 
-            self._polygon_args = {'xy': (start1, end1, end2, start2), 'outline': SYLLABLE_BG, 'fill': SYLLABLE_BG}
-            self._line_args = [{'xy': (start1, end1), 'fill': SYLLABLE_COLOR, 'width': self.line_widths[0]},
-                               {'xy': (start2, end2), 'fill': SYLLABLE_COLOR, 'width': self.line_widths[1]}]
+            start1, end1 = self.IMAGE_CENTER - d, self.IMAGE_CENTER + self._end - d
+            start2, end2 = self.IMAGE_CENTER + d, self.IMAGE_CENTER + self._end + d
+
+            self._polygon_args = {
+                'xy': (start1, end1, end2, start2),
+                'outline': SYLLABLE_BG, 'fill': SYLLABLE_BG}
+            self._line_args = [
+                {'xy': (start1, end1), 'fill': SYLLABLE_COLOR, 'width': self.line_widths[0]},
+                {'xy': (start2, end2), 'fill': SYLLABLE_COLOR, 'width': self.line_widths[1]}]
 
 
 class DiametralLineConsonant(LineBasedConsonant):
@@ -216,21 +218,22 @@ class DiametralLineConsonant(LineBasedConsonant):
         self._calculate_endpoints()
         if len(self.borders) == 1:
             self._polygon_args = {}
-            self._line_args = [
-                {'xy': (SYLLABLE_IMAGE_RADIUS + self._ends[0].x, SYLLABLE_IMAGE_RADIUS + self._ends[0].y,
-                        SYLLABLE_IMAGE_RADIUS + self._ends[1].x, SYLLABLE_IMAGE_RADIUS + self._ends[1].y),
-                 'fill': SYLLABLE_COLOR, 'width': self.line_widths[0]}]
+            self._line_args = [{
+                'xy': (self.IMAGE_CENTER + self._ends[0], self.IMAGE_CENTER + self._ends[1]),
+                'fill': SYLLABLE_COLOR, 'width': self.line_widths[0]}]
         else:
-            dx = math.cos(self.direction) * self._half_line_distance
-            dy = math.sin(self.direction) * self._half_line_distance
-            start1 = SYLLABLE_IMAGE_RADIUS + self._ends[0].x - dx, SYLLABLE_IMAGE_RADIUS + self._ends[0].y - dy
-            end1 = SYLLABLE_IMAGE_RADIUS + self._ends[1].x - dx, SYLLABLE_IMAGE_RADIUS + self._ends[1].y - dy
-            start2 = SYLLABLE_IMAGE_RADIUS + self._ends[0].x + dx, SYLLABLE_IMAGE_RADIUS + self._ends[0].y + dy
-            end2 = SYLLABLE_IMAGE_RADIUS + self._ends[1].x + dx, SYLLABLE_IMAGE_RADIUS + self._ends[1].y + dy
+            d = Point(math.cos(self.direction) * self._half_line_distance,
+                      math.sin(self.direction) * self._half_line_distance)
 
-            self._polygon_args = {'xy': (start1, end1, end2, start2), 'outline': SYLLABLE_BG, 'fill': SYLLABLE_BG}
-            self._line_args = [{'xy': (start1, end1), 'fill': SYLLABLE_COLOR, 'width': self.line_widths[0]},
-                               {'xy': (start2, end2), 'fill': SYLLABLE_COLOR, 'width': self.line_widths[1]}]
+            start1, end1 = (self.IMAGE_CENTER + self._ends[0] - d, self.IMAGE_CENTER + self._ends[1] - d)
+            start2, end2 = (self.IMAGE_CENTER + self._ends[0] + d, self.IMAGE_CENTER + self._ends[1] + d)
+
+            self._polygon_args = {
+                'xy': (start1, end1, end2, start2),
+                'outline': SYLLABLE_BG, 'fill': SYLLABLE_BG}
+            self._line_args = [
+                {'xy': (start1, end1), 'fill': SYLLABLE_COLOR, 'width': self.line_widths[0]},
+                {'xy': (start2, end2), 'fill': SYLLABLE_COLOR, 'width': self.line_widths[1]}]
 
     def draw_decoration(self):
         """Draw the decoration lines."""
@@ -247,27 +250,30 @@ class AngleBasedConsonant(LineBasedConsonant, ABC):
         super().__init__(text, borders, decoration_type)
 
         self._radius = 0.0
-        self._arc_args: {}
+        self._arc_args = {}
 
     def _update_syllable_properties(self, syllable):
         super()._update_syllable_properties(syllable)
         self._radius = syllable.inner_radius + syllable.offset[1] + 2 * self._half_line_distance
 
     def _update_image_properties(self):
-        """Update line arguments for drawing."""
+        """Update arc arguments for drawing."""
         super()._update_image_properties()
+        adjusted_radius = self._radius + self._half_width
+        start = self.IMAGE_CENTER.shift(-adjusted_radius, -adjusted_radius)
+        end = self.IMAGE_CENTER.shift(adjusted_radius, adjusted_radius)
+        start_angle = math.degrees(self.direction - self.ANGLE)
+        end_angle = math.degrees(self.direction + self.ANGLE)
 
-        left = SYLLABLE_IMAGE_RADIUS - self._radius - self._half_width
-        right = SYLLABLE_IMAGE_RADIUS + self._radius + self._half_width
-        dir1 = math.degrees(self.direction - self.ANGLE)
-        dir2 = math.degrees(self.direction + self.ANGLE)
-        self._arc_args = {'xy': (left, left, right, right), 'start': dir1, 'end': dir2,
-                          'fill': SYLLABLE_COLOR, 'width': self._width}
+        self._arc_args = {
+            'xy': (start, end),
+            'start': start_angle, 'end': end_angle,
+            'fill': SYLLABLE_COLOR, 'width': self._width
+        }
 
     def draw_decoration(self):
-        """Draw the decoration lines."""
+        """Draw the arc decoration."""
         super().draw_decoration()
-
         if self._arc_args:
             self._image.arc(**self._arc_args)
 
@@ -304,17 +310,16 @@ class DotConsonant(Consonant, ABC):
         super()._update_syllable_properties(syllable)
         outer_radius, inner_radius, offset = syllable.outer_radius, syllable.inner_radius, syllable.offset
 
-        self._width = line_width('1', syllable.scale)
+        self._width = min(self.line_widths)
         self._distance = max((outer_radius - offset[0] + inner_radius + offset[1]) / 2, MIN_RADIUS)
         self._radius = syllable.scale * DOT_RADIUS
 
     def _get_bounds(self, center: Point) -> Dict:
         """Calculate bounding box for an ellipse."""
-        left = SYLLABLE_IMAGE_RADIUS + center.x - self._radius
-        right = SYLLABLE_IMAGE_RADIUS + center.x + self._radius
-        top = SYLLABLE_IMAGE_RADIUS + center.y - self._radius
-        bottom = SYLLABLE_IMAGE_RADIUS + center.y + self._radius
-        return {'xy': (left, top, right, bottom)}
+
+        start = (self.IMAGE_CENTER + center).shift(-self._radius, -self._radius)
+        end = (self.IMAGE_CENTER + center).shift(self._radius, self._radius)
+        return {'xy': (start, end)}
 
 
 class DualDotConsonant(DotConsonant):
@@ -337,7 +342,7 @@ class DualDotConsonant(DotConsonant):
 
     def move(self, point: Point):
         point -= self._bias
-        direction = math.atan2(point.y, point.x)
+        direction = point.direction()
         if self._pressed_id:
             self.direction = direction - self.ANGLE
         else:
@@ -396,7 +401,7 @@ class SingleDotConsonant(DotConsonant, ABC):
 
     def move(self, point: Point):
         point -= self._bias
-        self.direction = math.atan2(point.y, point.x)
+        self.direction = point.direction()
         self._update_image_properties()
 
     def _calculate_center(self):
@@ -413,8 +418,9 @@ class WhiteDotConsonant(SingleDotConsonant):
 
     def _update_image_properties(self):
         self._calculate_center()
-        self._ellipse_args =\
-            {**self._get_bounds(self._center), 'outline': SYLLABLE_COLOR, 'fill': SYLLABLE_BG, 'width': self._width}
+        self._ellipse_args = {
+            **self._get_bounds(self._center),
+            'outline': SYLLABLE_COLOR, 'fill': SYLLABLE_BG, 'width': self._width}
 
 
 class BlackDotConsonant(SingleDotConsonant):
@@ -445,7 +451,7 @@ class CircleConsonant(Consonant):
 
     def move(self, point: Point):
         point -= self._bias
-        self.direction = math.atan2(point.y, point.x)
+        self.direction = point.direction()
         self._update_image_properties()
 
     def _update_syllable_properties(self, syllable):
@@ -464,13 +470,10 @@ class CircleConsonant(Consonant):
         self._center = Point(math.cos(self.direction) * self._distance,
                               math.sin(self.direction) * self._distance)
 
-        left = SYLLABLE_IMAGE_RADIUS + self._center.x - self._radius - self._half_width
-        right = SYLLABLE_IMAGE_RADIUS + self._center.x + self._radius + self._half_width
-        top = SYLLABLE_IMAGE_RADIUS + self._center.y - self._radius - self._half_width
-        bottom = SYLLABLE_IMAGE_RADIUS + self._center.y + self._radius + self._half_width
-
-        self._ellipse_args = {'xy': (left, top, right, bottom),
-                                   'outline': SYLLABLE_COLOR, 'fill': SYLLABLE_BG, 'width': self._width}
+        adjusted_radius = self._radius + self._half_width
+        start = (self.IMAGE_CENTER + self._center).shift(-adjusted_radius, -adjusted_radius)
+        end = (self.IMAGE_CENTER + self._center).shift(adjusted_radius, adjusted_radius)
+        self._ellipse_args = {'xy': (start, end), 'outline': SYLLABLE_COLOR, 'fill': SYLLABLE_BG, 'width': self._width}
 
     def draw_decoration(self):
         self._image.ellipse(**self._ellipse_args)

@@ -311,7 +311,7 @@ class Word:
         self.center = center
         self.outer_radius = 0.0
         self.borders = '21'
-        self._widths: List[float] = []
+        self._widths: List[int] = []
         self._half_widths: List[float] = []
         self._half_line_distance = 0.0
 
@@ -348,8 +348,8 @@ class Word:
 
     def _update_image_properties(self):
         self.outer_radius = OUTER_CIRCLE_RADIUS * self.scale
-        self._widths = list(map(lambda x: line_width(x, self.scale), self.borders))
-        self._half_widths = list(map(lambda x: x / 2, self._widths))
+        self._widths = [line_width(border, self.scale) for border in self.borders]
+        self._half_widths = [width / 2 for width in self._widths]
         self._half_line_distance = half_line_distance(self.scale)
         self._create_outer_circle()
 

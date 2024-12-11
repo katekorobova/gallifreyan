@@ -32,7 +32,7 @@ class Letter(ABC):
         self.parent_direction = 0.0
         self._set_personal_direction(random.uniform(0.9 * math.pi, 1.1 * math.pi))
 
-        self.line_widths: List[float] = []
+        self.line_widths: List[int] = []
         self.half_line_widths: List[float] = []
         self._half_line_distance = 0.0
         self._image: Optional[ImageDraw.ImageDraw] = None

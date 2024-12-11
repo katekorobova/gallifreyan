@@ -20,7 +20,7 @@ Image Export: Export your creations as PNG or SVG files for easy sharing and use
 
 ## Requirements
 
-This project is developed using Python 10. Make sure to use Python 10 or higher. To install the necessary dependencies, run:
+This project is developed using Python 10. Make sure to use Python 3.10 or higher. To install the necessary dependencies, run:
 ```
 pip install -r requirements.txt
 ```

@@ -6,7 +6,7 @@ from typing import Optional, List
 
 from PIL import ImageDraw
 
-from utils import Point, line_width
+from src.utils import Point, line_width
 
 
 class LetterType(Enum):

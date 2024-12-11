@@ -5,12 +5,12 @@ from typing import Dict, List, Optional
 
 from PIL import Image, ImageTk
 
-from letters import LetterType, Letter
-from utils import Point, unique, ALEPH, FONT, WINDOW_BG, \
+from src.utils import Point, unique, ALEPH, FONT, WINDOW_BG, \
     BUTTON_HEIGHT, BUTTON_WIDTH, BUTTON_IMAGE_SIZE, \
     CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_BG, \
     WORD_INITIAL_POSITION
-from writing import Syllable, WritingSystem, Consonant, Vowel, Word
+from .characters import CharacterRepository
+from .components import LetterType, Letter, Consonant, Vowel, Syllable, Word
 
 
 def get_letter(text: str, typ: LetterType, border: str, decoration_code: str):
@@ -44,10 +44,10 @@ class LetterFrame(tk.Frame):
         tk.Button(self, state='disabled').grid(row=0, column=0, sticky='news')
 
         for i, border in enumerate(borders):
-            self._add_image_button(f'images/{border}.png', row=i + 1, column=0)
+            self._add_image_button(f'assets/images/borders/{border}.png', row=i + 1, column=0)
 
         for j, decoration in enumerate(decorations):
-            self._add_image_button(f'images/{decoration}.png', row=0, column=j + 1)
+            self._add_image_button(f'assets/images/decorations/{decoration}.png', row=0, column=j + 1)
 
     def _add_image_button(self, path: str, row: int, column: int):
         image = Image.open(path).resize((BUTTON_IMAGE_SIZE, BUTTON_IMAGE_SIZE))
@@ -65,7 +65,7 @@ class LetterFrame(tk.Frame):
 
 class CanvasFrame(tk.Frame):
 
-    def __init__(self, win: tk.Tk, writing_system: WritingSystem):
+    def __init__(self, win: tk.Tk, writing_system: CharacterRepository):
         super().__init__(win, bg=WINDOW_BG)
         self.writing_system = writing_system
 
@@ -116,19 +116,16 @@ class CanvasFrame(tk.Frame):
             self.word.create_image(self.canvas)
 
     def _attempt_action(self, action: str, str_index: str, inserted: str) -> bool:
-        try:
-            match action:
-                case '0':   # Deletion
-                    self._remove_letters(str_index, inserted)
-                    return True
+        match action:
+            case '0':  # Deletion
+                self._remove_letters(str_index, inserted)
+                return True
 
-                case '1':   # Insertion
-                    return self._attempt_insertion(str_index, inserted)
+            case '1':  # Insertion
+                return self._attempt_insertion(str_index, inserted)
 
-                case _:
-                    return False
-        except Exception:
-            print('boop')
+            case _:
+                return False
 
     def _remove_letters(self, str_index: str, deleted: str):
         """Remove letters from the word and update syllables."""

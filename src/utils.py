@@ -1,7 +1,8 @@
 from __future__ import annotations
+
 import math
-from typing import List
 from enum import Enum, auto
+from typing import List
 
 # ==========================
 # UI Constants

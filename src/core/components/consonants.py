@@ -6,8 +6,8 @@ from collections import Counter
 from enum import Enum
 from typing import List, Dict
 
-from letters import Letter, LetterType
-from utils import Point, SYLLABLE_IMAGE_RADIUS, SYLLABLE_COLOR, SYLLABLE_BG, DOT_RADIUS, MIN_RADIUS
+from src.utils import Point, SYLLABLE_IMAGE_RADIUS, SYLLABLE_COLOR, SYLLABLE_BG, DOT_RADIUS, MIN_RADIUS
+from .letters import Letter, LetterType
 
 
 class ConsonantDecoration(Enum):
@@ -473,7 +473,7 @@ class CircleConsonant(Consonant):
 
     def _update_image_properties(self):
         self._center = Point(math.cos(self.direction) * self._distance,
-                              math.sin(self.direction) * self._distance)
+                             math.sin(self.direction) * self._distance)
 
         adjusted_radius = self._radius + self._half_width
         start = (self.IMAGE_CENTER + self._center).shift(-adjusted_radius, -adjusted_radius)

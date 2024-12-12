@@ -6,7 +6,7 @@ from collections import Counter
 from enum import Enum
 from typing import List, Dict
 
-from src.utils import Point, SYLLABLE_IMAGE_RADIUS, SYLLABLE_COLOR, SYLLABLE_BG, DOT_RADIUS, MIN_RADIUS
+from src.utils import Point, SYLLABLE_COLOR, SYLLABLE_BG, DOT_RADIUS, MIN_RADIUS
 from .letters import Letter, LetterType
 
 
@@ -37,8 +37,6 @@ class ConsonantDecoration(Enum):
 
 
 class Consonant(Letter, ABC):
-    IMAGE_CENTER = Point(SYLLABLE_IMAGE_RADIUS, SYLLABLE_IMAGE_RADIUS)
-
     def __init__(self, text: str, borders: str, decoration_type: ConsonantDecoration):
         super().__init__(text, LetterType.CONSONANT, borders)
         self.decoration_type = decoration_type
@@ -166,7 +164,7 @@ class RadialLineConsonant(LineBasedConsonant):
     def __init__(self, text: str, borders: str):
         super().__init__(text, borders, ConsonantDecoration.RADIAL_LINE)
 
-        self._end = Point
+        self._end = Point()
         self._polygon_args = {}
 
     def press(self, point: Point) -> bool:
@@ -255,14 +253,14 @@ class AngleBasedConsonant(LineBasedConsonant, ABC):
 
     def _update_syllable_properties(self, syllable):
         super()._update_syllable_properties(syllable)
-        self._radius = syllable.inner_radius + syllable.offset[1] + 2 * self._half_line_distance
+        self._radius = syllable.inner_radius + syllable.border_offset[1] + 2 * self._half_line_distance
 
     def _update_image_properties(self):
         """Update arc arguments for drawing."""
         super()._update_image_properties()
         adjusted_radius = self._radius + self._half_width
-        start = self.IMAGE_CENTER.shift(-adjusted_radius, -adjusted_radius)
-        end = self.IMAGE_CENTER.shift(adjusted_radius, adjusted_radius)
+        start = self.IMAGE_CENTER.shift(-adjusted_radius)
+        end = self.IMAGE_CENTER.shift(adjusted_radius)
         start_angle = math.degrees(self.direction - self.ANGLE)
         end_angle = math.degrees(self.direction + self.ANGLE)
 
@@ -313,17 +311,17 @@ class DotConsonant(Consonant, ABC):
 
     def _update_syllable_properties(self, syllable):
         super()._update_syllable_properties(syllable)
-        outer_radius, inner_radius, offset = syllable.outer_radius, syllable.inner_radius, syllable.offset
+        outer_radius, inner_radius, border_offset = syllable.outer_radius, syllable.inner_radius, syllable.border_offset
 
         self._width = min(self.line_widths)
-        self._distance = max((outer_radius - offset[0] + inner_radius + offset[1]) / 2, MIN_RADIUS)
+        self._distance = max((outer_radius - border_offset[0] + inner_radius + border_offset[1]) / 2, MIN_RADIUS)
         self._radius = syllable.scale * DOT_RADIUS
 
     def _get_bounds(self, center: Point) -> Dict:
         """Calculate bounding box for an ellipse."""
 
-        start = (self.IMAGE_CENTER + center).shift(-self._radius, -self._radius)
-        end = (self.IMAGE_CENTER + center).shift(self._radius, self._radius)
+        start = (self.IMAGE_CENTER + center).shift(-self._radius)
+        end = (self.IMAGE_CENTER + center).shift(self._radius)
         return {'xy': (start, end)}
 
 
@@ -464,20 +462,20 @@ class CircleConsonant(Consonant):
 
         outer_radius = syllable.outer_radius
         inner_radius = syllable.inner_radius
-        offset = syllable.offset
+        border_offset = syllable.border_offset
 
         self._width = min(self.line_widths)
         self._half_width = self._width / 2
-        self._radius = max((outer_radius - offset[0] - inner_radius - offset[1]) / 4, MIN_RADIUS)
-        self._distance = inner_radius + offset[1] + self._radius
+        self._radius = max((outer_radius - border_offset[0] - inner_radius - border_offset[1]) / 4, MIN_RADIUS)
+        self._distance = inner_radius + border_offset[1] + self._radius
 
     def _update_image_properties(self):
         self._center = Point(math.cos(self.direction) * self._distance,
                              math.sin(self.direction) * self._distance)
 
         adjusted_radius = self._radius + self._half_width
-        start = (self.IMAGE_CENTER + self._center).shift(-adjusted_radius, -adjusted_radius)
-        end = (self.IMAGE_CENTER + self._center).shift(adjusted_radius, adjusted_radius)
+        start = (self.IMAGE_CENTER + self._center).shift(-adjusted_radius)
+        end = (self.IMAGE_CENTER + self._center).shift(adjusted_radius)
         self._ellipse_args = {'xy': (start, end), 'outline': SYLLABLE_COLOR, 'fill': SYLLABLE_BG, 'width': self._width}
 
     def draw_decoration(self):

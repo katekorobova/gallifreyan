@@ -106,7 +106,7 @@ class CanvasFrame(tk.Frame):
             self.pressed.move(Point(event.x, event.y))
             self._redraw()
 
-    def _release(self, event: tk.Event):
+    def _release(self, _):
         """Handle mouse button release."""
         self.pressed = None
 

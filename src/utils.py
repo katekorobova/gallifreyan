@@ -98,6 +98,9 @@ class Point(tuple):
     def __sub__(self, other: Point) -> Point:
         return Point(self[0] - other[0], self[1] - other[1])
 
+    def __mul__(self, other: float) -> Point:
+        return Point(self[0] * other, self[1] * other)
+
     def distance(self) -> float:
         """Calculate the Euclidean distance from the origin."""
         return math.sqrt(self[0] ** 2 + self[1] ** 2)
@@ -106,9 +109,9 @@ class Point(tuple):
         """Calculate the angle (radians) of the point relative to the x-axis."""
         return math.atan2(self[1], self[0])
 
-    def shift(self, x: float, y: float) -> Point:
+    def shift(self, x: float) -> Point:
         """Shift the point by given x and y offsets."""
-        return Point(self[0] + x, self[1] + y)
+        return Point(self[0] + x, self[1] + x)
 
 
 # ==========================

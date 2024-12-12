@@ -253,7 +253,7 @@ class AngleBasedConsonant(LineBasedConsonant, ABC):
 
     def _update_syllable_properties(self, syllable):
         super()._update_syllable_properties(syllable)
-        self._radius = syllable.inner_radius + syllable.offset[1] + 2 * self._half_line_distance
+        self._radius = syllable.inner_radius + syllable.border_offset[1] + 2 * self._half_line_distance
 
     def _update_image_properties(self):
         """Update arc arguments for drawing."""
@@ -311,10 +311,10 @@ class DotConsonant(Consonant, ABC):
 
     def _update_syllable_properties(self, syllable):
         super()._update_syllable_properties(syllable)
-        outer_radius, inner_radius, offset = syllable.outer_radius, syllable.inner_radius, syllable.offset
+        outer_radius, inner_radius, border_offset = syllable.outer_radius, syllable.inner_radius, syllable.border_offset
 
         self._width = min(self.line_widths)
-        self._distance = max((outer_radius - offset[0] + inner_radius + offset[1]) / 2, MIN_RADIUS)
+        self._distance = max((outer_radius - border_offset[0] + inner_radius + border_offset[1]) / 2, MIN_RADIUS)
         self._radius = syllable.scale * DOT_RADIUS
 
     def _get_bounds(self, center: Point) -> Dict:
@@ -462,12 +462,12 @@ class CircleConsonant(Consonant):
 
         outer_radius = syllable.outer_radius
         inner_radius = syllable.inner_radius
-        offset = syllable.offset
+        border_offset = syllable.border_offset
 
         self._width = min(self.line_widths)
         self._half_width = self._width / 2
-        self._radius = max((outer_radius - offset[0] - inner_radius - offset[1]) / 4, MIN_RADIUS)
-        self._distance = inner_radius + offset[1] + self._radius
+        self._radius = max((outer_radius - border_offset[0] - inner_radius - border_offset[1]) / 4, MIN_RADIUS)
+        self._distance = inner_radius + border_offset[1] + self._radius
 
     def _update_image_properties(self):
         self._center = Point(math.cos(self.direction) * self._distance,

@@ -14,6 +14,8 @@ from .vowels import Vowel, VowelDecoration
 
 
 class Syllable:
+    IMAGE_CENTER = Point(SYLLABLE_IMAGE_RADIUS, SYLLABLE_IMAGE_RADIUS)
+
     def __init__(self, cons1: Consonant, cons2: Optional[Consonant] = None, vowel: Optional[Vowel] = None):
         # Core attributes
         self.cons1, self.cons2, self.vowel = cons1, cons2, vowel
@@ -52,17 +54,17 @@ class Syllable:
         self._distance_bias = 0.0
         self._point_bias = Point()
 
-    @staticmethod
-    def _create_empty_image(mode='RGBA') -> tuple[Image.Image, ImageDraw.Draw]:
+    @classmethod
+    def _create_empty_image(cls, mode='RGBA') -> tuple[Image.Image, ImageDraw.Draw]:
         """Creates an empty image and its corresponding drawing object."""
-        image = Image.new(mode, (2 * SYLLABLE_IMAGE_RADIUS, 2 * SYLLABLE_IMAGE_RADIUS))
+        image = Image.new(mode, (cls.IMAGE_CENTER * 2))
         return image, ImageDraw.Draw(image)
 
     def _update_syllable_properties(self):
         self._inner = self.cons2 or self.cons1
         self.consonants = sorted(filter(None, (self.cons1, self.cons2)), key=lambda l: l.decoration_type.group)
         self.letters = list(filter(None, (self.cons1, self.cons2, self.vowel)))
-        self.text = ''.join(map(lambda l: l.text, self.letters))
+        self.text = ''.join(letter.text for letter in self.letters)
 
     def _update_image_properties(self):
         self.scale = self._parent_scale * self._personal_scale
@@ -75,22 +77,24 @@ class Syllable:
             letter.update_properties(self)
 
         if len(self._inner.borders) == 1:
-            left = SYLLABLE_IMAGE_RADIUS - self.inner_radius - self._inner.half_line_widths[0]
-            right = SYLLABLE_IMAGE_RADIUS + self.inner_radius + self._inner.half_line_widths[0]
-            self._inner_circle_arg_dict = [{'xy': (left, left, right, right), 'outline': SYLLABLE_COLOR,
+            adjusted_radius = self.inner_radius + self._inner.half_line_widths[0]
+            start = self.IMAGE_CENTER.shift(-adjusted_radius)
+            end = self.IMAGE_CENTER.shift(adjusted_radius)
+            self._inner_circle_arg_dict = [{'xy': (start, end), 'outline': SYLLABLE_COLOR,
                                             'fill': SYLLABLE_BG, 'width': self._inner.line_widths[0]}]
         else:
             self._inner_circle_arg_dict = []
-            radius = self.inner_radius + self.half_line_distance
-            left = SYLLABLE_IMAGE_RADIUS - radius - self._inner.half_line_widths[0]
-            right = SYLLABLE_IMAGE_RADIUS + radius + self._inner.half_line_widths[0]
-            self._inner_circle_arg_dict.append({'xy': (left, left, right, right), 'outline': SYLLABLE_COLOR,
+            adjusted_radius = self.inner_radius + self.half_line_distance + self._inner.half_line_widths[0]
+            start = self.IMAGE_CENTER.shift(-adjusted_radius)
+            end = self.IMAGE_CENTER.shift(adjusted_radius)
+            self._inner_circle_arg_dict.append({'xy': (start, end), 'outline': SYLLABLE_COLOR,
                                                 'fill': SYLLABLE_BG, 'width': self._inner.line_widths[0]})
 
-            radius = max(self.inner_radius - self.half_line_distance, MIN_RADIUS)
-            left = SYLLABLE_IMAGE_RADIUS - radius - self._inner.half_line_widths[1]
-            right = SYLLABLE_IMAGE_RADIUS + radius + self._inner.half_line_widths[1]
-            self._inner_circle_arg_dict.append({'xy': (left, left, right, right), 'outline': SYLLABLE_COLOR,
+            adjusted_radius = max(
+                self.inner_radius - self.half_line_distance + self._inner.half_line_widths[1], MIN_RADIUS)
+            start = self.IMAGE_CENTER.shift(-adjusted_radius)
+            end = self.IMAGE_CENTER.shift(adjusted_radius)
+            self._inner_circle_arg_dict.append({'xy': (start, end), 'outline': SYLLABLE_COLOR,
                                                 'fill': SYLLABLE_BG, 'width': self._inner.line_widths[1]})
 
         self._create_outer_circle()
@@ -160,8 +164,7 @@ class Syllable:
         return True
 
     def move(self, point: Point, radius=0.0):
-        shifted = point.shift(-round(math.cos(self.direction) * radius),
-                              -round(math.sin(self.direction) * radius))
+        shifted = point - Point(math.cos(self.direction) * radius, math.sin(self.direction) * radius)
         match self.pressed_type:
             case PressedType.INNER:
                 new_radius = shifted.distance() - self._distance_bias
@@ -225,24 +228,22 @@ class Syllable:
         self._border_draw.rectangle(((0, 0), self._border_image.size), fill=0)
         self._mask_draw.rectangle(((0, 0), self._mask_image.size), fill=1)
         if len(self.cons1.borders) == 1:
-            left = SYLLABLE_IMAGE_RADIUS - self.outer_radius - self.cons1.half_line_widths[0]
-            right = SYLLABLE_IMAGE_RADIUS + self.outer_radius + self.cons1.half_line_widths[0]
-            self._border_draw.ellipse((left, left, right, right),
-                                      outline=SYLLABLE_COLOR, width=self.cons1.line_widths[0])
-            self._mask_draw.ellipse((left, left, right, right),
-                                    outline=1, fill=0, width=self.cons1.line_widths[0])
+            adjusted_radius = self.outer_radius + self.cons1.half_line_widths[0]
+            start = self.IMAGE_CENTER.shift(-adjusted_radius)
+            end = self.IMAGE_CENTER.shift(adjusted_radius)
+            self._border_draw.ellipse((start, end), outline=SYLLABLE_COLOR, width=self.cons1.line_widths[0])
+            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self.cons1.line_widths[0])
 
         else:
-            radius = self.outer_radius + self.half_line_distance
-            left = SYLLABLE_IMAGE_RADIUS - radius - self.cons1.half_line_widths[0]
-            right = SYLLABLE_IMAGE_RADIUS + radius + self.cons1.half_line_widths[0]
-            self._border_draw.ellipse((left, left, right, right),
+            adjusted_radius = self.outer_radius + self.half_line_distance + self.cons1.half_line_widths[0]
+            start = self.IMAGE_CENTER.shift(-adjusted_radius)
+            end = self.IMAGE_CENTER.shift(adjusted_radius)
+            self._border_draw.ellipse((start, end),
                                       outline=SYLLABLE_COLOR, fill=SYLLABLE_BG, width=self.cons1.line_widths[0])
 
-            radius = max(self.outer_radius - self.half_line_distance, MIN_RADIUS)
-            left = SYLLABLE_IMAGE_RADIUS - radius - self.cons1.half_line_widths[1]
-            right = SYLLABLE_IMAGE_RADIUS + radius + self.cons1.half_line_widths[1]
-            self._border_draw.ellipse((left, left, right, right),
-                                      outline=SYLLABLE_COLOR, width=self.cons1.line_widths[1])
-            self._mask_draw.ellipse((left, left, right, right),
-                                    outline=1, fill=0, width=self.cons1.line_widths[1])
+            adjusted_radius = max(
+                self.outer_radius - self.half_line_distance + self.cons1.half_line_widths[1], MIN_RADIUS)
+            start = self.IMAGE_CENTER.shift(-adjusted_radius)
+            end = self.IMAGE_CENTER.shift(adjusted_radius)
+            self._border_draw.ellipse((start, end), outline=SYLLABLE_COLOR, width=self.cons1.line_widths[1])
+            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self.cons1.line_widths[1])

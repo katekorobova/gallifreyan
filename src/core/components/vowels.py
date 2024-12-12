@@ -4,7 +4,7 @@ from enum import Enum
 from typing import List, Dict
 
 from src.utils import Point, PressedType, line_width, half_line_distance, MIN_RADIUS, \
-    SYLLABLE_IMAGE_RADIUS, SYLLABLE_COLOR, SYLLABLE_BG
+    SYLLABLE_COLOR, SYLLABLE_BG
 from .letters import Letter, LetterType
 
 
@@ -18,7 +18,6 @@ class VowelDecoration(str, Enum):
 
 class Vowel(Letter, ABC):
     """Base class for vowel decorations."""
-    IMAGE_CENTER = Point(SYLLABLE_IMAGE_RADIUS, SYLLABLE_IMAGE_RADIUS)
 
     def __init__(self, text: str, borders: str, decoration_type: VowelDecoration):
         super().__init__(text, LetterType.VOWEL, borders)
@@ -54,8 +53,8 @@ class Vowel(Letter, ABC):
         self._ellipse_args = []
         for i, width in enumerate(self.line_widths):
             adjusted_radius = radii[i] + self.half_line_widths[i]
-            start = (self.IMAGE_CENTER + self._center).shift(-adjusted_radius, -adjusted_radius)
-            end = (self.IMAGE_CENTER + self._center).shift(adjusted_radius, adjusted_radius)
+            start = (self.IMAGE_CENTER + self._center).shift(-adjusted_radius)
+            end = (self.IMAGE_CENTER + self._center).shift(adjusted_radius)
             self._ellipse_args.append({'xy': (start, end), 'outline': SYLLABLE_COLOR,
                                        'fill': SYLLABLE_BG, 'width': width})
 

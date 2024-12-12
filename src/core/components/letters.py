@@ -6,7 +6,7 @@ from typing import Optional, List
 
 from PIL import ImageDraw
 
-from src.utils import Point, line_width
+from src.utils import Point, line_width, SYLLABLE_IMAGE_RADIUS
 
 
 class LetterType(Enum):
@@ -17,6 +17,7 @@ class LetterType(Enum):
 
 class Letter(ABC):
     """Abstract base class representing a generic letter."""
+    IMAGE_CENTER = Point(SYLLABLE_IMAGE_RADIUS, SYLLABLE_IMAGE_RADIUS)
 
     def __init__(self, text: str, letter_type: LetterType, borders: str):
         """

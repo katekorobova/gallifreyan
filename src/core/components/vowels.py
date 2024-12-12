@@ -4,7 +4,7 @@ from enum import Enum
 from typing import List, Dict
 
 from src.utils import Point, PressedType, line_width, half_line_distance, MIN_RADIUS, \
-    SYLLABLE_IMAGE_RADIUS, SYLLABLE_COLOR, SYLLABLE_BG
+    SYLLABLE_COLOR, SYLLABLE_BG
 from .letters import Letter, LetterType
 
 
@@ -18,7 +18,6 @@ class VowelDecoration(str, Enum):
 
 class Vowel(Letter, ABC):
     """Base class for vowel decorations."""
-    IMAGE_CENTER = Point(SYLLABLE_IMAGE_RADIUS, SYLLABLE_IMAGE_RADIUS)
 
     def __init__(self, text: str, borders: str, decoration_type: VowelDecoration):
         super().__init__(text, LetterType.VOWEL, borders)
@@ -54,8 +53,8 @@ class Vowel(Letter, ABC):
         self._ellipse_args = []
         for i, width in enumerate(self.line_widths):
             adjusted_radius = radii[i] + self.half_line_widths[i]
-            start = (self.IMAGE_CENTER + self._center).shift(-adjusted_radius, -adjusted_radius)
-            end = (self.IMAGE_CENTER + self._center).shift(adjusted_radius, adjusted_radius)
+            start = (self.IMAGE_CENTER + self._center).shift(-adjusted_radius)
+            end = (self.IMAGE_CENTER + self._center).shift(adjusted_radius)
             self._ellipse_args.append({'xy': (start, end), 'outline': SYLLABLE_COLOR,
                                        'fill': SYLLABLE_BG, 'width': width})
 
@@ -83,8 +82,11 @@ class LargeVowel(Vowel):
     def __init__(self, text: str, borders: str):
         super().__init__(text, borders, VowelDecoration.LARGE)
 
+        self._set_personal_direction(0)
+
     def _update_syllable_properties(self, syllable):
-        # super()._update_syllable_properties(syllable)
+        super()._update_syllable_properties(syllable)
+
         scale = syllable.scale * self.DEFAULT_RATIO
         self.line_widths = [line_width(x, scale) for x in self.borders]
         self.half_line_widths = [w / 2 for w in self.line_widths]
@@ -104,10 +106,11 @@ class WanderingVowel(Vowel):
 
     def _update_syllable_properties(self, syllable):
         super()._update_syllable_properties(syllable)
-        outer_radius, inner_radius, offset = syllable.outer_radius, syllable.inner_radius, syllable.offset
-        self._distance = max((outer_radius - offset[0] + inner_radius + offset[1]) / 2, MIN_RADIUS)
-        self._radius = max((outer_radius - offset[0] - inner_radius - offset[1]) / 2 - 3 * syllable.half_line_distance,
-                           MIN_RADIUS)
+        outer_radius, inner_radius, border_offset = syllable.outer_radius, syllable.inner_radius, syllable.border_offset
+        self._distance = max((outer_radius - border_offset[0] + inner_radius + border_offset[1]) / 2, MIN_RADIUS)
+        self._radius = max(
+            (outer_radius - border_offset[0] - inner_radius - border_offset[1]) / 2 - 3 * syllable.half_line_distance,
+            MIN_RADIUS)
 
     def _update_image_properties(self):
         self._calculate_center()
@@ -127,7 +130,7 @@ class RotatingVowel(Vowel):
     def _update_syllable_properties(self, syllable):
         super()._update_syllable_properties(syllable)
         self._radius = syllable.inner_radius * self.RATIO
-        self._distance = syllable.inner_radius + syllable.offset[1]
+        self._distance = syllable.inner_radius + syllable.border_offset[1]
 
     def _update_image_properties(self):
         self._calculate_center()
@@ -146,8 +149,8 @@ class CenterVowel(Vowel):
 
     def _update_syllable_properties(self, syllable):
         super()._update_syllable_properties(syllable)
-        inner_radius = syllable.inner_radius - syllable.offset[1]
-        self._radius = (inner_radius - 3 * syllable.half_line_distance) * self.RATIO
+        inner_radius = syllable.inner_radius - syllable.border_offset[1]
+        self._radius = max((inner_radius - 3 * syllable.half_line_distance) * self.RATIO, MIN_RADIUS)
         self._distance = self._radius
 
     def _update_image_properties(self):

@@ -146,7 +146,7 @@ class CenterVowel(Vowel):
     def _update_syllable_properties(self, syllable):
         super()._update_syllable_properties(syllable)
         inner_radius = syllable.inner_radius - syllable.offset[1]
-        self._radius = (inner_radius - 3 * syllable.half_line_distance) * self.RATIO
+        self._radius = max((inner_radius - 3 * syllable.half_line_distance) * self.RATIO, MIN_RADIUS)
         self._distance = self._radius
 
     def _update_image_properties(self):

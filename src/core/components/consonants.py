@@ -6,11 +6,12 @@ from collections import Counter
 from enum import Enum
 from typing import List, Dict
 
-from src.utils import Point, SYLLABLE_COLOR, SYLLABLE_BG, DOT_RADIUS, MIN_RADIUS
 from .letters import Letter, LetterType
+from ..utils import Point
+from ...config import SYLLABLE_COLOR, SYLLABLE_BG, DOT_RADIUS, MIN_RADIUS
 
 
-class ConsonantDecoration(Enum):
+class ConsonantType(Enum):
     STRAIGHT_ANGLE = ('sa', 2)
     OBTUSE_ANGLE = ('oa', 2)
     REFLEX_ANGLE = ('ra', 2)
@@ -29,55 +30,55 @@ class ConsonantDecoration(Enum):
 
     @classmethod
     def get_by_code(cls, code: str):
-        """Retrieve a ConsonantDecoration by its code."""
-        for decoration in cls:
-            if decoration.code == code:
-                return decoration
-        raise ValueError(f"Invalid decoration code: {code}")
+        """Retrieve a ConsonantType by its code."""
+        for consonant_type in cls:
+            if consonant_type.code == code:
+                return consonant_type
+        raise ValueError(f"Invalid consonant type code: {code}")
 
 
 class Consonant(Letter, ABC):
-    def __init__(self, text: str, borders: str, decoration_type: ConsonantDecoration):
+    def __init__(self, text: str, borders: str, consonant_type: ConsonantType):
         super().__init__(text, LetterType.CONSONANT, borders)
-        self.decoration_type = decoration_type
+        self.consonant_type = consonant_type
         self._distance = 0.0
         self._bias = Point()
 
     @staticmethod
-    def get_consonant(text: str, border: str, decoration_code: str) -> Consonant:
+    def get_consonant(text: str, border: str, consonant_type_code: str) -> Consonant:
         """Factory method to create an appropriate Consonant subclass."""
-        decoration_type = ConsonantDecoration.get_by_code(decoration_code)
+        consonant_type = ConsonantType.get_by_code(consonant_type_code)
         consonant_classes = {
-            ConsonantDecoration.STRAIGHT_ANGLE: StraightAngleConsonant,
-            ConsonantDecoration.OBTUSE_ANGLE: ObtuseAngleConsonant,
-            ConsonantDecoration.REFLEX_ANGLE: ReflexAngleConsonant,
-            ConsonantDecoration.BENT_LINE: BentLineConsonant,
-            ConsonantDecoration.RADIAL_LINE: RadialLineConsonant,
-            ConsonantDecoration.DIAMETRAL_LINE: DiametralLineConsonant,
-            ConsonantDecoration.CIRCLE: CircleConsonant,
-            ConsonantDecoration.SIMILAR_DOTS: SimilarDotConsonant,
-            ConsonantDecoration.DIFFERENT_DOTS: DifferentDotConsonant,
-            ConsonantDecoration.WHITE_DOT: WhiteDotConsonant,
-            ConsonantDecoration.BLACK_DOT: BlackDotConsonant}
-        if decoration_type in consonant_classes:
-            return consonant_classes[decoration_type](text, border)
-        raise ValueError(f"Unsupported decoration type: {decoration_type}")
+            ConsonantType.STRAIGHT_ANGLE: StraightAngleConsonant,
+            ConsonantType.OBTUSE_ANGLE: ObtuseAngleConsonant,
+            ConsonantType.REFLEX_ANGLE: ReflexAngleConsonant,
+            ConsonantType.BENT_LINE: BentLineConsonant,
+            ConsonantType.RADIAL_LINE: RadialLineConsonant,
+            ConsonantType.DIAMETRAL_LINE: DiametralLineConsonant,
+            ConsonantType.CIRCLE: CircleConsonant,
+            ConsonantType.SIMILAR_DOTS: SimilarDotConsonant,
+            ConsonantType.DIFFERENT_DOTS: DifferentDotConsonant,
+            ConsonantType.WHITE_DOT: WhiteDotConsonant,
+            ConsonantType.BLACK_DOT: BlackDotConsonant}
+        if consonant_type in consonant_classes:
+            return consonant_classes[consonant_type](text, border)
+        raise ValueError(f"Unsupported consonant type: {consonant_type}")
 
     @staticmethod
     def compatible(cons1: Consonant, cons2: Consonant) -> bool:
         """Determine compatibility between two consonants."""
-        full_data = {ConsonantDecoration.RADIAL_LINE}
-        unknown_order = {ConsonantDecoration.DIAMETRAL_LINE}
+        full_data = {ConsonantType.RADIAL_LINE}
+        unknown_order = {ConsonantType.DIAMETRAL_LINE}
         min_border = {
-            ConsonantDecoration.BENT_LINE, ConsonantDecoration.STRAIGHT_ANGLE,
-            ConsonantDecoration.OBTUSE_ANGLE, ConsonantDecoration.REFLEX_ANGLE,
-            ConsonantDecoration.CIRCLE}
+            ConsonantType.BENT_LINE, ConsonantType.STRAIGHT_ANGLE,
+            ConsonantType.OBTUSE_ANGLE, ConsonantType.REFLEX_ANGLE,
+            ConsonantType.CIRCLE}
 
-        if cons1.decoration_type in full_data or cons2.decoration_type in full_data:
+        if cons1.consonant_type in full_data or cons2.consonant_type in full_data:
             return cons1.borders != cons2.borders
-        if cons1.decoration_type in unknown_order or cons2.decoration_type in unknown_order:
+        if cons1.consonant_type in unknown_order or cons2.consonant_type in unknown_order:
             return Counter(cons1.borders) != Counter(cons2.borders)
-        if cons1.decoration_type in min_border or cons2.decoration_type in min_border:
+        if cons1.consonant_type in min_border or cons2.consonant_type in min_border:
             return min(cons1.borders) != min(cons2.borders)
         return False
 
@@ -86,8 +87,8 @@ class LineBasedConsonant(Consonant, ABC):
     """Base class for line-based consonants."""
     ANGLE = 0.0
 
-    def __init__(self, text: str, borders: str, decoration_type: ConsonantDecoration):
-        super().__init__(text, borders, decoration_type)
+    def __init__(self, text: str, borders: str, consonant_type: ConsonantType):
+        super().__init__(text, borders, consonant_type)
 
         self._ends = Point(), Point()
         self._pressed_id = 0
@@ -147,8 +148,8 @@ class LineBasedConsonant(Consonant, ABC):
              'fill': SYLLABLE_COLOR, 'width': self._width}
             for end in self._ends]
 
-    def draw_decoration(self):
-        """Draw the decoration lines."""
+    def draw(self):
+        """Draw the consonant."""
         for line_arg in self._line_args:
             self._image.line(**line_arg)
 
@@ -157,12 +158,12 @@ class BentLineConsonant(LineBasedConsonant):
     ANGLE = 0.3 * math.pi
 
     def __init__(self, text: str, borders: str):
-        super().__init__(text, borders, ConsonantDecoration.BENT_LINE)
+        super().__init__(text, borders, ConsonantType.BENT_LINE)
 
 
 class RadialLineConsonant(LineBasedConsonant):
     def __init__(self, text: str, borders: str):
-        super().__init__(text, borders, ConsonantDecoration.RADIAL_LINE)
+        super().__init__(text, borders, ConsonantType.RADIAL_LINE)
 
         self._end = Point()
         self._polygon_args = {}
@@ -207,7 +208,7 @@ class DiametralLineConsonant(LineBasedConsonant):
     ANGLE = 0.5 * math.pi
 
     def __init__(self, text: str, borders: str):
-        super().__init__(text, borders, ConsonantDecoration.DIAMETRAL_LINE)
+        super().__init__(text, borders, ConsonantType.DIAMETRAL_LINE)
 
         self._set_personal_direction(0)
         self._polygon_args = {}
@@ -234,19 +235,19 @@ class DiametralLineConsonant(LineBasedConsonant):
                 {'xy': (start1, end1), 'fill': SYLLABLE_COLOR, 'width': self.line_widths[0]},
                 {'xy': (start2, end2), 'fill': SYLLABLE_COLOR, 'width': self.line_widths[1]}]
 
-    def draw_decoration(self):
-        """Draw the decoration lines."""
+    def draw(self):
+        """Draw the consonant."""
         if self._polygon_args:
             self._image.polygon(**self._polygon_args)
 
-        super().draw_decoration()
+        super().draw()
 
 
 class AngleBasedConsonant(LineBasedConsonant, ABC):
     """Base class for angle-based consonants."""
 
-    def __init__(self, text: str, borders: str, decoration_type: ConsonantDecoration):
-        super().__init__(text, borders, decoration_type)
+    def __init__(self, text: str, borders: str, consonant_type: ConsonantType):
+        super().__init__(text, borders, consonant_type)
 
         self._radius = 0.0
         self._arc_args = {}
@@ -270,9 +271,9 @@ class AngleBasedConsonant(LineBasedConsonant, ABC):
             'fill': SYLLABLE_COLOR, 'width': self._width
         }
 
-    def draw_decoration(self):
-        """Draw the arc decoration."""
-        super().draw_decoration()
+    def draw(self):
+        """Draw a consonant with an arc."""
+        super().draw()
         if self._arc_args:
             self._image.arc(**self._arc_args)
 
@@ -281,7 +282,7 @@ class StraightAngleConsonant(AngleBasedConsonant):
     ANGLE = 0.5 * math.pi
 
     def __init__(self, text: str, borders: str):
-        super().__init__(text, borders, ConsonantDecoration.STRAIGHT_ANGLE)
+        super().__init__(text, borders, ConsonantType.STRAIGHT_ANGLE)
 
         self._set_personal_direction(0)
 
@@ -290,21 +291,21 @@ class ObtuseAngleConsonant(AngleBasedConsonant):
     ANGLE = 0.3 * math.pi
 
     def __init__(self, text: str, borders: str):
-        super().__init__(text, borders, ConsonantDecoration.OBTUSE_ANGLE)
+        super().__init__(text, borders, ConsonantType.OBTUSE_ANGLE)
 
 
 class ReflexAngleConsonant(AngleBasedConsonant):
     ANGLE = 0.6 * math.pi
 
     def __init__(self, text: str, borders: str):
-        super().__init__(text, borders, ConsonantDecoration.REFLEX_ANGLE)
+        super().__init__(text, borders, ConsonantType.REFLEX_ANGLE)
 
         self._set_personal_direction(0)
 
 
 class DotConsonant(Consonant, ABC):
-    def __init__(self, text: str, borders: str, decoration: ConsonantDecoration):
-        super().__init__(text, borders, decoration)
+    def __init__(self, text: str, borders: str, consonant_type: ConsonantType):
+        super().__init__(text, borders, consonant_type)
 
         self._width = 0.0
         self._radius = 0.0
@@ -328,8 +329,8 @@ class DotConsonant(Consonant, ABC):
 class DualDotConsonant(DotConsonant):
     ANGLE = 0.3 * math.pi
 
-    def __init__(self, text: str, borders: str, decoration_type: ConsonantDecoration):
-        super().__init__(text, borders, decoration_type)
+    def __init__(self, text: str, borders: str, consonant_type: ConsonantType):
+        super().__init__(text, borders, consonant_type)
         self._centers = Point(), Point()
         self._pressed_id = 0
         self._ellipse_args: List[Dict] = []
@@ -360,14 +361,14 @@ class DualDotConsonant(DotConsonant):
             Point(math.cos(self.direction + self.ANGLE) * self._distance,
                   math.sin(self.direction + self.ANGLE) * self._distance))
 
-    def draw_decoration(self):
+    def draw(self):
         for args in self._ellipse_args:
             self._image.ellipse(**args)
 
 
 class SimilarDotConsonant(DualDotConsonant):
     def __init__(self, text: str, borders: str):
-        super().__init__(text, borders, ConsonantDecoration.SIMILAR_DOTS)
+        super().__init__(text, borders, ConsonantType.SIMILAR_DOTS)
 
     def _update_image_properties(self):
         super()._update_image_properties()
@@ -378,7 +379,7 @@ class SimilarDotConsonant(DualDotConsonant):
 
 class DifferentDotConsonant(DualDotConsonant):
     def __init__(self, text: str, borders: str):
-        super().__init__(text, borders, ConsonantDecoration.DIFFERENT_DOTS)
+        super().__init__(text, borders, ConsonantType.DIFFERENT_DOTS)
 
     def _update_image_properties(self):
         super()._update_image_properties()
@@ -389,8 +390,8 @@ class DifferentDotConsonant(DualDotConsonant):
 
 
 class SingleDotConsonant(DotConsonant, ABC):
-    def __init__(self, text: str, borders: str, decoration_type: ConsonantDecoration):
-        super().__init__(text, borders, decoration_type)
+    def __init__(self, text: str, borders: str, consonant_type: ConsonantType):
+        super().__init__(text, borders, consonant_type)
 
         self._center = Point()
         self._ellipse_args = {}
@@ -411,13 +412,13 @@ class SingleDotConsonant(DotConsonant, ABC):
         self._center = Point(math.cos(self.direction) * self._distance,
                              math.sin(self.direction) * self._distance)
 
-    def draw_decoration(self):
+    def draw(self):
         self._image.ellipse(**self._ellipse_args)
 
 
 class WhiteDotConsonant(SingleDotConsonant):
     def __init__(self, text: str, borders: str):
-        super().__init__(text, borders, ConsonantDecoration.WHITE_DOT)
+        super().__init__(text, borders, ConsonantType.WHITE_DOT)
 
     def _update_image_properties(self):
         self._calculate_center()
@@ -428,7 +429,7 @@ class WhiteDotConsonant(SingleDotConsonant):
 
 class BlackDotConsonant(SingleDotConsonant):
     def __init__(self, text: str, borders: str):
-        super().__init__(text, borders, ConsonantDecoration.BLACK_DOT)
+        super().__init__(text, borders, ConsonantType.BLACK_DOT)
 
     def _update_image_properties(self):
         self._calculate_center()
@@ -437,7 +438,7 @@ class BlackDotConsonant(SingleDotConsonant):
 
 class CircleConsonant(Consonant):
     def __init__(self, text: str, borders: str):
-        super().__init__(text, borders, ConsonantDecoration.CIRCLE)
+        super().__init__(text, borders, ConsonantType.CIRCLE)
 
         self._width = 0.0
         self._half_width = 0.0
@@ -478,5 +479,5 @@ class CircleConsonant(Consonant):
         end = (self.IMAGE_CENTER + self._center).shift(adjusted_radius)
         self._ellipse_args = {'xy': (start, end), 'outline': SYLLABLE_COLOR, 'fill': SYLLABLE_BG, 'width': self._width}
 
-    def draw_decoration(self):
+    def draw(self):
         self._image.ellipse(**self._ellipse_args)

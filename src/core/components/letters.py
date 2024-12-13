@@ -6,7 +6,8 @@ from typing import Optional, List
 
 from PIL import ImageDraw
 
-from src.utils import Point, line_width, SYLLABLE_IMAGE_RADIUS
+from ..utils import Point, line_width
+from ...config import SYLLABLE_IMAGE_RADIUS
 
 
 class LetterType(Enum):
@@ -93,6 +94,6 @@ class Letter(ABC):
         self._update_image_properties()
 
     @abstractmethod
-    def draw_decoration(self):
-        """Draw additional decorations specific to the letter."""
+    def draw(self):
+        """Draw the letter."""
         pass

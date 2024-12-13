@@ -1,45 +1,46 @@
 import math
-import random
 import tkinter as tk
+from dataclasses import dataclass
+from itertools import count, repeat
 from typing import List, Optional
 
 from PIL import ImageTk, Image, ImageDraw
 
-from src.utils import (
-    Point, PressedType, line_width, half_line_distance, MIN_RADIUS, OUTER_CIRCLE_RADIUS,
-    WORD_IMAGE_RADIUS, WORD_COLOR, WORD_BG, WORD_INITIAL_SCALE_MIN, WORD_SCALE_MIN
-)
-from .syllables import Syllable
+from .syllables import Consonant, Syllable
+from .vowels import Letter, LetterType, Vowel
+from .. import repository
+from ..utils import Point, PressedType, line_width, half_line_distance, unique
+from ...config import (MIN_RADIUS, OUTER_CIRCLE_RADIUS,
+                       WORD_IMAGE_RADIUS, WORD_COLOR, WORD_BG, WORD_SCALE_MIN, ALEPH)
 
 
 class Word:
     IMAGE_CENTER = Point(WORD_IMAGE_RADIUS, WORD_IMAGE_RADIUS)
 
-    def __init__(self, center: Point, syllables: List[Syllable]):
+    def __init__(self, center: Point, letters: List[Letter]):
         self.center = center
         self.borders = '21'
         self.outer_radius = 0.0
         self._widths: List[int] = []
         self._half_widths: List[float] = []
-
-        # Initialize syllables and their relationships
-        for i in reversed(range(len(syllables) - 1)):
-            syllables[i].set_following(syllables[i + 1])
-        syllables[-1].set_following(None)
-
-        self.first = syllables[0]
-        self.rest = syllables[1:]
-        self.scale = random.uniform(WORD_INITIAL_SCALE_MIN, 1) if self.rest else 1
-        self.first.resize(self.scale)
-        self.syllables = syllables
-        self.text = ''.join(s.text for s in syllables)
+        self.scale = 1
 
         # Image-related attributes
         self._image, self._draw = self._create_empty_image()
         self._border_image, self._border_draw = self._create_empty_image()
         self._mask_image, self._mask_draw = self._create_empty_image('1')
         self._image_tk = ImageTk.PhotoImage(image=self._image)
-        self._update_image_properties()
+        self._image_ready = False
+        self.canvas_item_id: Optional[int] = None
+
+        # Initialize syllables and their relationships
+        self.letters: List[Letter] = []
+        self.syllables: List[Syllable] = []
+        self.first: Optional[Syllable] = None
+        self.rest: List[Syllable] = []
+        self.text = ''
+        self.syllable_indices: List[Syllable] = []
+        self.insert_letters(0, letters)
 
         # Interaction properties
         self.pressed_type: Optional[PressedType] = None
@@ -62,16 +63,21 @@ class Word:
         self._create_outer_circle()
 
     def set_syllables(self, syllables: List[Syllable]):
-        for i in reversed(range(0, len(syllables) - 1)):
-            syllables[i].set_following(syllables[i + 1])
-        syllables[-1].set_following(None)
-        self.first = syllables[0]
-        self.rest = syllables[1:]
-        self.first.resize(self.scale)
-        if not self.rest:
-            self.first.resize(parent_scale=1, personal_scale=self.scale)
-            self.scale = 1
-            self._update_image_properties()
+        if syllables:
+            for i in reversed(range(0, len(syllables) - 1)):
+                syllables[i].set_following(syllables[i + 1])
+            syllables[-1].set_following(None)
+            self.first = syllables[0]
+            self.rest = syllables[1:]
+            self.first.resize(self.scale)
+            if not self.rest:
+                self.first.resize(parent_scale=1, personal_scale=self.scale)
+                self.scale = 1
+                self._update_image_properties()
+        else:
+            self.first = None
+            self.rest = []
+
         self.syllables = syllables
         self.text = ''.join(map(lambda s: s.text, syllables))
 
@@ -145,9 +151,12 @@ class Word:
             case PressedType.CHILD:
                 self._move_child(word_point)
             case PressedType.BORDER:
-                self._resize_word(word_point)
+                self._resize(word_point)
             case PressedType.PARENT:
                 self.center = point - self._point_bias
+            case _:
+                return
+        self._image_ready = False
 
     def _move_child(self, word_point: Point):
         """Move a pressed child syllable."""
@@ -157,7 +166,7 @@ class Word:
             first_radius = self.first.outer_radius
             self._pressed.move(word_point, first_radius)
 
-    def _resize_word(self, word_point: Point):
+    def _resize(self, word_point: Point):
         """Resize the word based on movement."""
         new_radius = word_point.distance() - self._distance_bias
         self.scale = min(max(new_radius / OUTER_CIRCLE_RADIUS, WORD_SCALE_MIN), 1)
@@ -166,6 +175,8 @@ class Word:
 
     def create_image(self, canvas: tk.Canvas):
         """Create and display the word image on the canvas."""
+        if self._image_ready:
+            return
 
         if self.rest:
             # Clear the image
@@ -189,7 +200,12 @@ class Word:
             self._paste_first()
 
         self._image_tk.paste(self._image)
-        canvas.create_image(self.center, image=self._image_tk)
+
+        if self.canvas_item_id is not None:
+            canvas.delete(self.canvas_item_id)
+
+        self.canvas_item_id = canvas.create_image(self.center, image=self._image_tk)
+        self._image_ready = True
 
     def _paste_first(self):
         image = self.first.create_image()
@@ -223,3 +239,118 @@ class Word:
             end = self.IMAGE_CENTER.shift(adjusted_radius)
             self._border_draw.ellipse((start, end), outline=WORD_COLOR, width=self._widths[1])
             self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._widths[1])
+
+    def remove_letters(self, index: int, deleted: str):
+        """Remove letters from the word and update syllables."""
+        first = self.syllable_indices[index]
+        if index > 0 and self.syllable_indices[index - 1] is first:
+            first.remove_starting_with(self.letters[index])
+
+        last = self.syllable_indices[index + len(deleted) - 1]
+        if index + len(deleted) < len(self.letters) and \
+                self.syllable_indices[index + len(deleted)] is last:
+            self.syllable_indices[index + len(deleted)] = None
+            if index + len(deleted) < len(self.letters) - 1 and \
+                    self.syllable_indices[index + len(deleted) + 1] is last:
+                self.syllable_indices[index + len(deleted) + 1] = None
+
+        self.letters[index: index + len(deleted)] = []
+        self.syllable_indices[index: index + len(deleted)] = []
+
+        start = self._absorb_new_letters(index)
+        self._redistribute(start)
+
+        self.set_syllables(unique(self.syllable_indices))
+        self._image_ready = False
+
+    def insert_letters(self, index: int, letters: List[Letter]):
+        """Insert letters at a specific index and update syllables."""
+
+        self._split_syllable(index)
+        self.letters[index: index] = letters
+        self.syllable_indices[index: index] = repeat(None, len(letters))
+
+        start = self._absorb_new_letters(index)
+        self._redistribute(start)
+
+        self.set_syllables(unique(self.syllable_indices))
+        self._image_ready = False
+
+    def _split_syllable(self, index: int):
+        """Split the syllable at the specified index, updating syllables as needed."""
+        if index > 0:
+            syllable = self.syllable_indices[index - 1]
+            if index < len(self.letters) and syllable is self.syllable_indices[index]:
+                syllable.remove_starting_with(self.letters[index])
+                self.syllable_indices[index] = None
+                if index < len(self.letters) - 1 and syllable is self.syllable_indices[index + 1]:
+                    self.syllable_indices[index + 1] = None
+
+    def _absorb_new_letters(self, index: int) -> int:
+        """Absorb newly inserted letters into existing syllables."""
+        start = index
+        if index > 0:
+            syllable = self.syllable_indices[index - 1]
+            for i in range(index, len(self.letters)):
+                if syllable.add(self.letters[i]):
+                    self.syllable_indices[i] = syllable
+                    start = i + 1
+                else:
+                    break
+        return start
+
+    @dataclass
+    class _RedistributionState:
+        syllable: Optional[Syllable] = None
+        cons2: Optional[Consonant] = None
+        completed = False
+
+    def _redistribute(self, start: int) -> None:
+        """Redistribute syllables starting from a given index."""
+        state = self._RedistributionState()
+        for i, letter in zip(count(start), self.letters[start:]):
+            if isinstance(letter, Consonant):
+                self._process_consonant(i, letter, state)
+            elif isinstance(letter, Vowel):
+                self._process_vowel(i, letter, state)
+            else:
+                raise ValueError(f"No such letter type: {letter.letter_type} (letter={letter.text})")
+            if state.completed:
+                break
+
+    def _process_consonant(self, index: int, letter: Consonant, state: _RedistributionState) -> None:
+        """Process consonant letters and update syllables."""
+        if state.syllable:
+            if not state.cons2 and state.syllable.add(letter):
+                state.cons2 = letter
+                self.syllable_indices[index] = state.syllable
+            else:
+                if self._check_syllable_start(index, letter):
+                    state.completed = True
+                else:
+                    state.syllable = Syllable(letter)
+                    state.cons2 = None
+                    self.syllable_indices[index] = state.syllable
+        else:
+            if self._check_syllable_start(index, letter):
+                state.completed = True
+            else:
+                state.syllable = Syllable(letter)
+                self.syllable_indices[index] = state.syllable
+
+    def _process_vowel(self, index: int, letter: Vowel, state: _RedistributionState) -> None:
+        """Process vowel letters and update syllables."""
+        if state.syllable:
+            state.syllable.add(letter)
+            self.syllable_indices[index] = state.syllable
+            state.syllable = None
+            state.cons2 = None
+        else:
+            if self.syllable_indices[index]:
+                state.completed = True
+            else:
+                aleph = Consonant.get_consonant(ALEPH, *repository.get().letters[LetterType.CONSONANT][ALEPH])
+                self.syllable_indices[index] = Syllable(aleph, vowel=letter)
+
+    def _check_syllable_start(self, index, letter) -> bool:
+        return self.syllable_indices[index] and self.syllable_indices[index].cons1 is letter

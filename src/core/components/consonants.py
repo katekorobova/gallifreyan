@@ -7,7 +7,7 @@ from enum import Enum
 from typing import List, Dict
 
 from .letters import Letter, LetterType
-from ..utils import Point
+from ..utils import Point, line_width
 from ...config import SYLLABLE_COLOR, SYLLABLE_BG, DOT_RADIUS, MIN_RADIUS
 
 
@@ -67,6 +67,15 @@ class Consonant(Letter, ABC):
     @staticmethod
     def compatible(cons1: Consonant, cons2: Consonant) -> bool:
         """Determine compatibility between two consonants."""
+        allow_double = {ConsonantType.SIMILAR_DOTS, ConsonantType.DIFFERENT_DOTS, ConsonantType.BLACK_DOT,
+                        ConsonantType.OBTUSE_ANGLE, ConsonantType.CIRCLE}
+        if cons1.consonant_type == cons2.consonant_type and cons1.consonant_type in allow_double:
+            return True
+
+        large_angles = {ConsonantType.STRAIGHT_ANGLE, ConsonantType.REFLEX_ANGLE}
+        if cons1.consonant_type in large_angles and cons2.consonant_type in large_angles:
+            return False
+
         full_data = {ConsonantType.RADIAL_LINE}
         unknown_order = {ConsonantType.DIAMETRAL_LINE}
         min_border = {
@@ -80,6 +89,7 @@ class Consonant(Letter, ABC):
             return Counter(cons1.borders) != Counter(cons2.borders)
         if cons1.consonant_type in min_border or cons2.consonant_type in min_border:
             return min(cons1.borders) != min(cons2.borders)
+
         return False
 
 
@@ -314,7 +324,7 @@ class DotConsonant(Consonant, ABC):
         super()._update_syllable_properties(syllable)
         outer_radius, inner_radius, border_offset = syllable.outer_radius, syllable.inner_radius, syllable.border_offset
 
-        self._width = min(self.line_widths)
+        self._width = line_width('1', syllable.scale)
         self._distance = max((outer_radius - border_offset[0] + inner_radius + border_offset[1]) / 2, MIN_RADIUS)
         self._radius = syllable.scale * DOT_RADIUS
 

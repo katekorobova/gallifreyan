@@ -8,7 +8,7 @@ Single Word Support: Write and visualize single words in Doctor's Cot Gallifreya
 
 Resizable Elements: Adjust the size of words, syllables, and inner circles for better layout control.
 
-Element Positioning: Move and reposition various components, including words, syllables, vowels, and consonant decorations.
+Element Positioning: Move and reposition various components, including words, syllables, vowels, and consonants.
 
 ## Future Plans
 
@@ -18,12 +18,15 @@ Customization Options: Introduce additional features for enhanced customization.
 
 Image Export: Export your creations as PNG or SVG files for easy sharing and use.
 
-## Requirements
+## How to Run the Program
 
-This project is developed using Python 3.10. Make sure to use Python 3.10 or higher. To install the necessary dependencies, run:
+To run the program, make sure you have Python 3.10 or later installed on your system. First, install the required dependencies by running:
 ```
 pip install -r requirements.txt
 ```
-
+Once the dependencies are installed, run the following command from the project's root directory:
+```
+python -m src.main
+```
 ## Demo
 ![demo](https://github.com/katekorobova/gallifreyan/blob/main/demo.gif)

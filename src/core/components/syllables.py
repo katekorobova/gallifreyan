@@ -4,15 +4,14 @@ from typing import Dict, List, Optional, Tuple
 
 from PIL import Image, ImageDraw
 
-from src.utils import (
-    Point, PressedType, half_line_distance, MIN_RADIUS, OUTER_CIRCLE_RADIUS,
-    SYLLABLE_IMAGE_RADIUS, SYLLABLE_COLOR, SYLLABLE_BG, SYLLABLE_INITIAL_SCALE_MIN,
-    SYLLABLE_INITIAL_SCALE_MAX, SYLLABLE_SCALE_MIN, SYLLABLE_SCALE_MAX, INNER_INITIAL_SCALE_MIN,
-    INNER_INITIAL_SCALE_MAX, INNER_SCALE_MIN, INNER_SCALE_MAX
-)
 from .consonants import Consonant
 from .letters import Letter
-from .vowels import Vowel, VowelDecoration
+from .vowels import Vowel, VowelType
+from ..utils import Point, PressedType, half_line_distance
+from ...config import (MIN_RADIUS, OUTER_CIRCLE_RADIUS,
+                       SYLLABLE_IMAGE_RADIUS, SYLLABLE_COLOR, SYLLABLE_BG, SYLLABLE_INITIAL_SCALE_MIN,
+                       SYLLABLE_INITIAL_SCALE_MAX, SYLLABLE_SCALE_MIN, SYLLABLE_SCALE_MAX, INNER_INITIAL_SCALE_MIN,
+                       INNER_INITIAL_SCALE_MAX, INNER_SCALE_MIN, INNER_SCALE_MAX)
 
 
 class Syllable:
@@ -72,7 +71,7 @@ class Syllable:
     def _update_syllable_properties(self):
         """Update syllable properties such as consonants, letters, and text representation."""
         self._inner = self.cons2 or self.cons1
-        self.consonants = sorted(filter(None, (self.cons1, self.cons2)), key=lambda l: l.decoration_type.group)
+        self.consonants = sorted(filter(None, (self.cons1, self.cons2)), key=lambda l: l.consonant_type.group)
         self.letters = list(filter(None, (self.cons1, self.cons2, self.vowel)))
         self.text = ''.join(letter.text for letter in self.letters)
 
@@ -223,7 +222,7 @@ class Syllable:
 
     def _handle_visible_vowel_press(self, point: Point) -> bool:
         """Handle press events for visible vowels."""
-        if self.vowel and self.vowel.decoration_type is not VowelDecoration.HIDDEN and self.vowel.press(point):
+        if self.vowel and self.vowel.vowel_type is not VowelType.HIDDEN and self.vowel.press(point):
             self.pressed_type = PressedType.CHILD
             self._pressed = self.vowel
             return True
@@ -231,7 +230,7 @@ class Syllable:
 
     def _handle_hidden_vowel_press(self, point: Point) -> bool:
         """Handle press events for hidden vowels."""
-        if self.vowel and self.vowel.decoration_type is VowelDecoration.HIDDEN and self.vowel.press(point):
+        if self.vowel and self.vowel.vowel_type is VowelType.HIDDEN and self.vowel.press(point):
             self.pressed_type = PressedType.CHILD
             self._pressed = self.vowel
             return True
@@ -309,21 +308,21 @@ class Syllable:
         # Clear the image
         self._draw.rectangle(((0, 0), self._image.size), fill=SYLLABLE_BG)
 
-        if self.vowel and self.vowel.decoration_type is VowelDecoration.HIDDEN:
-            self.vowel.draw_decoration()
-        self._draw_cons_decoration()
+        if self.vowel and self.vowel.vowel_type is VowelType.HIDDEN:
+            self.vowel.draw()
+        self._draw_consonants()
         self._draw_inner_circle()
-        if self.vowel and self.vowel.decoration_type is not VowelDecoration.HIDDEN:
-            self.vowel.draw_decoration()
+        if self.vowel and self.vowel.vowel_type is not VowelType.HIDDEN:
+            self.vowel.draw()
 
         # Paste the outer circle image
         self._image.paste(self._border_image, mask=self._mask_image)
         self._image_ready = True
         return self._image
 
-    def _draw_cons_decoration(self):
+    def _draw_consonants(self):
         for cons in self.consonants:
-            cons.draw_decoration()
+            cons.draw()
 
     def _draw_inner_circle(self):
         for args in self._inner_circle_arg_dict:

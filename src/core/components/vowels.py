@@ -3,12 +3,12 @@ from abc import ABC
 from enum import Enum
 from typing import List, Dict
 
-from src.utils import Point, PressedType, line_width, half_line_distance, MIN_RADIUS, \
-    SYLLABLE_COLOR, SYLLABLE_BG
 from .letters import Letter, LetterType
+from ..utils import Point, PressedType, line_width, half_line_distance
+from ...config import MIN_RADIUS, SYLLABLE_COLOR, SYLLABLE_BG
 
 
-class VowelDecoration(str, Enum):
+class VowelType(str, Enum):
     LARGE = 'l'
     WANDERING = 'w'
     ROTATING = 'r'
@@ -17,11 +17,11 @@ class VowelDecoration(str, Enum):
 
 
 class Vowel(Letter, ABC):
-    """Base class for vowel decorations."""
+    """Base class for vowels."""
 
-    def __init__(self, text: str, borders: str, decoration_type: VowelDecoration):
+    def __init__(self, text: str, borders: str, vowel_type: VowelType):
         super().__init__(text, LetterType.VOWEL, borders)
-        self.decoration_type = decoration_type
+        self.vowel_type = vowel_type
 
         self._radius = 0.0
         self._distance = 0.0
@@ -44,7 +44,7 @@ class Vowel(Letter, ABC):
             self._set_direction(point.direction())
             self._update_image_properties()
 
-    def draw_decoration(self):
+    def draw(self):
         for args in self._ellipse_args:
             self._image.ellipse(**args)
 
@@ -62,25 +62,25 @@ class Vowel(Letter, ABC):
         self._center = Point(math.cos(self.direction) * self._distance, math.sin(self.direction) * self._distance)
 
     @staticmethod
-    def get_vowel(text: str, border: str, decoration_code: str):
-        decoration_type = VowelDecoration(decoration_code)
-        decoration_map = {
-            VowelDecoration.LARGE: LargeVowel,
-            VowelDecoration.WANDERING: WanderingVowel,
-            VowelDecoration.ROTATING: RotatingVowel,
-            VowelDecoration.CENTER: CenterVowel,
-            VowelDecoration.HIDDEN: HiddenVowel,
+    def get_vowel(text: str, border: str, vowel_type_code: str):
+        vowel_type = VowelType(vowel_type_code)
+        vowel_classes = {
+            VowelType.LARGE: LargeVowel,
+            VowelType.WANDERING: WanderingVowel,
+            VowelType.ROTATING: RotatingVowel,
+            VowelType.CENTER: CenterVowel,
+            VowelType.HIDDEN: HiddenVowel,
         }
-        if decoration_type not in decoration_map:
-            raise ValueError(f"No such vowel decoration: {decoration_type} (letter={text})")
-        return decoration_map[decoration_type](text, border)
+        if vowel_type not in vowel_classes:
+            raise ValueError(f"No such vowel type: {vowel_type} (letter={text})")
+        return vowel_classes[vowel_type](text, border)
 
 
 class LargeVowel(Vowel):
     DEFAULT_RATIO = 0.75
 
     def __init__(self, text: str, borders: str):
-        super().__init__(text, borders, VowelDecoration.LARGE)
+        super().__init__(text, borders, VowelType.LARGE)
 
         self._set_personal_direction(0)
 
@@ -102,7 +102,7 @@ class LargeVowel(Vowel):
 
 class WanderingVowel(Vowel):
     def __init__(self, text: str, borders: str):
-        super().__init__(text, borders, VowelDecoration.WANDERING)
+        super().__init__(text, borders, VowelType.WANDERING)
 
     def _update_syllable_properties(self, syllable):
         super()._update_syllable_properties(syllable)
@@ -125,7 +125,7 @@ class RotatingVowel(Vowel):
     RATIO = 0.45
 
     def __init__(self, text: str, borders: str):
-        super().__init__(text, borders, VowelDecoration.ROTATING)
+        super().__init__(text, borders, VowelType.ROTATING)
 
     def _update_syllable_properties(self, syllable):
         super()._update_syllable_properties(syllable)
@@ -145,7 +145,7 @@ class CenterVowel(Vowel):
     RATIO = 0.5
 
     def __init__(self, text: str, borders: str):
-        super().__init__(text, borders, VowelDecoration.CENTER)
+        super().__init__(text, borders, VowelType.CENTER)
 
     def _update_syllable_properties(self, syllable):
         super()._update_syllable_properties(syllable)
@@ -165,4 +165,4 @@ class CenterVowel(Vowel):
 class HiddenVowel(RotatingVowel):
     def __init__(self, text: str, borders: str):
         super().__init__(text, borders)
-        self.decoration_type = VowelDecoration.HIDDEN
+        self.vowel_type = VowelType.HIDDEN

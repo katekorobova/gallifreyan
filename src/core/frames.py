@@ -71,6 +71,7 @@ class CanvasFrame(tk.Frame):
     def __init__(self, win: tk.Tk):
         super().__init__(win, bg=WINDOW_BG)
         self.word: Optional[Word] = None
+        self.pressed: Optional[Word] = None
 
         # Entry widget with validation
         self.entry = tk.Entry(
@@ -151,3 +152,7 @@ class CanvasFrame(tk.Frame):
         else:
             self.word = Word(Point(*WORD_INITIAL_POSITION), letters)
         self._redraw()
+
+    def get_image(self):
+        if self.word:
+            return self.word.get_image()

@@ -354,3 +354,6 @@ class Word:
 
     def _check_syllable_start(self, index, letter) -> bool:
         return self.syllable_indices[index] and self.syllable_indices[index].cons1 is letter
+
+    def get_image(self) -> Image:
+        return self._image

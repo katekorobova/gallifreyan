@@ -16,7 +16,6 @@ BUTTON_BG = '#11114D'
 CANVAS_BG = 'white'
 CANVAS_WIDTH = 800
 CANVAS_HEIGHT = 600
-MENU_BAR_HEIGHT = 22
 
 # ==========================
 # Color Constants (RGBA)

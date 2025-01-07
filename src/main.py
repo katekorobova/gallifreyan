@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
-from .config import PADX, PADY, WINDOW_BG, MENU_BAR_HEIGHT
+from .config import PADX, PADY, WINDOW_BG
 from .core import repository
 from .core.components.letters import LetterType
 from .core.frames import LetterFrame, CanvasFrame
@@ -30,7 +30,11 @@ class App(tk.Tk):
         self.title('Gallifreyan')
         self.config(menu=menu_bar, bg=WINDOW_BG)
         self.update_idletasks()
-        self.geometry(f"{self.winfo_width()}x{self.winfo_height() + MENU_BAR_HEIGHT}")
+
+        window_width = self.winfo_width()
+        window_height = self.winfo_height()
+        menu_height = self.winfo_rooty() - self.winfo_y()
+        self.geometry(f"{window_width}x{window_height + menu_height}")
 
     @staticmethod
     def _initialize_character_repository():

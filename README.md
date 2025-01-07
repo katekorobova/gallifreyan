@@ -10,13 +10,15 @@ Resizable Elements: Adjust the size of words, syllables, and inner circles for b
 
 Element Positioning: Move and reposition various components, including words, syllables, vowels, and consonants.
 
+Image Export: Save your designs as PNG images for easy sharing and use.
+
 ## Future Plans
 
 Sentence Support: Expand functionality to support full sentences.
 
 Customization Options: Introduce additional features for enhanced customization.
 
-Image Export: Export your creations as PNG or SVG files for easy sharing and use.
+SVG Export: Allow designs to be exported as SVG files for higher-quality and scalable outputs.
 
 ## How to Run the Program
 

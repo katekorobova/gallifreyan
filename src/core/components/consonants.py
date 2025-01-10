@@ -4,9 +4,8 @@ import math
 from abc import ABC, abstractmethod
 from collections import Counter
 from enum import Enum
-from typing import List, Dict
 
-from .letters import Letter, LetterType
+from .characters import Letter, LetterType
 from ..utils import Point, line_width
 from ...config import SYLLABLE_COLOR, SYLLABLE_BG, DOT_RADIUS, MIN_RADIUS
 
@@ -65,6 +64,7 @@ class Consonant(Letter, ABC):
         raise ValueError(f"Unsupported consonant type: {consonant_type}")
 
     @staticmethod
+    # Not in use since the introduction of syllable separators
     def compatible(cons1: Consonant, cons2: Consonant) -> bool:
         """Determine compatibility between two consonants."""
         allow_double = {ConsonantType.SIMILAR_DOTS, ConsonantType.DIFFERENT_DOTS, ConsonantType.BLACK_DOT,
@@ -104,7 +104,7 @@ class LineBasedConsonant(Consonant, ABC):
         self._pressed_id = 0
         self._width = 0.0
         self._half_width = 0.0
-        self._line_args: List[Dict] = []
+        self._line_args: list[dict] = []
 
     def _calculate_endpoints(self):
         """Calculate the endpoints for the line."""
@@ -328,7 +328,7 @@ class DotConsonant(Consonant, ABC):
         self._distance = max((outer_radius - border_offset[0] + inner_radius + border_offset[1]) / 2, MIN_RADIUS)
         self._radius = syllable.scale * DOT_RADIUS
 
-    def _get_bounds(self, center: Point) -> Dict:
+    def _get_bounds(self, center: Point) -> dict:
         """Calculate bounding box for an ellipse."""
 
         start = (self.IMAGE_CENTER + center).shift(-self._radius)
@@ -343,7 +343,7 @@ class DualDotConsonant(DotConsonant):
         super().__init__(text, borders, consonant_type)
         self._centers = Point(), Point()
         self._pressed_id = 0
-        self._ellipse_args: List[Dict] = []
+        self._ellipse_args: list[dict] = []
 
     def press(self, point: Point) -> bool:
         for i, center in enumerate(self._centers):

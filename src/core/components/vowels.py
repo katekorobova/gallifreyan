@@ -1,9 +1,8 @@
 import math
 from abc import ABC
 from enum import Enum
-from typing import List, Dict
 
-from .letters import Letter, LetterType
+from .characters import Letter, LetterType
 from ..utils import Point, PressedType, line_width, half_line_distance
 from ...config import MIN_RADIUS, SYLLABLE_COLOR, SYLLABLE_BG
 
@@ -28,7 +27,7 @@ class Vowel(Letter, ABC):
         self._center = Point()
         self._bias = Point()
         self.pressed_type = PressedType.PARENT
-        self._ellipse_args: List[Dict] = []
+        self._ellipse_args: list[dict] = []
 
     def press(self, point: Point) -> bool:
         delta = point - self._center
@@ -48,7 +47,7 @@ class Vowel(Letter, ABC):
         for args in self._ellipse_args:
             self._image.ellipse(**args)
 
-    def _update_ellipse_args(self, radii: List[float]):
+    def _update_ellipse_args(self, radii: list[float]):
         """Helper to calculate ellipse arguments."""
         self._ellipse_args = []
         for i, width in enumerate(self.line_widths):

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import math
 from enum import Enum, auto
-from typing import List
 
 from ..config.constants import LINE_WIDTHS, MIN_LINE_WIDTH, HALF_LINE_DISTANCE, MIN_HALF_LINE_DISTANCE
 
@@ -51,11 +50,6 @@ class Point(tuple):
 # ==========================
 # Utility Functions
 # ==========================
-def unique(items: List) -> List:
-    """Return a list of unique items while preserving order."""
-    seen = set()
-    return [item for item in items if not (item in seen or seen.add(item))]
-
 
 def line_width(typ: str, scale: float) -> int:
     """Calculate the line width based on type and scale, ensuring a minimum value."""

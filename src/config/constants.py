@@ -67,3 +67,4 @@ MIN_LINE_WIDTH = {'1': 1, '2': 2}
 # Miscellaneous Constants
 # ==========================
 ALEPH = 'א'  # Hebrew Aleph letter
+SYLLABLE_SEPARATOR = '-'

@@ -3,8 +3,8 @@ from tkinter import filedialog, messagebox
 
 from .config import PADX, PADY, WINDOW_BG
 from .core import repository
-from .core.components.letters import LetterType
-from .core.frames import LetterFrame, CanvasFrame
+from .core.components.characters import LetterType
+from .core.frames import LetterFrame, CanvasFrame, SeparatorFrame
 
 SAVE_ERROR = "Save Error"
 
@@ -46,16 +46,19 @@ class App(tk.Tk):
         self.canvas_frame = CanvasFrame(self)
         self.consonant_frame = LetterFrame(LetterType.CONSONANT, self, self.canvas_frame.entry)
         self.vowel_frame = LetterFrame(LetterType.VOWEL, self, self.canvas_frame.entry)
+        self.separator_frame = SeparatorFrame('-', self, self.canvas_frame.entry)
 
     def _layout_frames(self):
         """Place the frames in the application window using a grid layout."""
-        self.canvas_frame.grid(row=0, column=1, rowspan=2, padx=PADX, pady=PADY)
-        self.consonant_frame.grid(row=0, column=0, padx=PADX, pady=PADY)
+        self.canvas_frame.grid(row=0, column=2, rowspan=2, padx=PADX, pady=PADY)
+        self.consonant_frame.grid(row=0, column=0, columnspan=2, padx=PADX, pady=PADY)
         self.vowel_frame.grid(row=1, column=0, padx=PADX, pady=PADY)
+        self.separator_frame.grid(row=1, column=1, padx=PADX, pady=PADY)
 
     def _save_png(self):
         """Save the current canvas content as a PNG file."""
         image = self.canvas_frame.get_image()
+        name = self.canvas_frame.entry.get()
 
         if image is None:
             messagebox.showerror(SAVE_ERROR, "The canvas is empty.")
@@ -64,7 +67,7 @@ class App(tk.Tk):
         filename = filedialog.asksaveasfilename(
             title="Save as",
             filetypes=[("PNG Files", "*.png")],
-            defaultextension=".png")
+            initialfile=name, defaultextension=".png")
 
         if not filename:
             return  # User cancelled the save dialog

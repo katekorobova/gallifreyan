@@ -2,12 +2,40 @@ import math
 import random
 from abc import ABC, abstractmethod
 from enum import auto, Enum
-from typing import Optional, List
+from typing import Optional
 
 from PIL import ImageDraw
 
 from ..utils import Point, line_width
 from ...config import SYLLABLE_IMAGE_RADIUS
+
+
+class CharacterType(Enum):
+    """Enumeration to represent types of letters."""
+    LETTER = auto()
+    SEPARATOR = auto()
+
+
+class Character(ABC):
+    def __init__(self, text: str, character_type: CharacterType):
+        """
+        Initialize a Character instance.
+
+        :param text: The textual representation of the character.
+        :param character_type: The type of the character.
+        """
+        self.text = text
+        self.character_type = character_type
+
+
+class Separator(Character):
+    def __init__(self, text: str):
+        """
+        Initialize a Separator instance.
+
+        :param text: The textual representation of the separator.
+        """
+        super().__init__(text, CharacterType.SEPARATOR)
 
 
 class LetterType(Enum):
@@ -16,7 +44,7 @@ class LetterType(Enum):
     VOWEL = auto()
 
 
-class Letter(ABC):
+class Letter(Character):
     """Abstract base class representing a generic letter."""
     IMAGE_CENTER = Point(SYLLABLE_IMAGE_RADIUS, SYLLABLE_IMAGE_RADIUS)
 
@@ -28,14 +56,14 @@ class Letter(ABC):
         :param letter_type: The type of the letter (CONSONANT/VOWEL).
         :param borders: A string representing the letter's border properties.
         """
-        self.text = text
+        super().__init__(text, CharacterType.LETTER)
         self.letter_type = letter_type
         self.borders = borders
         self.parent_direction = 0.0
         self._set_personal_direction(random.uniform(0.9 * math.pi, 1.1 * math.pi))
 
-        self.line_widths: List[int] = []
-        self.half_line_widths: List[float] = []
+        self.line_widths: list[int] = []
+        self.half_line_widths: list[float] = []
         self._half_line_distance = 0.0
         self._image: Optional[ImageDraw.ImageDraw] = None
 

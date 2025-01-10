@@ -13,17 +13,17 @@ PADY = 10
 FONT = ('Segoe UI', 14)
 WINDOW_BG = 'midnightblue'
 BUTTON_BG = '#11114D'
-CANVAS_BG = 'white'
+CANVAS_BG = 'black'  # 'white'
 CANVAS_WIDTH = 800
 CANVAS_HEIGHT = 600
 
 # ==========================
 # Color Constants (RGBA)
 # ==========================
-SYLLABLE_BG = (150, 150, 255, 200)
-WORD_BG = (200, 220, 255, 255)
-SYLLABLE_COLOR = (34, 42, 131, 255)
-WORD_COLOR = (0, 50, 150, 255)
+SYLLABLE_BG = (0, 0, 0)  # (150, 150, 255, 200)
+WORD_BG = (0, 0, 0)  # (200, 220, 255, 255)
+SYLLABLE_COLOR = (255, 222, 102)  # (34, 42, 131, 255)
+WORD_COLOR = (255, 209, 135)  # (0, 50, 150, 255)
 
 # ==========================
 # Scaling and Geometry Constants

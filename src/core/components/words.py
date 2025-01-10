@@ -93,7 +93,7 @@ class Word:
             self.tail = []
 
         self.syllables = syllables
-        self.text = ''.join(map(lambda s: s.text, syllables))
+        self.text = ''.join(s.text for s in syllables)
 
     def press(self, point: Point) -> bool:
         """Handle press events."""
@@ -362,17 +362,21 @@ class Word:
                 state.completed = True
             else:
                 aleph = Consonant.get_consonant(ALEPH, *repository.get().consonants[ALEPH])
-                self.syllables_by_indices[index] = Syllable(aleph, vowel=vowel)
+                self.syllables_by_indices[index] = Syllable(aleph, vowel)
 
     def _process_separator(self, index: int, separator: Separator, state: _RedistributionState) -> None:
         """Process vowel letters and update syllables."""
-        state.syllable = None
-        state.cons2 = None
 
-        if self.syllables_by_indices[index]:
-            state.completed = True
+        if state.syllable and state.syllable.add(separator):
+            self.syllables_by_indices[index] = state.syllable
         else:
-            self.syllables_by_indices[index] = SeparatorSyllable(separator)
+            state.syllable = None
+            state.cons2 = None
+
+            if self.syllables_by_indices[index]:
+                state.completed = True
+            else:
+                self.syllables_by_indices[index] = SeparatorSyllable(separator)
 
     def _check_syllable_start(self, index: int, consonant: Consonant) -> bool:
         return self.syllables_by_indices[index] and self.syllables_by_indices[index].head is consonant

@@ -37,7 +37,30 @@ class AbstractSyllable(ABC):
 class SeparatorSyllable(AbstractSyllable):
     def __init__(self, separator: Separator):
         super().__init__(separator)
-        self.separator = separator
+        self.characters = [separator]
+
+    def remove_starting_with(self, character: Character) -> None:
+        """
+        Remove a character from the syllable, updating properties accordingly.
+        """
+        if isinstance(character, Separator) and character in self.characters:
+            index = self.characters.index(character)
+            self.characters[index:] = []
+            self._update_syllable_properties()
+
+    def add(self, character: Character) -> bool:
+        """
+        Add a character to the syllable, if valid.
+        """
+        if isinstance(character, Separator):
+            self.characters.append(character)
+            self._update_syllable_properties()
+            return True
+        else:
+            return False
+
+    def _update_syllable_properties(self):
+        self.text = ''.join(char.text for char in self.characters)
 
 
 class Syllable(AbstractSyllable):
@@ -46,10 +69,11 @@ class Syllable(AbstractSyllable):
     """
     IMAGE_CENTER = Point(SYLLABLE_IMAGE_RADIUS, SYLLABLE_IMAGE_RADIUS)
 
-    def __init__(self, cons1: Consonant, cons2: Optional[Consonant] = None, vowel: Optional[Vowel] = None):
+    def __init__(self, cons1: Consonant, vowel: Vowel = None):
         # Core attributes
         super().__init__(cons1)
-        self.cons1, self.cons2, self.vowel = cons1, cons2, vowel
+        self.cons1, self.vowel = cons1, vowel
+        self.cons2 = None
         self._following: Optional[Syllable] = None
         self._inner: Optional[Consonant] = None
         self.consonants: list[Consonant] = []

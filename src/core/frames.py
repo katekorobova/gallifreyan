@@ -133,7 +133,6 @@ class CanvasFrame(tk.Frame):
         self.pressed = None
 
     def _redraw(self):
-        # self.canvas.delete('all')
         if self.word:
             self.word.create_image(self.canvas)
 

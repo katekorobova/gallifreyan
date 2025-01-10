@@ -1,11 +1,12 @@
 import math
 import random
-from typing import Dict, List, Optional, Tuple
+from abc import ABC
+from typing import Optional
 
 from PIL import Image, ImageDraw
 
 from .consonants import Consonant
-from .letters import Letter
+from .characters import Letter, Separator, Character
 from .vowels import Vowel, VowelType
 from ..utils import Point, PressedType, half_line_distance
 from ...config import (MIN_RADIUS, OUTER_CIRCLE_RADIUS,
@@ -14,7 +15,32 @@ from ...config import (MIN_RADIUS, OUTER_CIRCLE_RADIUS,
                        INNER_INITIAL_SCALE_MAX, INNER_SCALE_MIN, INNER_SCALE_MAX)
 
 
-class Syllable:
+class AbstractSyllable(ABC):
+
+    def __init__(self, head: Character):
+        self.head = head
+        self.text = head.text
+
+    def remove_starting_with(self, _: Character) -> None:
+        """
+        Remove a character from the syllable, updating properties accordingly.
+        """
+        pass
+
+    def add(self, _: Character) -> bool:
+        """
+        Add a character to the syllable, if valid.
+        """
+        return False
+
+
+class SeparatorSyllable(AbstractSyllable):
+    def __init__(self, separator: Separator):
+        super().__init__(separator)
+        self.separator = separator
+
+
+class Syllable(AbstractSyllable):
     """
     Represents a syllable, combining consonants and vowels into structured elements with visual representation.
     """
@@ -22,12 +48,12 @@ class Syllable:
 
     def __init__(self, cons1: Consonant, cons2: Optional[Consonant] = None, vowel: Optional[Vowel] = None):
         # Core attributes
+        super().__init__(cons1)
         self.cons1, self.cons2, self.vowel = cons1, cons2, vowel
-        self._inner: Optional[Consonant] = None
         self._following: Optional[Syllable] = None
-        self.consonants: List[Consonant] = []
-        self.letters: List[Letter] = []
-        self.text = ''
+        self._inner: Optional[Consonant] = None
+        self.consonants: list[Consonant] = []
+        self.letters: list[Letter] = []
 
         # Scale, radius, and positioning attributes
         self._parent_scale = 1.0
@@ -44,7 +70,7 @@ class Syllable:
         self._image, self._draw = self._create_empty_image()
         self._border_image, self._border_draw = self._create_empty_image()
         self._mask_image, self._mask_draw = self._create_empty_image('1')
-        self._inner_circle_arg_dict: List[Dict] = []
+        self._inner_circle_arg_dict: list[dict] = []
         self._image_ready = False
 
         self._initialize_letters()
@@ -57,7 +83,7 @@ class Syllable:
         self._point_bias = Point()
 
     @classmethod
-    def _create_empty_image(cls, mode: str = 'RGBA') -> Tuple[Image.Image, ImageDraw.Draw]:
+    def _create_empty_image(cls, mode: str = 'RGBA') -> tuple[Image.Image, ImageDraw.Draw]:
         """Create an empty image with the specified mode."""
         image = Image.new(mode, (cls.IMAGE_CENTER * 2))
         return image, ImageDraw.Draw(image)
@@ -110,7 +136,7 @@ class Syllable:
                 self._inner_circle_arg_dict.append(
                     self._create_circle_args(adjusted_radius, self._inner.line_widths[i]))
 
-    def _create_circle_args(self, adjusted_radius: float, line_width: float) -> Dict:
+    def _create_circle_args(self, adjusted_radius: float, line_width: float) -> dict:
         """Generate circle arguments for drawing."""
         start, end = self.IMAGE_CENTER.shift(-adjusted_radius), self.IMAGE_CENTER.shift(adjusted_radius)
         return {'xy': (start, end), 'outline': SYLLABLE_COLOR, 'fill': SYLLABLE_BG, 'width': line_width}
@@ -139,29 +165,33 @@ class Syllable:
             self._border_draw.ellipse((start, end), outline=SYLLABLE_COLOR, width=self.cons1.line_widths[1])
             self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self.cons1.line_widths[1])
 
-    def remove_starting_with(self, letter: Letter):
+    def set_following(self, following) -> None:
+        self._following = following
+
+    def remove_starting_with(self, character: Character):
         """Remove a letter from the syllable, updating properties accordingly."""
-        if letter == self.cons2:
+        if character == self.cons2:
             self.cons2, self.vowel = None, None
-        elif letter == self.vowel:
+        elif character == self.vowel:
             self.vowel = None
         else:
-            raise ValueError(f'Letter {letter.text} not found in syllable {self.text}')
+            raise ValueError(f'Letter {character.text} not found in syllable {self.text}')
         self._update_syllable_properties()
         self._image_ready = False
 
-    def add(self, letter: Letter) -> bool:
+    def add(self, character: Character) -> bool:
         """Add a letter to the syllable, if valid."""
-        if isinstance(letter, Vowel) and not self.vowel:
-            self.vowel = letter
-        elif isinstance(letter, Consonant) \
-                and not self.cons2 and not self.vowel and Consonant.compatible(self.cons1, letter):
-            self.cons2 = letter
+        if isinstance(character, Vowel) and not self.vowel:
+            self.vowel = character
+        elif isinstance(character, Consonant) \
+                and not self.cons2 and not self.vowel:
+            # and not self.cons2 and not self.vowel and Consonant.compatible(self.cons1, character):
+            self.cons2 = character
         else:
             return False
 
-        letter.set_image(self._draw)
-        letter.update_properties(self)
+        character.set_image(self._draw)
+        character.update_properties(self)
         self._update_syllable_properties()
         self._image_ready = False
         return True
@@ -296,9 +326,6 @@ class Syllable:
 
         if self._following:
             self._following.resize(self.scale)
-
-    def set_following(self, following):
-        self._following = following
 
     def create_image(self) -> Image:
         """Render the syllable image."""

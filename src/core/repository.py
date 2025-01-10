@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import json
-from typing import Optional, List, Dict, Tuple
+from typing import Optional
 
-from .components.letters import LetterType
+from .components.characters import LetterType, CharacterType
+from ..config import SYLLABLE_SEPARATOR
 
 _repository: Optional[_CharacterRepository] = None  # Global repository instance
 
@@ -13,11 +14,14 @@ class _CharacterRepository:
     vowel_file_path = 'src/config/vowels.json'
 
     def __init__(self):
-        self.letters: Dict[LetterType, Dict[str, Tuple[str, str]]] = {LetterType.CONSONANT: {}, LetterType.VOWEL: {}}
-        self.tables: Dict[LetterType, List[List[str]]] = {LetterType.CONSONANT: [], LetterType.VOWEL: []}
-        self.borders: Dict[LetterType, List[str]] = {LetterType.CONSONANT: [], LetterType.VOWEL: []}
-        self.types: Dict[LetterType, List[str]] = {LetterType.CONSONANT: [], LetterType.VOWEL: []}
-        self.all: Dict[str, Tuple[LetterType, str, str]] = {}
+        self.consonants: dict[str, tuple[str, str]] = {}
+        self.vowels: dict[str, tuple[str, str]] = {}
+        self.disabled: dict[LetterType, list[str]] = {LetterType.CONSONANT: [], LetterType.VOWEL: []}
+        self.tables: dict[LetterType, list[list[str]]] = {LetterType.CONSONANT: [], LetterType.VOWEL: []}
+        self.borders: dict[LetterType, list[str]] = {LetterType.CONSONANT: [], LetterType.VOWEL: []}
+        self.types: dict[LetterType, list[str]] = {LetterType.CONSONANT: [], LetterType.VOWEL: []}
+        self.all: dict[str, tuple[CharacterType, Optional[list]]] = {
+            SYLLABLE_SEPARATOR: (CharacterType.SEPARATOR, None)}
 
         # Load data for consonants and vowels
         self._load_letters(self.consonant_file_path, LetterType.CONSONANT)
@@ -31,21 +35,32 @@ class _CharacterRepository:
         with open(file_path, 'r', encoding='utf-8') as file:
             data = json.load(file)
 
-        # Determine which attributes to update based on letter type
-        table_attr = 'consonant_table' if letter_type == LetterType.CONSONANT else 'vowel_table'
         table = data['letters']
-        setattr(self, table_attr, table)
-
         borders = data['borders']
         types = data['types']
+        disabled = data['disabled']
 
         # Populate dictionaries
+        letters: dict[str, tuple[str, str]] = {}
         for i, row in enumerate(table):
             for j, letter in enumerate(row):
                 border, typ = borders[i], types[j]
-                self.letters[letter_type][letter] = (border, typ)
-                self.all[letter] = (letter_type, border, typ)
+                letters[letter] = (border, typ)
+                if letter not in disabled:
+                    self.all[letter] = CharacterType.LETTER, [letter_type, border, typ]
 
+        # Determine which attributes to update based on letter type
+        if letter_type == LetterType.CONSONANT:
+            table_attr = 'consonant_table'
+            letters_attr = 'consonants'
+        else:
+            table_attr = 'vowel_table'
+            letters_attr = 'vowels'
+
+        setattr(self, letters_attr, letters)
+        setattr(self, table_attr, table)
+
+        self.disabled[letter_type] = disabled
         self.tables[letter_type] = table
         self.borders[letter_type] = borders
         self.types[letter_type] = types
@@ -56,7 +71,6 @@ def initialize():
     global _repository
     if _repository is not None:
         raise RuntimeError("Character repository has already been initialized.")
-
     _repository = _CharacterRepository()
 
 

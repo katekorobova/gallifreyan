@@ -46,7 +46,7 @@ class App(tk.Tk):
         self.canvas_frame = CanvasFrame(self)
         self.consonant_frame = LetterFrame(LetterType.CONSONANT, self, self.canvas_frame.entry)
         self.vowel_frame = LetterFrame(LetterType.VOWEL, self, self.canvas_frame.entry)
-        self.separator_frame = SeparatorFrame('-', self, self.canvas_frame.entry)
+        self.separator_frame = SeparatorFrame(['-', ' '], self, self.canvas_frame.entry)
 
     def _layout_frames(self):
         """Place the frames in the application window using a grid layout."""
@@ -57,7 +57,7 @@ class App(tk.Tk):
 
     def _save_png(self):
         """Save the current canvas content as a PNG file."""
-        image = self.canvas_frame.get_image()
+        image = self.canvas_frame.sentence.get_image()
         name = self.canvas_frame.entry.get()
 
         if image is None:

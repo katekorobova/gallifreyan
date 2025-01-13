@@ -71,7 +71,7 @@ class Vowel(Letter, ABC):
             VowelType.HIDDEN: HiddenVowel,
         }
         if vowel_type not in vowel_classes:
-            raise ValueError(f"No such vowel type: {vowel_type} (letter={text})")
+            raise ValueError(f"No such vowel type: '{vowel_type}' (letter='{text}')")
         return vowel_classes[vowel_type](text, border)
 
 

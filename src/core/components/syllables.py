@@ -5,8 +5,8 @@ from typing import Optional
 
 from PIL import Image, ImageDraw
 
-from .consonants import Consonant
 from .characters import Letter, Separator, Character
+from .consonants import Consonant
 from .vowels import Vowel, VowelType
 from ..utils import Point, PressedType, half_line_distance
 from ...config import (MIN_RADIUS, OUTER_CIRCLE_RADIUS,
@@ -46,7 +46,7 @@ class SeparatorSyllable(AbstractSyllable):
         if isinstance(character, Separator) and character in self.characters:
             index = self.characters.index(character)
             self.characters[index:] = []
-            self._update_syllable_properties()
+            self._update_text()
 
     def add(self, character: Character) -> bool:
         """
@@ -54,12 +54,12 @@ class SeparatorSyllable(AbstractSyllable):
         """
         if isinstance(character, Separator):
             self.characters.append(character)
-            self._update_syllable_properties()
+            self._update_text()
             return True
         else:
             return False
 
-    def _update_syllable_properties(self):
+    def _update_text(self):
         self.text = ''.join(char.text for char in self.characters)
 
 
@@ -199,7 +199,7 @@ class Syllable(AbstractSyllable):
         elif character == self.vowel:
             self.vowel = None
         else:
-            raise ValueError(f'Letter {character.text} not found in syllable {self.text}')
+            raise ValueError(f"Letter '{character.text}' not found in syllable '{self.text}'")
         self._update_syllable_properties()
         self._image_ready = False
 

@@ -14,6 +14,7 @@ class CharacterType(Enum):
     """Enumeration to represent types of letters."""
     LETTER = auto()
     SEPARATOR = auto()
+    SPACE = auto()
 
 
 class Character(ABC):
@@ -36,6 +37,16 @@ class Separator(Character):
         :param text: The textual representation of the separator.
         """
         super().__init__(text, CharacterType.SEPARATOR)
+
+
+class Space(Character):
+    def __init__(self, text: str):
+        """
+        Initialize a Separator instance.
+
+        :param text: The textual representation of the separator.
+        """
+        super().__init__(text, CharacterType.SPACE)
 
 
 class LetterType(Enum):

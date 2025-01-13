@@ -1,12 +1,14 @@
+import logging
 import math
 import tkinter as tk
+from abc import ABC
 from dataclasses import dataclass
 from itertools import count, repeat
 from typing import Optional
 
 from PIL import ImageTk, Image, ImageDraw
 
-from .characters import Character, Separator
+from .characters import Character, Separator, CharacterType
 from .syllables import Consonant, Syllable, SeparatorSyllable, AbstractSyllable
 from .vowels import Vowel
 from .. import repository
@@ -28,10 +30,40 @@ def unique_syllables(items: list[AbstractSyllable]) -> list[Syllable]:
     return [item for item in items if not (item in seen or seen.add(item)) and isinstance(item, Syllable)]
 
 
-class Word:
+class AbstractWord(ABC):
+    def __init__(self):
+        self.characters: list[Character] = []
+        self.text = ''
+
+    def insert_characters(self, index: int, characters: list[Character]) -> bool:
+        """Insert characters at a specific index """
+        self.characters[index:index] = characters
+        return True
+
+    def remove_starting_with(self, index: int):
+        """Remove characters from the word, updating properties accordingly."""
+        self.characters[index:] = []
+
+
+class SpaceWord(AbstractWord):
+    def __init__(self, characters: list[Character]):
+        super().__init__()
+        self.characters = characters
+        self.text = ''.join(character.text for character in characters)
+
+    def insert_characters(self, index: int, characters: list[Character]) -> bool:
+        """Insert characters at a specific index """
+        if any(character.character_type != CharacterType.SPACE for character in characters):
+            return False
+
+        return super().insert_characters(index, characters)
+
+
+class Word(AbstractWord):
     IMAGE_CENTER = Point(WORD_IMAGE_RADIUS, WORD_IMAGE_RADIUS)
 
     def __init__(self, center: Point, characters: list[Character]):
+        super().__init__()
         self.center = center
         self.borders = '21'
         self.outer_radius = 0.0
@@ -48,11 +80,9 @@ class Word:
         self.canvas_item_id: Optional[int] = None
 
         # Initialize syllables and their relationships
-        self.characters: list[Character] = []
         self.syllables: list[Syllable] = []
         self.head: Optional[Syllable] = None
         self.tail: list[Syllable] = []
-        self.text = ''
         self.syllables_by_indices: list[Optional[AbstractSyllable]] = []
         self.insert_characters(0, characters)
 
@@ -87,7 +117,7 @@ class Word:
             if not self.tail:
                 self.head.resize(parent_scale=1, personal_scale=self.scale)
                 self.scale = 1
-                self._update_image_properties()
+            self._update_image_properties()
         else:
             self.head = None
             self.tail = []
@@ -190,6 +220,7 @@ class Word:
     def create_image(self, canvas: tk.Canvas):
         """Create and display the word image on the canvas."""
         if self._image_ready:
+            canvas.tag_raise(self.canvas_item_id)
             return
 
         canvas.delete(self.canvas_item_id)
@@ -256,6 +287,15 @@ class Word:
             self._border_draw.ellipse((start, end), outline=WORD_COLOR, width=self._widths[1])
             self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._widths[1])
 
+    def remove_starting_with(self, index: int):
+        """Remove characters from the word, updating properties accordingly."""
+        self._split_syllable(index)
+
+        super().remove_starting_with(index)
+        self.syllables_by_indices[index:] = []
+        self.set_syllables(unique_syllables(self.syllables_by_indices))
+        self._image_ready = False
+
     def remove_characters(self, index: int, deleted: str):
         """Remove characters from the word and update syllables."""
         first = self.syllables_by_indices[index]
@@ -279,11 +319,14 @@ class Word:
         self.set_syllables(unique_syllables(self.syllables_by_indices))
         self._image_ready = False
 
-    def insert_characters(self, index: int, characters: list[Character]):
+    def insert_characters(self, index: int, characters: list[Character]) -> bool:
         """Insert characters at a specific index and update syllables."""
+        if any(character.character_type == CharacterType.SPACE for character in characters):
+            return False
 
         self._split_syllable(index)
-        self.characters[index: index] = characters
+
+        super().insert_characters(index, characters)
         self.syllables_by_indices[index: index] = repeat(None, len(characters))
 
         start = self._absorb_new_letters(index)
@@ -291,16 +334,22 @@ class Word:
 
         self.set_syllables(unique_syllables(self.syllables_by_indices))
         self._image_ready = False
+        return True
 
     def _split_syllable(self, index: int):
         """Split the syllable at the specified index, updating syllables as needed."""
-        if index > 0:
-            syllable = self.syllables_by_indices[index - 1]
-            if index < len(self.characters) and syllable is self.syllables_by_indices[index]:
-                syllable.remove_starting_with(self.characters[index])
-                self.syllables_by_indices[index] = None
-                if index < len(self.characters) - 1 and syllable is self.syllables_by_indices[index + 1]:
-                    self.syllables_by_indices[index + 1] = None
+        try:
+            if index > 0:
+                syllable = self.syllables_by_indices[index - 1]
+                if index < len(self.characters) and syllable is self.syllables_by_indices[index]:
+                    syllable.remove_starting_with(self.characters[index])
+                    for i in range(index, len(self.characters)):
+                        if syllable is self.syllables_by_indices[i]:
+                            self.syllables_by_indices[i] = None
+                        else:
+                            return
+        except Exception as e:
+            logging.exception(e)
 
     def _absorb_new_letters(self, index: int) -> int:
         """Absorb newly inserted letters into existing syllables."""
@@ -326,7 +375,7 @@ class Word:
             elif isinstance(character, Separator):
                 self._process_separator(i, character, state)
             else:
-                raise ValueError(f"No such character: {character.text}")
+                raise ValueError(f"No such character: '{character.text}'")
             if state.completed:
                 break
 

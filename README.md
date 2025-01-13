@@ -4,7 +4,7 @@ This is a graphics editor designed for writing sentences in Doctor's Cot Gallifr
 https://doctorscotgallifreyan.com/ 
 
 ## Current Features
-Single Word Support: Write and visualize single words in Doctor's Cot Gallifreyan.
+Sentence Support: Write and visualize sentences in Doctor's Cot Gallifreyan.
 
 Resizable Elements: Adjust the size of words, syllables, and inner circles for better layout control.
 
@@ -13,8 +13,9 @@ Element Positioning: Move and reposition various components, including words, sy
 Image Export: Save your designs as PNG images for easy sharing and use.
 
 ## Future Plans
+Punctuation and Number Support: Visualize numbers and punctuation marks.
 
-Sentence Support: Expand functionality to support full sentences.
+Animation: Create animated(rotating) images.
 
 Customization Options: Introduce additional features for enhanced customization.
 

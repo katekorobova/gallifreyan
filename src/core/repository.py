@@ -4,7 +4,7 @@ import json
 from typing import Optional
 
 from .components.characters import LetterType, CharacterType
-from ..config import SYLLABLE_SEPARATOR
+from ..config import SEPARATOR, SPACE
 
 _repository: Optional[_CharacterRepository] = None  # Global repository instance
 
@@ -21,7 +21,8 @@ class _CharacterRepository:
         self.borders: dict[LetterType, list[str]] = {LetterType.CONSONANT: [], LetterType.VOWEL: []}
         self.types: dict[LetterType, list[str]] = {LetterType.CONSONANT: [], LetterType.VOWEL: []}
         self.all: dict[str, tuple[CharacterType, Optional[list]]] = {
-            SYLLABLE_SEPARATOR: (CharacterType.SEPARATOR, None)}
+            SEPARATOR: (CharacterType.SEPARATOR, None),
+            SPACE: (CharacterType.SPACE, None)}
 
         # Load data for consonants and vowels
         self._load_letters(self.consonant_file_path, LetterType.CONSONANT)

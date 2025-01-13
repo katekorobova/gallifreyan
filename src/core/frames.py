@@ -1,48 +1,26 @@
 import logging
 import tkinter as tk
-from typing import Optional
 
 from PIL import Image, ImageTk
 
 from . import repository
-from .components.consonants import Consonant
-from .components.characters import CharacterType, LetterType, Separator, Character
-from .components.vowels import Vowel
-from .components.words import Word
-from .utils import Point
+from .components.characters import LetterType
+from .components.sentences import Sentence
 from ..config import (FONT, WINDOW_BG, BUTTON_HEIGHT, BUTTON_WIDTH, BUTTON_IMAGE_SIZE,
-                      CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_BG, WORD_INITIAL_POSITION, BUTTON_BG)
+                      CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_BG, BUTTON_BG)
 
 
-def get_character(text: str, typ: CharacterType, args: Optional[list]) -> Character:
-    def get_letter(letter_text: str, letter_type: LetterType, *letter_args):
-        if letter_type == LetterType.CONSONANT:
-            return Consonant.get_consonant(letter_text, *letter_args)
-        elif letter_type == LetterType.VOWEL:
-            return Vowel.get_vowel(letter_text, *letter_args)
-        else:
-            raise ValueError(f'There is no such letter type: {letter_type} (symbol={letter_text})')
-
-    if typ == CharacterType.LETTER:
-        return get_letter(text, *args)
-    elif typ == CharacterType.SEPARATOR:
-        return Separator(text)
-    else:
-        raise ValueError(f'There is no such character type: {typ} (symbol={text})')
-
-
-class LetterButton(tk.Button):
-    def __init__(self, master: tk.Frame, letter: str, entry: tk.Entry):
-        super().__init__(master, text=letter, font=FONT,
+class CharacterButton(tk.Button):
+    def __init__(self, master: tk.Frame, character: str, entry: tk.Entry):
+        super().__init__(master, text=character, font=FONT,
                          height=BUTTON_HEIGHT, width=BUTTON_WIDTH,
-                         command=lambda: entry.insert(tk.INSERT, letter))
+                         command=lambda: entry.insert(tk.INSERT, character))
 
 
 class LetterFrame(tk.Frame):
     def __init__(self, typ: LetterType, win: tk.Tk, entry: tk.Entry):
         super().__init__(win, bg=WINDOW_BG)
         self.images = []
-        self.buttons: dict[str, tk.Button] = {}
         self._initialize_grid(typ, entry)
 
     def _initialize_grid(self, letter_type: LetterType, entry: tk.Entry):
@@ -71,8 +49,7 @@ class LetterFrame(tk.Frame):
     def _add_buttons(self, letters: list[list[str]], disabled: list[str], entry: tk.Entry):
         for i, row in enumerate(letters):
             for j, letter in enumerate(row):
-                button = LetterButton(self, letter, entry)
-                self.buttons[letter] = button
+                button = CharacterButton(self, letter, entry)
                 button.grid(row=i + 1, column=j + 1, sticky='news')
 
                 if letter in disabled:
@@ -80,22 +57,22 @@ class LetterFrame(tk.Frame):
 
 
 class SeparatorFrame(tk.Frame):
-    def __init__(self, character: str, win: tk.Tk, entry: tk.Entry):
+    def __init__(self, characters: list[str], win: tk.Tk, entry: tk.Entry):
         super().__init__(win, bg=WINDOW_BG)
         self.images = []
-        self.button: tk.Button = tk.Button(self, text=character, font=FONT,
-                                            height=BUTTON_HEIGHT, width=BUTTON_WIDTH,
-                                            command=lambda: entry.insert(tk.INSERT, character))
+        self._add_buttons(characters, entry)
 
-        self.button.grid(row=0, column=0, sticky='news')
+    def _add_buttons(self, characters: list[str], entry: tk.Entry):
+        for i, character in enumerate(characters):
+            button = CharacterButton(self, character, entry)
+            button.grid(row=0, column=i, sticky='news')
 
 
 class CanvasFrame(tk.Frame):
 
     def __init__(self, win: tk.Tk):
         super().__init__(win, bg=WINDOW_BG)
-        self.word: Optional[Word] = None
-        self.pressed: Optional[Word] = None
+        self.sentence = Sentence()
 
         # Entry widget with validation
         self.entry = tk.Entry(
@@ -119,35 +96,35 @@ class CanvasFrame(tk.Frame):
 
     def _press(self, event: tk.Event):
         """Handle mouse button press on canvas."""
-        if self.word and self.word.press(Point(event.x, event.y)):
-            self.pressed = self.word
+        if self.sentence.press(event):
+            self._redraw()
 
     def _move(self, event: tk.Event):
         """Handle mouse drag movement."""
-        if self.pressed:
-            self.pressed.move(Point(event.x, event.y))
+        if self.sentence.move(event):
             self._redraw()
 
     def _release(self, _):
         """Handle mouse button release."""
-        self.pressed = None
+        self.sentence.release()
 
     def _redraw(self):
-        if self.word:
-            self.word.create_image(self.canvas)
+        self.sentence.create_image(self.canvas)
 
     def _attempt_action(self, action: str, str_index: str, inserted: str) -> bool:
         try:
             index = int(str_index)
             match action:
                 case '0':  # Deletion
-                    self._remove_characters(index, inserted)
+                    self.sentence.remove_characters(index, inserted)
+                    self._redraw()
                     return True
 
                 case '1':  # Insertion
                     valid = all(i in repository.get().all for i in inserted)
                     if valid:
-                        self._insert_characters(index, inserted)
+                        self.sentence.insert_characters(index, inserted)
+                        self._redraw()
                         return True
                     else:
                         return False
@@ -158,28 +135,3 @@ class CanvasFrame(tk.Frame):
         except Exception as e:
             logging.exception(e)
             return False
-
-    def _remove_characters(self, index: int, deleted: str):
-        """Remove letters from the word and update syllables."""
-        if self.word:
-            self.word.remove_characters(index, deleted)
-            if not self.word.syllables_by_indices:
-                self.canvas.delete(self.word.canvas_item_id)
-                self.word = None
-                self.pressed = None
-
-            self._redraw()
-
-    def _insert_characters(self, index: int, inserted: str):
-        """Insert characters at a specific index and update syllables."""
-        characters = [get_character(character, *repository.get().all[character])
-                      for character in inserted]
-        if self.word:
-            self.word.insert_characters(index, characters)
-        else:
-            self.word = Word(Point(*WORD_INITIAL_POSITION), characters)
-        self._redraw()
-
-    def get_image(self):
-        if self.word:
-            return self.word.get_image()

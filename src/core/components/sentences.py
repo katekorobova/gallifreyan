@@ -58,15 +58,18 @@ class Sentence:
         self.words_by_indices: list[Optional[AbstractWord]] = []
         self.characters: list[Character] = []
 
-    def press(self, event: Event) -> bool:
+    def press(self, event: Event):
         """Handle mouse button press on canvas."""
         for word in reversed(self.words):
             if word and word.press(Point(event.x, event.y)):
                 self.pressed = word
-                self.words.remove(word)
-                self.words.append(word)
-                return True
-        return False
+                return
+
+    def perform_animation(self):
+        direction_sign = 1
+        for word in self.words:
+            word.perform_animation(direction_sign)
+            direction_sign = -direction_sign
 
     def move(self, event: Event) -> bool:
         """Handle mouse drag movement."""
@@ -79,12 +82,12 @@ class Sentence:
         """Handle mouse button release."""
         self.pressed = None
 
-    def create_image(self, canvas: Canvas):
+    def put_image(self, canvas: Canvas):
         for item_id in self._ids_for_removal:
             canvas.delete(item_id)
             self._ids_for_removal.clear()
         for word in self.words:
-            word.create_image(canvas)
+            word.put_image(canvas)
 
     def remove_characters(self, index: int, deleted: str):
         """Remove letters from the sentence."""

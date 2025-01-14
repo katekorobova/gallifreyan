@@ -1,5 +1,6 @@
 import logging
 import tkinter as tk
+from typing import Callable
 
 from PIL import Image, ImageTk
 
@@ -17,7 +18,7 @@ class CharacterButton(tk.Button):
                          command=lambda: entry.insert(tk.INSERT, character))
 
 
-class LetterFrame(tk.Frame):
+class LettersFrame(tk.Frame):
     def __init__(self, typ: LetterType, win: tk.Tk, entry: tk.Entry):
         super().__init__(win, bg=WINDOW_BG)
         self.images = []
@@ -56,16 +57,39 @@ class LetterFrame(tk.Frame):
                     button.config(state='disabled')
 
 
-class SeparatorFrame(tk.Frame):
-    def __init__(self, characters: list[str], win: tk.Tk, entry: tk.Entry):
+class SpecialCharactersFrame(tk.Frame):
+    def __init__(self, win: tk.Tk, entry: tk.Entry):
         super().__init__(win, bg=WINDOW_BG)
-        self.images = []
-        self._add_buttons(characters, entry)
+        self._add_buttons(['-', ' '], entry)
 
     def _add_buttons(self, characters: list[str], entry: tk.Entry):
         for i, character in enumerate(characters):
             button = CharacterButton(self, character, entry)
             button.grid(row=0, column=i, sticky='news')
+
+
+class ToolButton(tk.Button):
+    def __init__(self, master: tk.Frame, text: str, command: Callable[[], None]):
+        super().__init__(master, text=text, font=FONT,
+                         height=BUTTON_HEIGHT, width=BUTTON_WIDTH * 3,
+                         command=lambda: self._command(command))
+        self.pressed = False
+
+    def _command(self, command: Callable[[], None]):
+        command()
+        if self.pressed:
+            self.configure(relief='raised')
+            self.pressed = False
+        else:
+            self.configure(relief='sunken')
+            self.pressed = True
+
+
+class ToolsFrame(tk.Frame):
+    def __init__(self, win: tk.Tk, command: Callable[[], None]):
+        super().__init__(win, bg=WINDOW_BG)
+        button = ToolButton(self, 'Animation', command)
+        button.grid(row=0, column=0, sticky='nw')
 
 
 class CanvasFrame(tk.Frame):
@@ -88,6 +112,10 @@ class CanvasFrame(tk.Frame):
         # Canvas event bindings
         self._bind_canvas_events()
 
+    def perform_animation(self):
+        self.sentence.perform_animation()
+        self._redraw()
+
     def _bind_canvas_events(self):
         """Bind mouse events to canvas actions."""
         self.canvas.bind('<Button-1>', self._press)
@@ -96,8 +124,7 @@ class CanvasFrame(tk.Frame):
 
     def _press(self, event: tk.Event):
         """Handle mouse button press on canvas."""
-        if self.sentence.press(event):
-            self._redraw()
+        self.sentence.press(event)
 
     def _move(self, event: tk.Event):
         """Handle mouse drag movement."""
@@ -109,7 +136,7 @@ class CanvasFrame(tk.Frame):
         self.sentence.release()
 
     def _redraw(self):
-        self.sentence.create_image(self.canvas)
+        self.sentence.put_image(self.canvas)
 
     def _attempt_action(self, action: str, str_index: str, inserted: str) -> bool:
         try:

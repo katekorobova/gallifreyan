@@ -64,7 +64,6 @@ class Consonant(Letter, ABC):
         raise ValueError(f"Unsupported consonant type: {consonant_type}")
 
     @staticmethod
-    # Not in use since the introduction of syllable separators
     def compatible(cons1: Consonant, cons2: Consonant) -> bool:
         """Determine compatibility between two consonants."""
         allow_double = {ConsonantType.SIMILAR_DOTS, ConsonantType.DIFFERENT_DOTS, ConsonantType.BLACK_DOT,
@@ -140,7 +139,7 @@ class LineBasedConsonant(Consonant, ABC):
     def move(self, point: Point):
         """Move the line based on interaction."""
         point -= self._bias
-        self._set_direction(point.direction() + (-self.ANGLE if self._pressed_id else self.ANGLE))
+        self.set_direction(point.direction() + (-self.ANGLE if self._pressed_id else self.ANGLE))
         self._update_image_properties()
 
     def _update_syllable_properties(self, syllable):
@@ -188,7 +187,7 @@ class RadialLineConsonant(LineBasedConsonant):
     def move(self, point: Point):
         """Update direction based on moved point."""
         point -= self._bias
-        self._set_direction(point.direction())
+        self.set_direction(point.direction())
         self._update_image_properties()
 
     def _update_image_properties(self):
@@ -358,9 +357,9 @@ class DualDotConsonant(DotConsonant):
         point -= self._bias
         direction = point.direction()
         if self._pressed_id:
-            self._set_direction(direction - self.ANGLE)
+            self.set_direction(direction - self.ANGLE)
         else:
-            self._set_direction(direction + self.ANGLE)
+            self.set_direction(direction + self.ANGLE)
         self._update_image_properties()
 
     @abstractmethod
@@ -415,7 +414,7 @@ class SingleDotConsonant(DotConsonant, ABC):
 
     def move(self, point: Point):
         point -= self._bias
-        self._set_direction(point.direction())
+        self.set_direction(point.direction())
         self._update_image_properties()
 
     def _calculate_center(self):
@@ -465,7 +464,7 @@ class CircleConsonant(Consonant):
 
     def move(self, point: Point):
         point -= self._bias
-        self._set_direction(point.direction())
+        self.set_direction(point.direction())
         self._update_image_properties()
 
     def _update_syllable_properties(self, syllable):

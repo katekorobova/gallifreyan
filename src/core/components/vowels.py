@@ -10,7 +10,7 @@ from ...config import MIN_RADIUS, SYLLABLE_COLOR, SYLLABLE_BG
 class VowelType(str, Enum):
     LARGE = 'l'
     WANDERING = 'w'
-    ROTATING = 'r'
+    ORBITING = 'o'
     CENTER = 'c'
     HIDDEN = 'h'
 
@@ -40,7 +40,7 @@ class Vowel(Letter, ABC):
     def move(self, point: Point):
         if self.pressed_type == PressedType.PARENT:
             point -= self._bias
-            self._set_direction(point.direction())
+            self.set_direction(point.direction())
             self._update_image_properties()
 
     def draw(self):
@@ -66,7 +66,7 @@ class Vowel(Letter, ABC):
         vowel_classes = {
             VowelType.LARGE: LargeVowel,
             VowelType.WANDERING: WanderingVowel,
-            VowelType.ROTATING: RotatingVowel,
+            VowelType.ORBITING: OrbitingVowel,
             VowelType.CENTER: CenterVowel,
             VowelType.HIDDEN: HiddenVowel,
         }
@@ -120,11 +120,11 @@ class WanderingVowel(Vowel):
         self._update_ellipse_args(radii)
 
 
-class RotatingVowel(Vowel):
+class OrbitingVowel(Vowel):
     RATIO = 0.45
 
     def __init__(self, text: str, borders: str):
-        super().__init__(text, borders, VowelType.ROTATING)
+        super().__init__(text, borders, VowelType.ORBITING)
 
     def _update_syllable_properties(self, syllable):
         super()._update_syllable_properties(syllable)
@@ -161,7 +161,7 @@ class CenterVowel(Vowel):
         self._update_ellipse_args(radii)
 
 
-class HiddenVowel(RotatingVowel):
+class HiddenVowel(OrbitingVowel):
     def __init__(self, text: str, borders: str):
         super().__init__(text, borders)
         self.vowel_type = VowelType.HIDDEN

@@ -12,7 +12,7 @@ from ..utils import Point, PressedType, half_line_distance
 from ...config import (MIN_RADIUS, OUTER_CIRCLE_RADIUS,
                        SYLLABLE_IMAGE_RADIUS, SYLLABLE_COLOR, SYLLABLE_BG, SYLLABLE_INITIAL_SCALE_MIN,
                        SYLLABLE_INITIAL_SCALE_MAX, SYLLABLE_SCALE_MIN, SYLLABLE_SCALE_MAX, INNER_INITIAL_SCALE_MIN,
-                       INNER_INITIAL_SCALE_MAX, INNER_SCALE_MIN, INNER_SCALE_MAX)
+                       INNER_INITIAL_SCALE_MAX, INNER_SCALE_MIN, INNER_SCALE_MAX, CYCLE)
 
 
 class AbstractSyllable(ABC):
@@ -155,8 +155,7 @@ class Syllable(AbstractSyllable):
         else:
             for i in range(2):
                 adjusted_radius = self._calculate_adjusted_radius(
-                    self.inner_radius, (-1) ** i * self.half_line_distance + self._inner.half_line_widths[i]
-                )
+                    self.inner_radius, (-1) ** i * self.half_line_distance + self._inner.half_line_widths[i])
                 self._inner_circle_arg_dict.append(
                     self._create_circle_args(adjusted_radius, self._inner.line_widths[i]))
 
@@ -208,8 +207,7 @@ class Syllable(AbstractSyllable):
         if isinstance(character, Vowel) and not self.vowel:
             self.vowel = character
         elif isinstance(character, Consonant) \
-                and not self.cons2 and not self.vowel:
-            # and not self.cons2 and not self.vowel and Consonant.compatible(self.cons1, character):
+                and not self.cons2 and not self.vowel and Consonant.compatible(self.cons1, character):
             self.cons2 = character
         else:
             return False
@@ -378,3 +376,13 @@ class Syllable(AbstractSyllable):
     def _draw_inner_circle(self):
         for args in self._inner_circle_arg_dict:
             self._draw.ellipse(**args)
+
+    def perform_animation(self, direction_sign: int, is_tail: bool):
+        delta = direction_sign * 2 * math.pi / CYCLE
+        if self.vowel:
+            self.vowel.set_direction(self.vowel.direction - 2 * delta)
+        for consonant in self.consonants:
+            consonant.set_direction(consonant.direction + 2 * delta)
+        if is_tail:
+            self.direction += delta
+        self._update_image_properties()

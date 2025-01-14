@@ -12,10 +12,10 @@ Element Positioning: Move and reposition various components, including words, sy
 
 Image Export: Save your designs as PNG images for easy sharing and use.
 
+Animation: Bring your sentences to life with animation feature and save them as animated GIFs.
+
 ## Future Plans
 Punctuation and Number Support: Visualize numbers and punctuation marks.
-
-Animation: Create animated(rotating) images.
 
 Customization Options: Introduce additional features for enhanced customization.
 
@@ -33,3 +33,11 @@ python -m src.main
 ```
 ## Demo
 ![demo](https://github.com/katekorobova/gallifreyan/blob/main/demo.gif)
+
+Exported PNG:
+
+![png](https://github.com/katekorobova/gallifreyan/blob/main/its_a_big_universe.png)
+
+Exported GIF:
+
+![gif](https://github.com/katekorobova/gallifreyan/blob/main/its_a_big_universe.gif)

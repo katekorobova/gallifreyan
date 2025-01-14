@@ -64,6 +64,12 @@ LINE_WIDTHS = {'1': 4, '2': 10}
 MIN_LINE_WIDTH = {'1': 1, '2': 2}
 
 # ==========================
+# Animation
+# ==========================
+CYCLE = 256
+DELAY = 100
+
+# ==========================
 # Miscellaneous Constants
 # ==========================
 ALEPH = 'א'  # Hebrew Aleph letter

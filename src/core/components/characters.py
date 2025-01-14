@@ -70,7 +70,9 @@ class Letter(Character):
         super().__init__(text, CharacterType.LETTER)
         self.letter_type = letter_type
         self.borders = borders
+        self.direction = 0.0
         self.parent_direction = 0.0
+        self.personal_direction = 0.0
         self._set_personal_direction(random.uniform(0.9 * math.pi, 1.1 * math.pi))
 
         self.line_widths: list[int] = []
@@ -120,7 +122,7 @@ class Letter(Character):
         self.parent_direction = syllable.direction
         self.direction = self.parent_direction + self.personal_direction
 
-    def _set_direction(self, direction: float):
+    def set_direction(self, direction: float):
         self.direction = direction
         self.personal_direction = self.direction - self.parent_direction
 

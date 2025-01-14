@@ -153,8 +153,10 @@ class Word(AbstractWord):
             # Handle press events for the parent
             self._handle_parent_press(word_point)
             return True
-        else:
+        elif self.head:
             return self._handle_head_press(word_point)
+        else:
+            return False
 
     def _handle_outer_border_press(self, distance: float) -> None:
         """Handle press events on the outer border."""
@@ -217,41 +219,47 @@ class Word(AbstractWord):
         self._update_image_properties()
         self.head.resize(self.scale)
 
-    def create_image(self, canvas: tk.Canvas):
+    def put_image(self, canvas: tk.Canvas):
         """Create and display the word image on the canvas."""
         if self._image_ready:
-            canvas.tag_raise(self.canvas_item_id)
+            if self.canvas_item_id is not None:
+                canvas.tag_raise(self.canvas_item_id)
             return
 
-        canvas.delete(self.canvas_item_id)
-        if not self.syllables:
-            self._image_ready = True
-            return
+        if self.canvas_item_id is not None:
+            canvas.delete(self.canvas_item_id)
 
-        if self.tail:
-            # Clear the image
-            self._draw.rectangle(((0, 0), self._image.size), fill=WORD_BG)
-
-            # Paste the head syllable onto the image
-            self._paste_head()
-
-            # Paste other syllables onto the image
-            head_radius = self.head.scale * OUTER_CIRCLE_RADIUS
-            for s in self.tail:
-                self._paste_tail(s, head_radius)
-
-            # Paste the outer circle image
-            self._image.paste(self._border_image, mask=self._mask_image)
+        if self.syllables:
+            self._create_image()
+            self._image_tk.paste(self._image)
+            self.canvas_item_id = canvas.create_image(self.center, image=self._image_tk)
         else:
-            # Clear the image
-            self._draw.rectangle(((0, 0), self._image.size), fill=0)
+            self._image_ready = True
+            self.canvas_item_id = None
 
-            # Paste the head syllable onto the image
-            self._paste_head()
+    def _create_image(self):
+        if self.head:
+            if self.tail:
+                # Clear the image
+                self._draw.rectangle(((0, 0), self._image.size), fill=WORD_BG)
 
-        self._image_tk.paste(self._image)
+                # Paste the head syllable onto the image
+                self._paste_head()
 
-        self.canvas_item_id = canvas.create_image(self.center, image=self._image_tk)
+                # Paste other syllables onto the image
+                head_radius = self.head.scale * OUTER_CIRCLE_RADIUS
+                for s in self.tail:
+                    self._paste_tail(s, head_radius)
+
+                # Paste the outer circle image
+                self._image.paste(self._border_image, mask=self._mask_image)
+            else:
+                # Clear the image
+                self._draw.rectangle(((0, 0), self._image.size), fill=0)
+
+                # Paste the head syllable onto the image
+                self._paste_head()
+
         self._image_ready = True
 
     def _paste_head(self):
@@ -338,18 +346,15 @@ class Word(AbstractWord):
 
     def _split_syllable(self, index: int):
         """Split the syllable at the specified index, updating syllables as needed."""
-        try:
-            if index > 0:
-                syllable = self.syllables_by_indices[index - 1]
-                if index < len(self.characters) and syllable is self.syllables_by_indices[index]:
-                    syllable.remove_starting_with(self.characters[index])
-                    for i in range(index, len(self.characters)):
-                        if syllable is self.syllables_by_indices[i]:
-                            self.syllables_by_indices[i] = None
-                        else:
-                            return
-        except Exception as e:
-            logging.exception(e)
+        if index > 0:
+            syllable = self.syllables_by_indices[index - 1]
+            if index < len(self.characters) and syllable is self.syllables_by_indices[index]:
+                syllable.remove_starting_with(self.characters[index])
+                for i in range(index, len(self.characters)):
+                    if syllable is self.syllables_by_indices[i]:
+                        self.syllables_by_indices[i] = None
+                    else:
+                        return
 
     def _absorb_new_letters(self, index: int) -> int:
         """Absorb newly inserted letters into existing syllables."""
@@ -431,4 +436,17 @@ class Word(AbstractWord):
         return self.syllables_by_indices[index] and self.syllables_by_indices[index].head is consonant
 
     def get_image(self) -> Image:
+        if not self._image_ready:
+            self._create_image()
         return self._image
+
+    def perform_animation(self, direction_sign: int):
+        if self.head:
+            self.head.perform_animation(direction_sign, False)
+
+            for syllable in self.tail:
+                direction_sign = -direction_sign
+                syllable.perform_animation(direction_sign, True)
+
+            self._image_ready = False
+

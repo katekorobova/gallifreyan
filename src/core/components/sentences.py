@@ -92,15 +92,25 @@ class Sentence:
     def remove_characters(self, index: int, deleted: str):
         """Remove letters from the sentence."""
         end_index = index + len(deleted)
+
+        preceding_word = self.words_by_indices[index - 1] if index > 0 else None
+        deleted_words = set(self.words_by_indices[index:end_index])
+        if preceding_word and len(deleted_words) == 1 and preceding_word == deleted_words.pop():
+            preceding_start = self.words_by_indices.index(preceding_word)
+            preceding_word.remove_characters(index - preceding_start, end_index - preceding_start)
+
+            self.characters[index:end_index] = []
+            self.words_by_indices[index:end_index] = []
+            return
+
         self._split_word(index)
         self._split_word(end_index)
-
         self.words = [word for word in self.words if word not in self.words_by_indices[index:end_index]]
+
         self.characters[index:end_index] = []
         self.words_by_indices[index:end_index] = []
 
         # Absorb any following characters into the preceding word
-        preceding_word = self.words_by_indices[index - 1] if index > 0 else None
         self._absorb_following(index, preceding_word)
 
     def insert_characters(self, index: int, inserted: str):

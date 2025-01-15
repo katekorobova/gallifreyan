@@ -1,4 +1,3 @@
-import logging
 import math
 import tkinter as tk
 from abc import ABC
@@ -13,8 +12,9 @@ from .syllables import Consonant, Syllable, SeparatorSyllable, AbstractSyllable
 from .vowels import Vowel
 from .. import repository
 from ..utils import Point, PressedType, line_width, half_line_distance
-from ...config import (MIN_RADIUS, OUTER_CIRCLE_RADIUS,
-                       WORD_IMAGE_RADIUS, WORD_COLOR, WORD_BG, WORD_SCALE_MIN, ALEPH)
+from ...config import (MIN_RADIUS, DEFAULT_WORD_RADIUS,
+                       WORD_IMAGE_RADIUS, WORD_COLOR, WORD_BG, ALEPH, OUTER_CIRCLE_SCALE_MIN,
+                       OUTER_CIRCLE_SCALE_MAX)
 
 
 @dataclass
@@ -69,7 +69,7 @@ class Word(AbstractWord):
         self.outer_radius = 0.0
         self._widths: list[int] = []
         self._half_widths: list[float] = []
-        self.scale = 1
+        self.outer_circle_scale = OUTER_CIRCLE_SCALE_MIN
 
         # Image-related attributes
         self._image, self._draw = self._create_empty_image()
@@ -99,11 +99,12 @@ class Word(AbstractWord):
         return image, ImageDraw.Draw(image)
 
     def _update_image_properties(self):
-        """Update properties based on scale and border widths."""
-        self.outer_radius = OUTER_CIRCLE_RADIUS * self.scale
-        self._widths = [line_width(border, self.scale) for border in self.borders]
+        """Update properties based on the head syllable scale."""
+        head_scale = self.head.scale
+        self.outer_radius = DEFAULT_WORD_RADIUS * self.outer_circle_scale * head_scale
+        self._widths = [line_width(border, head_scale) for border in self.borders]
         self._half_widths = [width / 2 for width in self._widths]
-        self._half_line_distance = half_line_distance(self.scale)
+        self._half_line_distance = half_line_distance(head_scale)
         self._create_outer_circle()
 
     def set_syllables(self, syllables: list[Syllable]):
@@ -113,10 +114,7 @@ class Word(AbstractWord):
             syllables[-1].set_following(None)
             self.head = syllables[0]
             self.tail = syllables[1:]
-            self.head.resize(self.scale)
-            if not self.tail:
-                self.head.resize(parent_scale=1, personal_scale=self.scale)
-                self.scale = 1
+            self.head.resize()
             self._update_image_properties()
         else:
             self.head = None
@@ -208,6 +206,7 @@ class Word(AbstractWord):
         """Move a pressed child syllable."""
         if self._pressed is self.head:
             self.head.move(word_point)
+            self._update_image_properties()
         else:
             head_radius = self.head.outer_radius
             self._pressed.move(word_point, head_radius)
@@ -215,9 +214,9 @@ class Word(AbstractWord):
     def _resize(self, word_point: Point):
         """Resize the word based on movement."""
         new_radius = word_point.distance() - self._distance_bias
-        self.scale = min(max(new_radius / OUTER_CIRCLE_RADIUS, WORD_SCALE_MIN), 1)
+        self.outer_circle_scale = min(max(new_radius / DEFAULT_WORD_RADIUS / self.head.scale, OUTER_CIRCLE_SCALE_MIN),
+                                      OUTER_CIRCLE_SCALE_MAX)
         self._update_image_properties()
-        self.head.resize(self.scale)
 
     def put_image(self, canvas: tk.Canvas):
         """Create and display the word image on the canvas."""
@@ -247,7 +246,7 @@ class Word(AbstractWord):
                 self._paste_head()
 
                 # Paste other syllables onto the image
-                head_radius = self.head.scale * OUTER_CIRCLE_RADIUS
+                head_radius = self.head.scale * DEFAULT_WORD_RADIUS
                 for s in self.tail:
                     self._paste_tail(s, head_radius)
 
@@ -449,4 +448,3 @@ class Word(AbstractWord):
                 syllable.perform_animation(direction_sign, True)
 
             self._image_ready = False
-

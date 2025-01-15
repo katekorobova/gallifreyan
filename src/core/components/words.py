@@ -35,21 +35,31 @@ class AbstractWord(ABC):
         self.characters: list[Character] = []
         self.text = ''
 
+    def remove_characters(self, index: int, end_index: int):
+        """Remove characters from the word."""
+        self.characters[index: end_index] = []
+        self._update_text()
+
     def insert_characters(self, index: int, characters: list[Character]) -> bool:
         """Insert characters at a specific index """
         self.characters[index:index] = characters
+        self._update_text()
         return True
 
     def remove_starting_with(self, index: int):
         """Remove characters from the word, updating properties accordingly."""
         self.characters[index:] = []
+        self._update_text()
+
+    def _update_text(self):
+        self.text = ''.join(character.text for character in self.characters)
 
 
 class SpaceWord(AbstractWord):
     def __init__(self, characters: list[Character]):
         super().__init__()
         self.characters = characters
-        self.text = ''.join(character.text for character in characters)
+        self._update_text()
 
     def insert_characters(self, index: int, characters: list[Character]) -> bool:
         """Insert characters at a specific index """
@@ -107,21 +117,19 @@ class Word(AbstractWord):
         self._half_line_distance = half_line_distance(head_scale)
         self._create_outer_circle()
 
-    def set_syllables(self, syllables: list[Syllable]):
-        if syllables:
-            for i in reversed(range(0, len(syllables) - 1)):
-                syllables[i].set_following(syllables[i + 1])
-            syllables[-1].set_following(None)
-            self.head = syllables[0]
-            self.tail = syllables[1:]
+    def set_syllables(self):
+        self.syllables = unique_syllables(self.syllables_by_indices)
+        if self.syllables:
+            for i in reversed(range(0, len(self.syllables) - 1)):
+                self.syllables[i].set_following(self.syllables[i + 1])
+            self.syllables[-1].set_following(None)
+            self.head = self.syllables[0]
+            self.tail = self.syllables[1:]
             self.head.resize()
             self._update_image_properties()
         else:
             self.head = None
             self.tail = []
-
-        self.syllables = syllables
-        self.text = ''.join(s.text for s in syllables)
 
     def press(self, point: Point) -> bool:
         """Handle press events."""
@@ -300,30 +308,22 @@ class Word(AbstractWord):
 
         super().remove_starting_with(index)
         self.syllables_by_indices[index:] = []
-        self.set_syllables(unique_syllables(self.syllables_by_indices))
+
+        self.set_syllables()
         self._image_ready = False
 
-    def remove_characters(self, index: int, deleted: str):
+    def remove_characters(self, index: int, end_index: int):
         """Remove characters from the word and update syllables."""
-        first = self.syllables_by_indices[index]
-        if index > 0 and self.syllables_by_indices[index - 1] is first:
-            first.remove_starting_with(self.characters[index])
+        self._split_syllable(index)
+        self._split_syllable(end_index)
 
-        last = self.syllables_by_indices[index + len(deleted) - 1]
-        if index + len(deleted) < len(self.characters) and \
-                self.syllables_by_indices[index + len(deleted)] is last:
-            self.syllables_by_indices[index + len(deleted)] = None
-            if index + len(deleted) < len(self.characters) - 1 and \
-                    self.syllables_by_indices[index + len(deleted) + 1] is last:
-                self.syllables_by_indices[index + len(deleted) + 1] = None
+        super().remove_characters(index, end_index)
+        self.syllables_by_indices[index: end_index] = []
 
-        self.characters[index: index + len(deleted)] = []
-        self.syllables_by_indices[index: index + len(deleted)] = []
-
-        start = self._absorb_new_letters(index)
+        start = self._absorb_following(index)
         self._redistribute(start)
 
-        self.set_syllables(unique_syllables(self.syllables_by_indices))
+        self.set_syllables()
         self._image_ready = False
 
     def insert_characters(self, index: int, characters: list[Character]) -> bool:
@@ -336,10 +336,10 @@ class Word(AbstractWord):
         super().insert_characters(index, characters)
         self.syllables_by_indices[index: index] = repeat(None, len(characters))
 
-        start = self._absorb_new_letters(index)
+        start = self._absorb_following(index)
         self._redistribute(start)
 
-        self.set_syllables(unique_syllables(self.syllables_by_indices))
+        self.set_syllables()
         self._image_ready = False
         return True
 
@@ -355,7 +355,7 @@ class Word(AbstractWord):
                     else:
                         return
 
-    def _absorb_new_letters(self, index: int) -> int:
+    def _absorb_following(self, index: int) -> int:
         """Absorb newly inserted letters into existing syllables."""
         start = index
         if index > 0:

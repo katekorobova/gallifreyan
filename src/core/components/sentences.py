@@ -11,7 +11,7 @@ from .vowels import Vowel
 from .words import Word, SpaceWord, AbstractWord
 from .. import repository
 from ..utils import Point
-from ...config import CANVAS_WIDTH, CANVAS_HEIGHT, WORD_IMAGE_RADIUS
+from ...config import CANVAS_WIDTH, CANVAS_HEIGHT, DEFAULT_WORD_RADIUS
 
 
 def get_character(text: str, typ: CharacterType, args: Optional[list]) -> Character:
@@ -139,8 +139,8 @@ class Sentence:
         if is_space:
             word = SpaceWord(characters)
         else:
-            word = Word(Point(random.randint(WORD_IMAGE_RADIUS, CANVAS_WIDTH - WORD_IMAGE_RADIUS),
-                              random.randint(WORD_IMAGE_RADIUS, CANVAS_HEIGHT - WORD_IMAGE_RADIUS)), characters)
+            word = Word(Point(random.randint(DEFAULT_WORD_RADIUS, CANVAS_WIDTH - DEFAULT_WORD_RADIUS),
+                              random.randint(DEFAULT_WORD_RADIUS, CANVAS_HEIGHT - DEFAULT_WORD_RADIUS)), characters)
             self.words.append(word)
         return word
 

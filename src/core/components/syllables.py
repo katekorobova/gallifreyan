@@ -9,10 +9,10 @@ from .characters import Letter, Separator, Character
 from .consonants import Consonant
 from .vowels import Vowel, VowelType
 from ..utils import Point, PressedType, half_line_distance
-from ...config import (MIN_RADIUS, OUTER_CIRCLE_RADIUS,
-                       SYLLABLE_IMAGE_RADIUS, SYLLABLE_COLOR, SYLLABLE_BG, SYLLABLE_INITIAL_SCALE_MIN,
-                       SYLLABLE_INITIAL_SCALE_MAX, SYLLABLE_SCALE_MIN, SYLLABLE_SCALE_MAX, INNER_INITIAL_SCALE_MIN,
-                       INNER_INITIAL_SCALE_MAX, INNER_SCALE_MIN, INNER_SCALE_MAX, CYCLE)
+from ...config import (MIN_RADIUS, DEFAULT_WORD_RADIUS,
+                       SYLLABLE_IMAGE_RADIUS, SYLLABLE_COLOR, SYLLABLE_BG,
+                       SYLLABLE_INITIAL_SCALE, SYLLABLE_SCALE_MIN, SYLLABLE_SCALE_MAX,
+                       INNER_INITIAL_SCALE_MIN, INNER_INITIAL_SCALE_MAX, INNER_SCALE_MIN, INNER_SCALE_MAX, CYCLE)
 
 
 class AbstractSyllable(ABC):
@@ -81,7 +81,7 @@ class Syllable(AbstractSyllable):
 
         # Scale, radius, and positioning attributes
         self._parent_scale = 1.0
-        self._personal_scale = random.uniform(SYLLABLE_INITIAL_SCALE_MIN, SYLLABLE_INITIAL_SCALE_MAX)
+        self._personal_scale = SYLLABLE_INITIAL_SCALE
         self.inner_scale = random.uniform(INNER_INITIAL_SCALE_MIN, INNER_INITIAL_SCALE_MAX)
         self.scale = 0.0
         self.direction = random.uniform(-math.pi, math.pi)
@@ -133,7 +133,7 @@ class Syllable(AbstractSyllable):
     def _update_image_properties(self):
         """Update scaling and circle radii, and calculate image properties."""
         self.scale = self._parent_scale * self._personal_scale
-        self.outer_radius = OUTER_CIRCLE_RADIUS * self.scale
+        self.outer_radius = DEFAULT_WORD_RADIUS * self.scale
         self.inner_radius = self.outer_radius * self.inner_scale
         self.half_line_distance = half_line_distance(self.scale)
         self.border_offset = ((len(self.cons1.borders) - 1) * self.half_line_distance,
@@ -322,7 +322,7 @@ class Syllable(AbstractSyllable):
         """Adjust the outer scale based on the moved distance."""
         new_radius = distance - self._distance_bias
         self._personal_scale = min(
-            max(new_radius / OUTER_CIRCLE_RADIUS / self._parent_scale, SYLLABLE_SCALE_MIN),
+            max(new_radius / DEFAULT_WORD_RADIUS / self._parent_scale, SYLLABLE_SCALE_MIN),
             SYLLABLE_SCALE_MAX)
         self._update_image_properties()
         if self._following:
@@ -339,11 +339,8 @@ class Syllable(AbstractSyllable):
         self._pressed.move(shifted)
         self._image_ready = False
 
-    def resize(self, parent_scale: float = None, personal_scale: float = None):
-        if parent_scale is not None:
-            self._parent_scale = parent_scale
-        if personal_scale is not None:
-            self._personal_scale = max(self._personal_scale * personal_scale, SYLLABLE_SCALE_MIN)
+    def resize(self, parent_scale=1.0):
+        self._parent_scale = parent_scale
         self._update_image_properties()
 
         if self._following:

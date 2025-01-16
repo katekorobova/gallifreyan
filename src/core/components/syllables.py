@@ -1,6 +1,6 @@
 import math
 import random
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Optional
 
 from PIL import Image, ImageDraw
@@ -8,13 +8,14 @@ from PIL import Image, ImageDraw
 from .characters import Letter, Separator, Character
 from .consonants import Consonant
 from .vowels import Vowel, VowelType
+from .. import repository
 from ..utils import Point, PressedType, half_line_distance
 from ...config import (SYLLABLE_IMAGE_RADIUS, DEFAULT_WORD_RADIUS, MIN_RADIUS,
                        SYLLABLE_INITIAL_SCALE_MIN, SYLLABLE_INITIAL_SCALE_MAX,
                        SYLLABLE_SCALE_MIN, SYLLABLE_SCALE_MAX,
                        INNER_CIRCLE_INITIAL_SCALE_MIN, INNER_CIRCLE_INITIAL_SCALE_MAX,
                        INNER_CIRCLE_SCALE_MIN, INNER_CIRCLE_SCALE_MAX,
-                       SYLLABLE_BG, SYLLABLE_COLOR, CYCLE)
+                       SYLLABLE_BG, SYLLABLE_COLOR, CYCLE, ALEPH)
 
 
 class AbstractSyllable(ABC):
@@ -23,17 +24,26 @@ class AbstractSyllable(ABC):
         self.head = head
         self.text = head.text
 
-    def remove_starting_with(self, _: Character) -> None:
+    @abstractmethod
+    def remove_starting_with(self, character: Character) -> None:
         """
         Remove a character from the syllable, updating properties accordingly.
         """
         pass
 
-    def add(self, _: Character) -> bool:
+    @abstractmethod
+    def add(self, character: Character) -> bool:
         """
-        Add a character to the syllable, if valid.
+        Add a character to the syllable, if possible.
         """
-        return False
+        pass
+
+    @abstractmethod
+    def insert(self, index: int, character: Character) -> bool:
+        """
+        Insert a character into the syllable, if possible.
+        """
+        pass
 
 
 class SeparatorSyllable(AbstractSyllable):
@@ -52,10 +62,22 @@ class SeparatorSyllable(AbstractSyllable):
 
     def add(self, character: Character) -> bool:
         """
-        Add a character to the syllable, if valid.
+        Add a character to the syllable, if possible.
         """
         if isinstance(character, Separator):
             self.characters.append(character)
+            self._update_text()
+            return True
+        else:
+            return False
+
+    def insert(self, index: int, character: Character) -> bool:
+        """
+        Insert a character into the syllable, if possible.
+        """
+        if isinstance(character, Separator):
+            self.characters.insert(index, character)
+            self.head = self.characters[0]
             self._update_text()
             return True
         else:
@@ -73,13 +95,13 @@ class Syllable(AbstractSyllable):
     BACKGROUND = SYLLABLE_BG
     COLOR = SYLLABLE_COLOR
 
-    def __init__(self, cons1: Consonant, vowel: Vowel = None):
+    def __init__(self, cons1: Consonant = None, vowel: Vowel = None):
         # Core attributes
-        super().__init__(cons1)
+        super().__init__(cons1 or vowel)
         self.cons1, self.vowel = cons1, vowel
-        self.cons2 = None
+        self.cons2: Optional[Consonant] = None
+
         self._following: Optional[Syllable] = None
-        self._inner: Optional[Consonant] = None
         self.consonants: list[Consonant] = []
         self.letters: list[Letter] = []
 
@@ -119,14 +141,19 @@ class Syllable(AbstractSyllable):
     def _initialize_letters(self):
         """Initialize the letters, setting their image properties."""
         self._update_syllable_properties()
-        for letter in self.letters:
-            letter.set_image(self._draw)
+        for consonant in self.consonants:
+            consonant.set_image(self._draw)
+
+        if self.vowel:
+            self.vowel.set_image(self._draw)
 
     def _update_syllable_properties(self):
         """Update syllable properties such as consonants, letters, and text representation."""
-        self._inner = self.cons2 or self.cons1
-        self.consonants = sorted(filter(None, (self.cons1, self.cons2)), key=lambda l: l.consonant_type.group)
-        self.letters = list(filter(None, (self.cons1, self.cons2, self.vowel)))
+        self.head = self.cons1 or self.vowel
+        self._outer: Consonant = self.cons1 or Consonant.get_consonant(ALEPH, *repository.get().consonants[ALEPH])
+        self._inner = self.cons2 or self._outer
+        self.consonants = sorted({self._outer, self._inner}, key=lambda l: l.consonant_type.group)
+        self.letters = [item for item in [self.cons1, self.cons2, self.vowel] if item]
         self.text = ''.join(letter.text for letter in self.letters)
 
     @staticmethod
@@ -140,11 +167,14 @@ class Syllable(AbstractSyllable):
         self.outer_radius = DEFAULT_WORD_RADIUS * self.scale
         self.inner_radius = self.outer_radius * self.inner_scale
         self.half_line_distance = half_line_distance(self.scale)
-        self.border_offset = ((len(self.cons1.borders) - 1) * self.half_line_distance,
+        self.border_offset = ((len(self._outer.borders) - 1) * self.half_line_distance,
                               (len(self._inner.borders) - 1) * self.half_line_distance)
 
-        for letter in self.letters:
-            letter.update_properties(self)
+        for consonant in self.consonants:
+            consonant.update_properties(self)
+
+        if self.vowel:
+            self.vowel.update_properties(self)
 
         self._update_inner_circle_args()
         self._create_outer_circle()
@@ -173,24 +203,24 @@ class Syllable(AbstractSyllable):
         self._border_draw.rectangle(((0, 0), self._border_image.size), fill=0)
         self._mask_draw.rectangle(((0, 0), self._mask_image.size), fill=1)
 
-        if len(self.cons1.borders) == 1:
-            adjusted_radius = self._calculate_adjusted_radius(self.outer_radius, self.cons1.half_line_widths[0])
+        if len(self._outer.borders) == 1:
+            adjusted_radius = self._calculate_adjusted_radius(self.outer_radius, self._outer.half_line_widths[0])
             start, end = self.IMAGE_CENTER.shift(-adjusted_radius), self.IMAGE_CENTER.shift(adjusted_radius)
-            self._border_draw.ellipse((start, end), outline=self.COLOR, width=self.cons1.line_widths[0])
-            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self.cons1.line_widths[0])
+            self._border_draw.ellipse((start, end), outline=self.COLOR, width=self._outer.line_widths[0])
+            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._outer.line_widths[0])
         else:
-            adjusted_radius = self.outer_radius + self.half_line_distance + self.cons1.half_line_widths[0]
+            adjusted_radius = self.outer_radius + self.half_line_distance + self._outer.half_line_widths[0]
             start = self.IMAGE_CENTER.shift(-adjusted_radius)
             end = self.IMAGE_CENTER.shift(adjusted_radius)
             self._border_draw.ellipse((start, end),
-                                      outline=self.COLOR, fill=self.BACKGROUND, width=self.cons1.line_widths[0])
+                                      outline=self.COLOR, fill=self.BACKGROUND, width=self._outer.line_widths[0])
 
             adjusted_radius = max(
-                self.outer_radius - self.half_line_distance + self.cons1.half_line_widths[1], MIN_RADIUS)
+                self.outer_radius - self.half_line_distance + self._outer.half_line_widths[1], MIN_RADIUS)
             start = self.IMAGE_CENTER.shift(-adjusted_radius)
             end = self.IMAGE_CENTER.shift(adjusted_radius)
-            self._border_draw.ellipse((start, end), outline=self.COLOR, width=self.cons1.line_widths[1])
-            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self.cons1.line_widths[1])
+            self._border_draw.ellipse((start, end), outline=self.COLOR, width=self._outer.line_widths[1])
+            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._outer.line_widths[1])
 
     def set_following(self, following) -> None:
         self._following = following
@@ -207,7 +237,7 @@ class Syllable(AbstractSyllable):
         self._image_ready = False
 
     def add(self, character: Character) -> bool:
-        """Add a letter to the syllable, if valid."""
+        """Add a letter to the syllable, if possible."""
         if isinstance(character, Vowel) and not self.vowel:
             self.vowel = character
         elif isinstance(character, Consonant) \
@@ -221,6 +251,52 @@ class Syllable(AbstractSyllable):
         self._update_syllable_properties()
         self._image_ready = False
         return True
+
+    def insert(self, index: int, character: Character) -> bool:
+        """Insert a letter into the syllable, if possible."""
+        if isinstance(character, Consonant):
+            if not self._insert_consonant(index, character):
+                return False
+        elif isinstance(character, Vowel):
+            if not self._insert_vowel(index, character):
+                return False
+        else:
+            return False
+
+        character.set_image(self._draw)
+        character.update_properties(self)
+        self._update_syllable_properties()
+        self._image_ready = False
+        return True
+
+    def _insert_consonant(self, index: int, consonant: Consonant) -> bool:
+        match index:
+            case 0:
+                if not self.cons1:
+                    self.cons1 = consonant
+                    return True
+                elif not self.cons2 and Consonant.compatible(consonant, self.cons1):
+                    self.cons2 = self.cons1
+                    self.cons1 = consonant
+                    return True
+            case 1:
+                if self.cons1 and not self.cons2 and not self.vowel \
+                        and Consonant.compatible(self.cons1, consonant):
+                    self.cons2 = consonant
+                    return True
+        return False
+
+    def _insert_vowel(self, index: int, vowel: Vowel) -> bool:
+        match index:
+            case 1:
+                if not self.cons2 and not self.vowel:
+                    self.vowel = vowel
+                    return True
+            case 2:
+                if self.cons2 and not self.vowel:
+                    self.vowel = vowel
+                    return True
+        return False
 
     def press(self, point: Point) -> bool:
         """Handle press events at a given point."""

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import random
 from abc import ABC, abstractmethod
 from collections import Counter
 from enum import Enum
@@ -19,10 +20,10 @@ class ConsonantType(Enum):
     RADIAL_LINE = ('rl', 1)
     DIAMETRAL_LINE = ('dl', 1)
     CIRCLE = ('cl', 3)
-    SIMILAR_DOTS = ('sd', 4)
+    MATCHING_DOTS = ('md', 4)
     DIFFERENT_DOTS = ('dd', 4)
-    WHITE_DOT = ('wd', 4)
-    BLACK_DOT = ('bd', 4)
+    HOLLOW_DOT = ('hd', 4)
+    SOLID_DOT = ('sd', 4)
 
     def __init__(self, code: str, group: int):
         self.code = code
@@ -59,10 +60,10 @@ class Consonant(Letter, ABC):
             ConsonantType.RADIAL_LINE: RadialLineConsonant,
             ConsonantType.DIAMETRAL_LINE: DiametralLineConsonant,
             ConsonantType.CIRCLE: CircleConsonant,
-            ConsonantType.SIMILAR_DOTS: SimilarDotConsonant,
-            ConsonantType.DIFFERENT_DOTS: DifferentDotConsonant,
-            ConsonantType.WHITE_DOT: WhiteDotConsonant,
-            ConsonantType.BLACK_DOT: BlackDotConsonant}
+            ConsonantType.MATCHING_DOTS: MatchingDotsConsonant,
+            ConsonantType.DIFFERENT_DOTS: DifferentDotsConsonant,
+            ConsonantType.HOLLOW_DOT: HollowDotConsonant,
+            ConsonantType.SOLID_DOT: SolidDotConsonant}
         if consonant_type in consonant_classes:
             return consonant_classes[consonant_type](text, border)
         raise ValueError(f"Unsupported consonant type: {consonant_type}")
@@ -70,12 +71,11 @@ class Consonant(Letter, ABC):
     @staticmethod
     def compatible(cons1: Consonant, cons2: Consonant) -> bool:
         """Determine compatibility between two consonants."""
-        allow_double = {ConsonantType.SIMILAR_DOTS, ConsonantType.DIFFERENT_DOTS, ConsonantType.BLACK_DOT,
-                        ConsonantType.OBTUSE_ANGLE, ConsonantType.CIRCLE}
+        allow_double = {ConsonantType.OBTUSE_ANGLE, ConsonantType.CIRCLE}
         if cons1.consonant_type == cons2.consonant_type and cons1.consonant_type in allow_double:
             return True
 
-        large_angles = {ConsonantType.STRAIGHT_ANGLE, ConsonantType.REFLEX_ANGLE}
+        large_angles = {ConsonantType.STRAIGHT_ANGLE, ConsonantType.REFLEX_ANGLE, ConsonantType.DIAMETRAL_LINE}
         if cons1.consonant_type in large_angles and cons2.consonant_type in large_angles:
             return False
 
@@ -180,6 +180,7 @@ class RadialLineConsonant(LineBasedConsonant):
 
         self._end = Point()
         self._polygon_args = {}
+        self._set_personal_direction(random.uniform(0.7 * math.pi, 1.3 * math.pi))
 
     def press(self, point: Point) -> bool:
         """Check if a point interacts with this consonant."""
@@ -341,7 +342,7 @@ class DotConsonant(Consonant, ABC):
         return {'xy': (start, end)}
 
 
-class DualDotConsonant(DotConsonant):
+class DoubleDotConsonant(DotConsonant):
     ANGLE = 0.3 * math.pi
 
     def __init__(self, text: str, borders: str, consonant_type: ConsonantType):
@@ -381,9 +382,9 @@ class DualDotConsonant(DotConsonant):
             self._image.ellipse(**args)
 
 
-class SimilarDotConsonant(DualDotConsonant):
+class MatchingDotsConsonant(DoubleDotConsonant):
     def __init__(self, text: str, borders: str):
-        super().__init__(text, borders, ConsonantType.SIMILAR_DOTS)
+        super().__init__(text, borders, ConsonantType.MATCHING_DOTS)
 
     def _update_image_properties(self):
         super()._update_image_properties()
@@ -392,7 +393,7 @@ class SimilarDotConsonant(DualDotConsonant):
             for center in self._centers]
 
 
-class DifferentDotConsonant(DualDotConsonant):
+class DifferentDotsConsonant(DoubleDotConsonant):
     def __init__(self, text: str, borders: str):
         super().__init__(text, borders, ConsonantType.DIFFERENT_DOTS)
 
@@ -431,9 +432,9 @@ class SingleDotConsonant(DotConsonant, ABC):
         self._image.ellipse(**self._ellipse_args)
 
 
-class WhiteDotConsonant(SingleDotConsonant):
+class HollowDotConsonant(SingleDotConsonant):
     def __init__(self, text: str, borders: str):
-        super().__init__(text, borders, ConsonantType.WHITE_DOT)
+        super().__init__(text, borders, ConsonantType.HOLLOW_DOT)
 
     def _update_image_properties(self):
         self._calculate_center()
@@ -442,9 +443,9 @@ class WhiteDotConsonant(SingleDotConsonant):
             'outline': self.COLOR, 'fill': self.BACKGROUND, 'width': self._line_width}
 
 
-class BlackDotConsonant(SingleDotConsonant):
+class SolidDotConsonant(SingleDotConsonant):
     def __init__(self, text: str, borders: str):
-        super().__init__(text, borders, ConsonantType.BLACK_DOT)
+        super().__init__(text, borders, ConsonantType.SOLID_DOT)
 
     def _update_image_properties(self):
         self._calculate_center()
@@ -460,6 +461,7 @@ class CircleConsonant(Consonant):
         self._radius = 0.0
         self._center = Point()
         self._ellipse_args = {}
+        self._set_personal_direction(random.uniform(0.7 * math.pi, 1.3 * math.pi))
 
     def press(self, point: Point) -> bool:
         delta = point - self._center

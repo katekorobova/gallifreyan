@@ -9,10 +9,12 @@ from .characters import Letter, Separator, Character
 from .consonants import Consonant
 from .vowels import Vowel, VowelType
 from ..utils import Point, PressedType, half_line_distance
-from ...config import (MIN_RADIUS, DEFAULT_WORD_RADIUS,
-                       SYLLABLE_IMAGE_RADIUS, SYLLABLE_COLOR, SYLLABLE_BG,
-                       SYLLABLE_INITIAL_SCALE, SYLLABLE_SCALE_MIN, SYLLABLE_SCALE_MAX,
-                       INNER_INITIAL_SCALE_MIN, INNER_INITIAL_SCALE_MAX, INNER_SCALE_MIN, INNER_SCALE_MAX, CYCLE)
+from ...config import (SYLLABLE_IMAGE_RADIUS, DEFAULT_WORD_RADIUS, MIN_RADIUS,
+                       SYLLABLE_INITIAL_SCALE_MIN, SYLLABLE_INITIAL_SCALE_MAX,
+                       SYLLABLE_SCALE_MIN, SYLLABLE_SCALE_MAX,
+                       INNER_CIRCLE_INITIAL_SCALE_MIN, INNER_CIRCLE_INITIAL_SCALE_MAX,
+                       INNER_CIRCLE_SCALE_MIN, INNER_CIRCLE_SCALE_MAX,
+                       SYLLABLE_BG, SYLLABLE_COLOR, CYCLE)
 
 
 class AbstractSyllable(ABC):
@@ -68,6 +70,8 @@ class Syllable(AbstractSyllable):
     Represents a syllable, combining consonants and vowels into structured elements with visual representation.
     """
     IMAGE_CENTER = Point(SYLLABLE_IMAGE_RADIUS, SYLLABLE_IMAGE_RADIUS)
+    BACKGROUND = SYLLABLE_BG
+    COLOR = SYLLABLE_COLOR
 
     def __init__(self, cons1: Consonant, vowel: Vowel = None):
         # Core attributes
@@ -81,8 +85,8 @@ class Syllable(AbstractSyllable):
 
         # Scale, radius, and positioning attributes
         self._parent_scale = 1.0
-        self._personal_scale = SYLLABLE_INITIAL_SCALE
-        self.inner_scale = random.uniform(INNER_INITIAL_SCALE_MIN, INNER_INITIAL_SCALE_MAX)
+        self._personal_scale = random.uniform(SYLLABLE_INITIAL_SCALE_MIN, SYLLABLE_INITIAL_SCALE_MAX)
+        self.inner_scale = random.uniform(INNER_CIRCLE_INITIAL_SCALE_MIN, INNER_CIRCLE_INITIAL_SCALE_MAX)
         self.scale = 0.0
         self.direction = random.uniform(-math.pi, math.pi)
         self.outer_radius = 0.0
@@ -162,7 +166,7 @@ class Syllable(AbstractSyllable):
     def _create_circle_args(self, adjusted_radius: float, line_width: float) -> dict:
         """Generate circle arguments for drawing."""
         start, end = self.IMAGE_CENTER.shift(-adjusted_radius), self.IMAGE_CENTER.shift(adjusted_radius)
-        return {'xy': (start, end), 'outline': SYLLABLE_COLOR, 'fill': SYLLABLE_BG, 'width': line_width}
+        return {'xy': (start, end), 'outline': self.COLOR, 'fill': self.BACKGROUND, 'width': line_width}
 
     def _create_outer_circle(self):
         """Draw the outer circle for the syllable."""
@@ -172,20 +176,20 @@ class Syllable(AbstractSyllable):
         if len(self.cons1.borders) == 1:
             adjusted_radius = self._calculate_adjusted_radius(self.outer_radius, self.cons1.half_line_widths[0])
             start, end = self.IMAGE_CENTER.shift(-adjusted_radius), self.IMAGE_CENTER.shift(adjusted_radius)
-            self._border_draw.ellipse((start, end), outline=SYLLABLE_COLOR, width=self.cons1.line_widths[0])
+            self._border_draw.ellipse((start, end), outline=self.COLOR, width=self.cons1.line_widths[0])
             self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self.cons1.line_widths[0])
         else:
             adjusted_radius = self.outer_radius + self.half_line_distance + self.cons1.half_line_widths[0]
             start = self.IMAGE_CENTER.shift(-adjusted_radius)
             end = self.IMAGE_CENTER.shift(adjusted_radius)
             self._border_draw.ellipse((start, end),
-                                      outline=SYLLABLE_COLOR, fill=SYLLABLE_BG, width=self.cons1.line_widths[0])
+                                      outline=self.COLOR, fill=self.BACKGROUND, width=self.cons1.line_widths[0])
 
             adjusted_radius = max(
                 self.outer_radius - self.half_line_distance + self.cons1.half_line_widths[1], MIN_RADIUS)
             start = self.IMAGE_CENTER.shift(-adjusted_radius)
             end = self.IMAGE_CENTER.shift(adjusted_radius)
-            self._border_draw.ellipse((start, end), outline=SYLLABLE_COLOR, width=self.cons1.line_widths[1])
+            self._border_draw.ellipse((start, end), outline=self.COLOR, width=self.cons1.line_widths[1])
             self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self.cons1.line_widths[1])
 
     def set_following(self, following) -> None:
@@ -315,7 +319,7 @@ class Syllable(AbstractSyllable):
     def _adjust_inner_scale(self, distance: float):
         """Adjust the inner scale based on the moved distance."""
         new_radius = distance - self._distance_bias
-        self.inner_scale = min(max(new_radius / self.outer_radius, INNER_SCALE_MIN), INNER_SCALE_MAX)
+        self.inner_scale = min(max(new_radius / self.outer_radius, INNER_CIRCLE_SCALE_MIN), INNER_CIRCLE_SCALE_MAX)
         self._update_image_properties()
 
     def _adjust_border_scale(self, distance: float):
@@ -352,7 +356,7 @@ class Syllable(AbstractSyllable):
             return self._image
 
         # Clear the image
-        self._draw.rectangle(((0, 0), self._image.size), fill=SYLLABLE_BG)
+        self._draw.rectangle(((0, 0), self._image.size), fill=self.BACKGROUND)
 
         if self.vowel and self.vowel.vowel_type is VowelType.HIDDEN:
             self.vowel.draw()

@@ -12,9 +12,9 @@ from .syllables import Consonant, Syllable, SeparatorSyllable, AbstractSyllable
 from .vowels import Vowel
 from .. import repository
 from ..utils import Point, PressedType, line_width, half_line_distance
-from ...config import (MIN_RADIUS, DEFAULT_WORD_RADIUS,
-                       WORD_IMAGE_RADIUS, WORD_COLOR, WORD_BG, ALEPH, OUTER_CIRCLE_SCALE_MIN,
-                       OUTER_CIRCLE_SCALE_MAX)
+from ...config import (WORD_IMAGE_RADIUS, DEFAULT_WORD_RADIUS, MIN_RADIUS,
+                       OUTER_CIRCLE_SCALE_MIN, OUTER_CIRCLE_SCALE_MAX,
+                       WORD_BG, WORD_COLOR, ALEPH)
 
 
 @dataclass
@@ -71,14 +71,16 @@ class SpaceWord(AbstractWord):
 
 class Word(AbstractWord):
     IMAGE_CENTER = Point(WORD_IMAGE_RADIUS, WORD_IMAGE_RADIUS)
+    BACKGROUND = WORD_BG
+    COLOR = WORD_COLOR
 
     def __init__(self, center: Point, characters: list[Character]):
         super().__init__()
         self.center = center
         self.borders = '21'
         self.outer_radius = 0.0
-        self._widths: list[int] = []
-        self._half_widths: list[float] = []
+        self._line_widths: list[int] = []
+        self._half_line_widths: list[float] = []
         self.outer_circle_scale = OUTER_CIRCLE_SCALE_MIN
 
         # Image-related attributes
@@ -112,8 +114,8 @@ class Word(AbstractWord):
         """Update properties based on the head syllable scale."""
         head_scale = self.head.scale
         self.outer_radius = DEFAULT_WORD_RADIUS * self.outer_circle_scale * head_scale
-        self._widths = [line_width(border, head_scale) for border in self.borders]
-        self._half_widths = [width / 2 for width in self._widths]
+        self._line_widths = [line_width(border, head_scale) for border in self.borders]
+        self._half_line_widths = [width / 2 for width in self._line_widths]
         self._half_line_distance = half_line_distance(head_scale)
         self._create_outer_circle()
 
@@ -248,7 +250,7 @@ class Word(AbstractWord):
         if self.head:
             if self.tail:
                 # Clear the image
-                self._draw.rectangle(((0, 0), self._image.size), fill=WORD_BG)
+                self._draw.rectangle(((0, 0), self._image.size), fill=self.BACKGROUND)
 
                 # Paste the head syllable onto the image
                 self._paste_head()
@@ -285,22 +287,23 @@ class Word(AbstractWord):
         self._border_draw.rectangle(((0, 0), self._border_image.size), fill=0)
         self._mask_draw.rectangle(((0, 0), self._border_image.size), fill=1)
         if len(self.borders) == 1:
-            adjusted_radius = self.outer_radius + self._half_widths[0]
+            adjusted_radius = self.outer_radius + self._half_line_widths[0]
             start = self.IMAGE_CENTER.shift(-adjusted_radius)
             end = self.IMAGE_CENTER.shift(adjusted_radius)
-            self._border_draw.ellipse((start, end), outline=WORD_COLOR, width=self._widths[0])
-            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._widths[0])
+            self._border_draw.ellipse((start, end), outline=self.COLOR, width=self._line_widths[0])
+            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._line_widths[0])
         else:
-            adjusted_radius = self.outer_radius + self._half_line_distance + self._half_widths[0]
+            adjusted_radius = self.outer_radius + self._half_line_distance + self._half_line_widths[0]
             start = self.IMAGE_CENTER.shift(-adjusted_radius)
             end = self.IMAGE_CENTER.shift(adjusted_radius)
-            self._border_draw.ellipse((start, end), outline=WORD_COLOR, fill=WORD_BG, width=self._widths[0])
+            self._border_draw.ellipse((start, end), outline=self.COLOR,
+                                      fill=self.BACKGROUND, width=self._line_widths[0])
 
-            adjusted_radius = max(self.outer_radius - self._half_line_distance + self._half_widths[1], MIN_RADIUS)
+            adjusted_radius = max(self.outer_radius - self._half_line_distance + self._half_line_widths[1], MIN_RADIUS)
             start = self.IMAGE_CENTER.shift(-adjusted_radius)
             end = self.IMAGE_CENTER.shift(adjusted_radius)
-            self._border_draw.ellipse((start, end), outline=WORD_COLOR, width=self._widths[1])
-            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._widths[1])
+            self._border_draw.ellipse((start, end), outline=self.COLOR, width=self._line_widths[1])
+            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._line_widths[1])
 
     def remove_starting_with(self, index: int):
         """Remove characters from the word, updating properties accordingly."""

@@ -118,8 +118,7 @@ class Sentence:
             self._clean_up_removed(index, end_index)
 
             # Absorb any following characters into the preceding word
-            preceding_word = self.words_by_indices[index - 1] if index > 0 else None
-            self._absorb_following(index, preceding_word)
+            self._absorb_following(index)
 
     def _clean_up_removed(self, index: int, end_index: int):
         self.characters[index:end_index] = []
@@ -129,38 +128,64 @@ class Sentence:
 
     def insert_characters(self, index: int, inserted: str):
         """Insert characters at a specific index and update words."""
-        end_index = index + len(inserted)
-        characters = [get_character(character, *repository.get().all[character])
-                      for character in inserted]
+        characters = [get_character(char, *repository.get().all[char]) for char in inserted]
+        self.characters[index: index] = characters
 
-        words = split_into_words(characters)
-        word = self.words_by_indices[index - 1] if index > 0 else None
+        words_with_space_indicators = split_into_words(characters)
+        if len(words_with_space_indicators) == 1:
+            self._insert_one(index, *words_with_space_indicators[0])
+        else:
+            self._insert_many(index, words_with_space_indicators)
 
-        if word and len(words) == 1 and \
-                word.insert_characters(index - self.words_by_indices.index(word), characters):
-            self.characters[index: index] = characters
-            self.words_by_indices[index:index] = repeat(word, len(characters))
-            return
+    def _insert_one(self, index: int, word_chars: list[Character], is_space: bool):
+        """Insert a single word at a specific index."""
+        preceding_word = self.words_by_indices[index - 1] if index > 0 else None
+        following_word = self.words_by_indices[index] if index < len(self.words_by_indices) else None
 
+        if preceding_word and preceding_word.insert_characters(
+                index - self.words_by_indices.index(preceding_word), word_chars):
+            word = preceding_word
+        elif following_word and following_word.insert_characters(0, word_chars):
+            word = following_word
+        else:
+            word = self._new_word(word_chars, is_space)
+
+        self.words_by_indices[index:index] = repeat(word, len(word_chars))
+
+    def _insert_many(self, index: int, words_with_space_indicators: list[tuple[list[Character], bool]]):
+        """Insert multiple words at a specific index."""
         self._split_word(index)
-        word_chars, is_space = words[0]
+        preceding_word = self.words_by_indices[index - 1] if index > 0 else None
+        following_word = self.words_by_indices[index] if index < len(self.words_by_indices) else None
+
+        word_chars, is_space = words_with_space_indicators[0]
         word_len = len(word_chars)
 
-        if not word or not word.insert_characters(index - self.words_by_indices.index(word), word_chars):
-            word = self._new_word(is_space, word_chars)
-        self.words_by_indices[index:index] = repeat(word, word_len)
+        if preceding_word and preceding_word.insert_characters(
+                index - self.words_by_indices.index(preceding_word), word_chars):
+            self.words_by_indices[index:index] = repeat(preceding_word, word_len)
+        else:
+            word = self._new_word(word_chars, is_space)
+            self.words_by_indices[index:index] = repeat(word, word_len)
 
         current_index = index + word_len
-        for word_chars, is_space in words[1:]:
+        for word_chars, is_space in words_with_space_indicators[1:-1]:
             word_len = len(word_chars)
-            word = self._new_word(is_space, word_chars)
+            word = self._new_word(word_chars, is_space)
             self.words_by_indices[current_index:current_index] = repeat(word, word_len)
             current_index += word_len
 
-        self.characters[index: index] = characters
-        self._absorb_following(end_index, word)
+        word_chars, is_space = words_with_space_indicators[-1]
+        word_len = len(word_chars)
 
-    def _new_word(self, is_space, characters: list[Character]) -> Word:
+        if following_word and following_word.insert_characters(0, word_chars):
+            self.words_by_indices[current_index: current_index] = repeat(following_word, word_len)
+        else:
+            word = self._new_word(word_chars, is_space)
+            self.words_by_indices[current_index: current_index] = repeat(word, word_len)
+            self._absorb_nones(current_index + word_len, word)
+
+    def _new_word(self, characters: list[Character], is_space) -> Word:
         if is_space:
             word = SpaceWord(characters)
         else:
@@ -169,29 +194,37 @@ class Sentence:
             self.words.append(word)
         return word
 
-    def _absorb_following(self, index: int, preceding_word: Optional[AbstractWord]):
+    def _absorb_following(self, index: int):
+        if not 0 < index < len(self.characters):
+            return
+
+        preceding_word = self.words_by_indices[index - 1]
+        following_word = self.words_by_indices[index]
+
+        following_characters = following_word.characters
+        following_len = len(following_characters)
+
+        if preceding_word.insert_characters(index - self.words_by_indices.index(preceding_word), following_characters):
+            self.words_by_indices[index: index + following_len] = repeat(preceding_word, following_len)
+            if isinstance(following_word, Word):
+                self.words.remove(following_word)
+                self._ids_for_removal.append(following_word.canvas_item_id)
+
+    def _absorb_nones(self, index: int, preceding_word: AbstractWord):
         if index >= len(self.characters):
             return
 
-        following_word = self.words_by_indices[index]
-        if following_word:
-            following_characters = following_word.characters
-            following_len = len(following_characters)
-            if preceding_word and preceding_word \
-                    .insert_characters(index - self.words_by_indices.index(preceding_word), following_characters):
-                self.words_by_indices[index: index + following_len] = repeat(preceding_word, following_len)
-                if isinstance(following_word, Word):
-                    self.words.remove(following_word)
-                    self._ids_for_removal.append(following_word.canvas_item_id)
+        remaining = [self.characters[i] for i in takewhile(
+            lambda i: not self.words_by_indices[i], range(index, len(self.characters)))]
+        is_space = all(char.character_type == CharacterType.SPACE for char in remaining)
+        remaining_len = len(remaining)
+
+        if preceding_word.insert_characters(index - self.words_by_indices.index(preceding_word), remaining):
+            word = preceding_word
         else:
-            remaining = [self.characters[i] for i in takewhile(
-                lambda i: not self.words_by_indices[i], range(index, len(self.characters)))]
-            is_space = all(char.character_type == CharacterType.SPACE for char in remaining)
-            remaining_len = len(remaining)
-            if not preceding_word or not preceding_word \
-                    .insert_characters(index - self.words_by_indices.index(preceding_word), remaining):
-                preceding_word = self._new_word(is_space, remaining)
-            self.words_by_indices[index: index + remaining_len] = repeat(preceding_word, remaining_len)
+            word = self._new_word(remaining, is_space)
+
+        self.words_by_indices[index: index + remaining_len] = repeat(word, remaining_len)
 
     def get_image(self) -> Optional[Image.Image]:
         if not self.words:

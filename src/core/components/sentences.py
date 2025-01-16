@@ -50,6 +50,12 @@ def split_into_words(characters: list[Character]) -> list[tuple[list[Character],
     return words
 
 
+def unique_words(items: list[AbstractWord]) -> list[AbstractWord]:
+    """Return a list of unique items while preserving order."""
+    seen = set()
+    return [item for item in items if not (item in seen or seen.add(item))]
+
+
 class Sentence:
     def __init__(self):
         self.words: list[Word] = []
@@ -93,25 +99,33 @@ class Sentence:
         """Remove letters from the sentence."""
         end_index = index + len(deleted)
 
-        preceding_word = self.words_by_indices[index - 1] if index > 0 else None
-        deleted_words = set(self.words_by_indices[index:end_index])
-        if preceding_word and len(deleted_words) == 1 and preceding_word == deleted_words.pop():
-            preceding_start = self.words_by_indices.index(preceding_word)
-            preceding_word.remove_characters(index - preceding_start, end_index - preceding_start)
+        deleted_words = unique_words(self.words_by_indices[index:end_index])
 
-            self.characters[index:end_index] = []
-            self.words_by_indices[index:end_index] = []
-            return
+        first_word = deleted_words[0]
+        first_word_start = self.words_by_indices.index(first_word)
 
-        self._split_word(index)
-        self._split_word(end_index)
-        self.words = [word for word in self.words if word not in self.words_by_indices[index:end_index]]
+        if len(deleted_words) == 1:
+            first_word.remove_characters(index - first_word_start, end_index - first_word_start)
+            self._clean_up_removed(index, end_index)
+        else:
+            second_word = deleted_words[1]
+            second_word_start = self.words_by_indices.index(second_word)
+            first_word.remove_characters(index - first_word_start, second_word_start - first_word_start)
 
+            last_word = deleted_words[-1]
+            last_word_start = self.words_by_indices.index(last_word)
+            last_word.remove_characters(0, end_index - last_word_start)
+            self._clean_up_removed(index, end_index)
+
+            # Absorb any following characters into the preceding word
+            preceding_word = self.words_by_indices[index - 1] if index > 0 else None
+            self._absorb_following(index, preceding_word)
+
+    def _clean_up_removed(self, index: int, end_index: int):
         self.characters[index:end_index] = []
         self.words_by_indices[index:end_index] = []
-
-        # Absorb any following characters into the preceding word
-        self._absorb_following(index, preceding_word)
+        self.words = [word for word in self.words if
+                      (word in self.words_by_indices or self._ids_for_removal.append(word.canvas_item_id))]
 
     def insert_characters(self, index: int, inserted: str):
         """Insert characters at a specific index and update words."""
@@ -121,6 +135,7 @@ class Sentence:
 
         words = split_into_words(characters)
         word = self.words_by_indices[index - 1] if index > 0 else None
+
         if word and len(words) == 1 and \
                 word.insert_characters(index - self.words_by_indices.index(word), characters):
             self.characters[index: index] = characters

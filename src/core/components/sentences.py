@@ -98,7 +98,6 @@ class Sentence:
     def remove_characters(self, index: int, deleted: str):
         """Remove letters from the sentence."""
         end_index = index + len(deleted)
-
         deleted_words = unique_words(self.words_by_indices[index:end_index])
 
         first_word = deleted_words[0]
@@ -106,7 +105,6 @@ class Sentence:
 
         if len(deleted_words) == 1:
             first_word.remove_characters(index - first_word_start, end_index - first_word_start)
-            self._clean_up_removed(index, end_index)
         else:
             second_word = deleted_words[1]
             second_word_start = self.words_by_indices.index(second_word)
@@ -115,10 +113,9 @@ class Sentence:
             last_word = deleted_words[-1]
             last_word_start = self.words_by_indices.index(last_word)
             last_word.remove_characters(0, end_index - last_word_start)
-            self._clean_up_removed(index, end_index)
 
-            # Absorb any following characters into the preceding word
-            self._absorb_following(index)
+        self._clean_up_removed(index, end_index)
+        self._absorb_following(index)
 
     def _clean_up_removed(self, index: int, end_index: int):
         self.characters[index:end_index] = []
@@ -139,18 +136,21 @@ class Sentence:
 
     def _insert_one(self, index: int, word_chars: list[Character], is_space: bool):
         """Insert a single word at a specific index."""
+        word_len = len(word_chars)
         preceding_word = self.words_by_indices[index - 1] if index > 0 else None
         following_word = self.words_by_indices[index] if index < len(self.words_by_indices) else None
 
         if preceding_word and preceding_word.insert_characters(
                 index - self.words_by_indices.index(preceding_word), word_chars):
-            word = preceding_word
+            self.words_by_indices[index:index] = repeat(preceding_word, word_len)
         elif following_word and following_word.insert_characters(0, word_chars):
-            word = following_word
+            self.words_by_indices[index:index] = repeat(following_word, word_len)
         else:
+            self._split_word(index)
             word = self._new_word(word_chars, is_space)
 
-        self.words_by_indices[index:index] = repeat(word, len(word_chars))
+            self.words_by_indices[index:index] = repeat(word, word_len)
+            self._absorb_nones(index + word_len, word)
 
     def _insert_many(self, index: int, words_with_space_indicators: list[tuple[list[Character], bool]]):
         """Insert multiple words at a specific index."""
@@ -200,6 +200,8 @@ class Sentence:
 
         preceding_word = self.words_by_indices[index - 1]
         following_word = self.words_by_indices[index]
+        if preceding_word is following_word:
+            return
 
         following_characters = following_word.characters
         following_len = len(following_characters)
@@ -242,7 +244,7 @@ class Sentence:
             word = self.words_by_indices[index - 1]
             if word and word is self.words_by_indices[index]:
                 word.remove_starting_with(index - self.words_by_indices.index(word))
-                for i in range(index, len(self.characters)):
+                for i in range(index, len(self.words_by_indices)):
                     if word is self.words_by_indices[i]:
                         self.words_by_indices[i] = None
                     else:

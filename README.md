@@ -1,5 +1,5 @@
 # gallifreyan
-This is a graphics editor designed for writing sentences in Doctor's Cot Gallifreyan, a writing system created by Brittany Goodman and inspired by the fictional Gallifreyan language:
+This is a graphics editor designed for writing sentences in Doctor's Cot Gallifreyan, a writing system created by Brittany Goodman and inspired by the fictional Gallifreyan language from the show Doctor Who:
 
 https://doctorscotgallifreyan.com/ 
 

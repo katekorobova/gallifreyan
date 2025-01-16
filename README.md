@@ -31,6 +31,21 @@ Once the dependencies are installed, run the following command from the project'
 ```
 python -m src.main
 ```
+## How to Use the Features
+Enter the phonetic representation of your sentence by clicking the consonant and vowel buttons. Separate words with spaces and syllables with dashes. You can also remove characters from the input field as needed.
+
+- Moving Elements: Drag syllables, consonants, and vowels to reposition them.
+- Resizing Syllables: Adjust a syllable's size - along with all consecutive syllables - by dragging its border.
+- Resizing Inner Circles: Modify the size of a syllable's inner circle by dragging its border.
+- Resizing Words: Drag the border of the largest syllable to resize the word. Adjust the word's outer circle by dragging its border.
+- Moving Words: Move an entire word by dragging the largest syllable or the empty space inside the word.
+
+(good luck figuring it out)
+
+Toggle the animation by clicking the Animation button.
+
+Export your design as a PNG or GIF via File → Export as...
+
 ## Demo
 ![demo](https://github.com/katekorobova/gallifreyan/blob/main/demo.gif)
 

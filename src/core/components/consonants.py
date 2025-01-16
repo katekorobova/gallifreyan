@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import random
 from abc import ABC, abstractmethod
 from collections import Counter
 from enum import Enum
@@ -70,12 +71,11 @@ class Consonant(Letter, ABC):
     @staticmethod
     def compatible(cons1: Consonant, cons2: Consonant) -> bool:
         """Determine compatibility between two consonants."""
-        allow_double = {ConsonantType.SIMILAR_DOTS, ConsonantType.DIFFERENT_DOTS, ConsonantType.BLACK_DOT,
-                        ConsonantType.OBTUSE_ANGLE, ConsonantType.CIRCLE}
+        allow_double = {ConsonantType.OBTUSE_ANGLE, ConsonantType.CIRCLE}
         if cons1.consonant_type == cons2.consonant_type and cons1.consonant_type in allow_double:
             return True
 
-        large_angles = {ConsonantType.STRAIGHT_ANGLE, ConsonantType.REFLEX_ANGLE}
+        large_angles = {ConsonantType.STRAIGHT_ANGLE, ConsonantType.REFLEX_ANGLE, ConsonantType.DIAMETRAL_LINE}
         if cons1.consonant_type in large_angles and cons2.consonant_type in large_angles:
             return False
 
@@ -180,6 +180,7 @@ class RadialLineConsonant(LineBasedConsonant):
 
         self._end = Point()
         self._polygon_args = {}
+        self._set_personal_direction(random.uniform(0.7 * math.pi, 1.3 * math.pi))
 
     def press(self, point: Point) -> bool:
         """Check if a point interacts with this consonant."""
@@ -460,6 +461,7 @@ class CircleConsonant(Consonant):
         self._radius = 0.0
         self._center = Point()
         self._ellipse_args = {}
+        self._set_personal_direction(random.uniform(0.7 * math.pi, 1.3 * math.pi))
 
     def press(self, point: Point) -> bool:
         delta = point - self._center

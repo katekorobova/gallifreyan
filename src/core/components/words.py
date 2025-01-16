@@ -10,11 +10,10 @@ from PIL import ImageTk, Image, ImageDraw
 from .characters import Character, Separator, CharacterType
 from .syllables import Consonant, Syllable, SeparatorSyllable, AbstractSyllable
 from .vowels import Vowel
-from .. import repository
 from ..utils import Point, PressedType, line_width, half_line_distance
 from ...config import (WORD_IMAGE_RADIUS, DEFAULT_WORD_RADIUS, MIN_RADIUS,
                        OUTER_CIRCLE_SCALE_MIN, OUTER_CIRCLE_SCALE_MAX,
-                       WORD_BG, WORD_COLOR, ALEPH)
+                       WORD_BG, WORD_COLOR)
 
 
 @dataclass
@@ -417,8 +416,7 @@ class Word(AbstractWord):
             if self.syllables_by_indices[index]:
                 state.completed = True
             else:
-                aleph = Consonant.get_consonant(ALEPH, *repository.get().consonants[ALEPH])
-                self.syllables_by_indices[index] = Syllable(aleph, vowel)
+                self.syllables_by_indices[index] = Syllable(vowel=vowel)
 
     def _process_separator(self, index: int, separator: Separator, state: _RedistributionState) -> None:
         """Process vowel letters and update syllables."""

@@ -4,7 +4,7 @@ from enum import Enum
 
 from .characters import Letter, LetterType
 from ..utils import Point, PressedType, line_width, half_line_distance
-from ...config import MIN_RADIUS, SYLLABLE_COLOR, SYLLABLE_BG
+from ...config import MIN_RADIUS, SYLLABLE_BG, VOWEL_COLOR
 
 
 class VowelType(str, Enum):
@@ -17,6 +17,8 @@ class VowelType(str, Enum):
 
 class Vowel(Letter, ABC):
     """Base class for vowels."""
+    BACKGROUND = SYLLABLE_BG
+    COLOR = VOWEL_COLOR
 
     def __init__(self, text: str, borders: str, vowel_type: VowelType):
         super().__init__(text, LetterType.VOWEL, borders)
@@ -54,8 +56,8 @@ class Vowel(Letter, ABC):
             adjusted_radius = radii[i] + self.half_line_widths[i]
             start = (self.IMAGE_CENTER + self._center).shift(-adjusted_radius)
             end = (self.IMAGE_CENTER + self._center).shift(adjusted_radius)
-            self._ellipse_args.append({'xy': (start, end), 'outline': SYLLABLE_COLOR,
-                                       'fill': SYLLABLE_BG, 'width': width})
+            self._ellipse_args.append({'xy': (start, end), 'outline': self.COLOR,
+                                       'fill': self.BACKGROUND, 'width': width})
 
     def _calculate_center(self):
         self._center = Point(math.cos(self.direction) * self._distance, math.sin(self.direction) * self._distance)

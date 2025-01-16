@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from enum import Enum, auto
 
-from ..config.constants import LINE_WIDTHS, MIN_LINE_WIDTH, HALF_LINE_DISTANCE, MIN_HALF_LINE_DISTANCE
+from ..config.constants import LINE_WIDTHS, MIN_LINE_WIDTH, DEFAULT_HALF_LINE_DISTANCE, MIN_HALF_LINE_DISTANCE
 
 
 # ==========================
@@ -58,4 +58,4 @@ def line_width(typ: str, scale: float) -> int:
 
 def half_line_distance(scale: float) -> float:
     """Calculate the scaled half-line distance, ensuring a minimum value."""
-    return max(HALF_LINE_DISTANCE * scale, MIN_HALF_LINE_DISTANCE)
+    return max(DEFAULT_HALF_LINE_DISTANCE * scale, MIN_HALF_LINE_DISTANCE)

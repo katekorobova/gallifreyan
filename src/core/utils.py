@@ -6,9 +6,9 @@ from enum import Enum, auto
 from ..config.constants import LINE_WIDTHS, MIN_LINE_WIDTH, DEFAULT_HALF_LINE_DISTANCE, MIN_HALF_LINE_DISTANCE
 
 
-# ==========================
+# =============================================
 # Enum for Pressed Types
-# ==========================
+# =============================================
 class PressedType(Enum):
     PARENT = auto()
     BORDER = auto()
@@ -16,9 +16,9 @@ class PressedType(Enum):
     CHILD = auto()
 
 
-# ==========================
+# =============================================
 # Utility Class: Point
-# ==========================
+# =============================================
 class Point(tuple):
     """A 2D point with basic vector operations."""
 
@@ -47,10 +47,9 @@ class Point(tuple):
         return Point(self[0] + x, self[1] + x)
 
 
-# ==========================
+# =============================================
 # Utility Functions
-# ==========================
-
+# =============================================
 def line_width(typ: str, scale: float) -> int:
     """Calculate the line width based on type and scale, ensuring a minimum value."""
     return max(math.ceil(LINE_WIDTHS[typ] * scale), MIN_LINE_WIDTH[typ])

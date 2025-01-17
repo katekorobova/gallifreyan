@@ -71,12 +71,6 @@ class Sentence:
                 self.pressed = word
                 return
 
-    def perform_animation(self):
-        direction_sign = 1
-        for word in self.words:
-            word.perform_animation(direction_sign)
-            direction_sign = -direction_sign
-
     def move(self, event: Event) -> bool:
         """Handle mouse drag movement."""
         if self.pressed:
@@ -88,12 +82,22 @@ class Sentence:
         """Handle mouse button release."""
         self.pressed = None
 
+    def perform_animation(self):
+        direction_sign = 1
+        for word in self.words:
+            word.perform_animation(direction_sign)
+            direction_sign = -direction_sign
+
     def put_image(self, canvas: Canvas):
         for item_id in self._ids_for_removal:
             canvas.delete(item_id)
             self._ids_for_removal.clear()
         for word in self.words:
             word.put_image(canvas)
+
+    def apply_color_changes(self):
+        for word in self.words:
+            word.apply_color_changes()
 
     def remove_characters(self, index: int, deleted: str):
         """Remove letters from the sentence."""

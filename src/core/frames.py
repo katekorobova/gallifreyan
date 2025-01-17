@@ -69,25 +69,26 @@ class SpecialCharactersFrame(tk.Frame):
 
 
 class ToolButton(tk.Button):
-    def __init__(self, master: tk.Frame, text: str, command: Callable[[], None]):
+    def __init__(self, master: tk.Frame, text: str, command: Callable[[bool], None]):
         super().__init__(master, text=text, font=FONT,
                          height=BUTTON_HEIGHT, width=BUTTON_WIDTH * 3,
-                         command=lambda: self._command(command))
+                         command=lambda: self._call_command(command))
         self.pressed = False
 
-    def _command(self, command: Callable[[], None]):
-        command()
+    def _call_command(self, command: Callable[[bool], None]):
         if self.pressed:
             self.configure(relief='raised')
             self.pressed = False
         else:
             self.configure(relief='sunken')
             self.pressed = True
+        command(self.pressed)
 
 
 class ToolsFrame(tk.Frame):
-    def __init__(self, win: tk.Tk, command: Callable[[], None]):
+    def __init__(self, win: tk.Tk, command: Callable[[bool], None]):
         super().__init__(win, bg=WINDOW_BG)
+
         button = ToolButton(self, 'Animation', command)
         button.grid(row=0, column=0, sticky='nw')
 
@@ -136,6 +137,10 @@ class CanvasFrame(tk.Frame):
         self.sentence.release()
 
     def _redraw(self):
+        self.sentence.put_image(self.canvas)
+
+    def apply_color_changes(self):
+        self.sentence.apply_color_changes()
         self.sentence.put_image(self.canvas)
 
     def _attempt_action(self, action: str, str_index: str, inserted: str) -> bool:

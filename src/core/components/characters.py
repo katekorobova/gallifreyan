@@ -2,7 +2,6 @@ import math
 import random
 from abc import ABC, abstractmethod
 from enum import auto, Enum
-from typing import Optional
 
 from PIL import ImageDraw
 
@@ -78,11 +77,11 @@ class Letter(Character):
         self.line_widths: list[int] = []
         self.half_line_widths: list[float] = []
         self._half_line_distance = 0.0
-        self._image: Optional[ImageDraw.ImageDraw] = None
 
-    def set_image(self, image: ImageDraw.ImageDraw):
+    def initialize(self, syllable):
         """Set the image object used for drawing."""
-        self._image = image
+        self.update_direction(syllable.direction)
+        self.resize(syllable)
 
     @abstractmethod
     def press(self, point: Point) -> bool:
@@ -103,38 +102,44 @@ class Letter(Character):
         """
         pass
 
-    @abstractmethod
-    def _update_image_properties(self):
-        """Update properties necessary for drawing."""
-        pass
-
-    @abstractmethod
-    def _update_syllable_properties(self, syllable):
+    def _update_properties_after_resizing(self, syllable):
         """
-        Update the letter's properties based on the syllable.
-
-        :param syllable: The syllable object containing scale and distances.
+        Update properties after syllable resizing.
         """
         self.line_widths = [line_width(border, syllable.scale) for border in self.borders]
         self.half_line_widths = [width / 2 for width in self.line_widths]
         self._half_line_distance = syllable.half_line_distance
 
-        self.parent_direction = syllable.direction
+    def _update_properties_after_rotation(self):
+        """Update properties after rotation."""
+        pass
+
+    @abstractmethod
+    def update_argument_dictionaries(self):
+        """Update argument dictionaries."""
+        pass
+
+    def update_direction(self, parent_direction: float):
+        self.parent_direction = parent_direction
         self.direction = self.parent_direction + self.personal_direction
+        self._update_properties_after_rotation()
+        self.update_argument_dictionaries()
 
     def set_direction(self, direction: float):
         self.direction = direction
         self.personal_direction = self.direction - self.parent_direction
+        self._update_properties_after_rotation()
+        self.update_argument_dictionaries()
 
     def _set_personal_direction(self, personal_direction: float):
         self.personal_direction = personal_direction
         self.direction = self.parent_direction + self.personal_direction
 
-    def update_properties(self, syllable):
-        self._update_syllable_properties(syllable)
-        self._update_image_properties()
+    def resize(self, syllable):
+        self._update_properties_after_resizing(syllable)
+        self.update_argument_dictionaries()
 
     @abstractmethod
-    def draw(self):
+    def draw(self, image: ImageDraw.Draw):
         """Draw the letter."""
         pass

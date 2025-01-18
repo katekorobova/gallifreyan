@@ -404,10 +404,10 @@ class Word(AbstractWord):
             end = self.IMAGE_CENTER.shift(adjusted_radius)
             self._border_draw.ellipse((start, end), outline=self.color, width=self._line_widths[1])
             self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._line_widths[1])
+
     # =============================================
     # Drawing
     # =============================================
-
     def get_image(self) -> Image:
         if not self._image_ready:
             self._create_image()

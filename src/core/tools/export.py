@@ -36,6 +36,8 @@ def save_image(image: Optional[Image.Image], name: str, extension: str, callback
 
 
 class ProgressWindow(tk.Toplevel):
+    """A pop-up window displaying progress updates."""
+
     def __init__(self, master: tk.Tk):
         super().__init__(master)
         self.withdraw()
@@ -50,5 +52,6 @@ class ProgressWindow(tk.Toplevel):
         self.deiconify()
 
     def configure_progress_label(self, index: int):
+        """Updates the label to display the current progress."""
         self.label.config(text="Your GIF is being processed: {:2.2f}%".format(99 * (index + 1) / CYCLE))
         self.label.master.update()

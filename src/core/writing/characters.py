@@ -17,34 +17,27 @@ class CharacterType(Enum):
 
 
 class Character(ABC):
-    def __init__(self, text: str, character_type: CharacterType):
-        """
-        Initialize a Character instance.
+    """Abstract base class representing a character."""
 
-        :param text: The textual representation of the character.
-        :param character_type: The type of the character.
-        """
+    def __init__(self, text: str, character_type: CharacterType):
+        """Initialize a Character instance."""
         self.text = text
         self.character_type = character_type
 
 
 class Separator(Character):
-    def __init__(self, text: str):
-        """
-        Initialize a Separator instance.
+    """Class representing a syllable separator character."""
 
-        :param text: The textual representation of the separator.
-        """
+    def __init__(self, text: str):
+        """Initialize a Separator instance."""
         super().__init__(text, CharacterType.SEPARATOR)
 
 
 class Space(Character):
-    def __init__(self, text: str):
-        """
-        Initialize a Separator instance.
+    """Class representing a space character."""
 
-        :param text: The textual representation of the separator.
-        """
+    def __init__(self, text: str):
+        """Initialize a Separator instance."""
         super().__init__(text, CharacterType.SPACE)
 
 
@@ -59,13 +52,7 @@ class Letter(Character):
     IMAGE_CENTER = Point(SYLLABLE_IMAGE_RADIUS, SYLLABLE_IMAGE_RADIUS)
 
     def __init__(self, text: str, letter_type: LetterType, borders: str):
-        """
-        Initialize a Letter instance.
-
-        :param text: The textual representation of the letter.
-        :param letter_type: The type of the letter (CONSONANT/VOWEL).
-        :param borders: A string representing the letter's border properties.
-        """
+        """Initialize a Letter instance."""
         super().__init__(text, CharacterType.LETTER)
         self.letter_type = letter_type
         self.borders = borders
@@ -79,63 +66,56 @@ class Letter(Character):
         self._half_line_distance = 0.0
 
     def initialize(self, syllable):
-        """Set the image object used for drawing."""
+        """Initialize the letter's properties based on a given syllable."""
         self.update_direction(syllable.direction)
         self.resize(syllable)
 
     @abstractmethod
     def press(self, point: Point) -> bool:
-        """
-        Handle a press event at a given point.
-
-        :param point: The point where the press occurred.
-        :return: A boolean indicating whether the press was handled.
-        """
+        """Handle a press event at a given point."""
         pass
 
     @abstractmethod
     def move(self, point: Point):
-        """
-        Handle a move event to a given point.
-
-        :param point: The new point to move to.
-        """
+        """Handle a move event to a given point."""
         pass
 
     def _update_properties_after_resizing(self, syllable):
-        """
-        Update properties after syllable resizing.
-        """
+        """Update letter properties after resizing based on the given syllable."""
         self.line_widths = [line_width(border, syllable.scale) for border in self.borders]
         self.half_line_widths = [width / 2 for width in self.line_widths]
         self._half_line_distance = syllable.half_line_distance
 
     def _update_properties_after_rotation(self):
-        """Update properties after rotation."""
+        """Update letter properties after rotation."""
         pass
 
     @abstractmethod
     def update_argument_dictionaries(self):
-        """Update argument dictionaries."""
+        """Update the argument dictionaries used for rendering."""
         pass
 
     def update_direction(self, parent_direction: float):
+        """Update the letter's direction based on the parent direction."""
         self.parent_direction = parent_direction
         self.direction = self.parent_direction + self.personal_direction
         self._update_properties_after_rotation()
         self.update_argument_dictionaries()
 
     def set_direction(self, direction: float):
+        """Set a new direction for the letter."""
         self.direction = direction
         self.personal_direction = self.direction - self.parent_direction
         self._update_properties_after_rotation()
         self.update_argument_dictionaries()
 
     def _set_personal_direction(self, personal_direction: float):
+        """Set a new personal direction for the letter."""
         self.personal_direction = personal_direction
         self.direction = self.parent_direction + self.personal_direction
 
     def resize(self, syllable):
+        """Resize the letter based on the given syllable."""
         self._update_properties_after_resizing(syllable)
         self.update_argument_dictionaries()
 

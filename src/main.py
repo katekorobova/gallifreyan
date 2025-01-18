@@ -4,37 +4,41 @@ import copy
 import tkinter as tk
 from typing import Optional
 
-from src.core.tools.animation import AnimationFrame
-from .config import WINDOW_BG, CYCLE, DELAY, PADX, PADY, ICON_FILE
+from .config import WINDOW_BG, CYCLE, DELAY, PADX, PADY
 from .core import repository
+from .core.tools.colorscheme import ColorSchemeWindow, ColorScheme
+from .core.tools.export import ProgressWindow, save_image
+from .core.widgets.animation import AnimationFrame
+from .core.widgets.canvas import CanvasFrame
+from .core.widgets.keyboard import LettersFrame, SpecialCharactersFrame
 from .core.writing.characters import LetterType
 from .core.writing.consonants import Consonant, DotConsonant
 from .core.writing.syllables import Syllable
 from .core.writing.vowels import Vowel
 from .core.writing.words import Word
-from .core.frames import LettersFrame, CanvasFrame, SpecialCharactersFrame
-from .core.tools.colorscheme import ColorSchemeWindow, ColorScheme
-from .core.tools.export import ProgressWindow, save_image
+
+# Padding settings for UI layout
+padx = (0, PADX)
+pady = (0, PADY)
 
 
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.color_scheme = ColorScheme()
-        self.animation_enabled = False
-        self.animation_task_id: Optional[str] = None
-
         self._initialize_character_repository()
-        self._create_frames()
-        self._layout_frames()
         self._configure_window()
+        self._create_frames()
 
+        self._animation_enabled = False
+        self._animation_task_id: Optional[str] = None
+
+        self._color_scheme = ColorScheme()
         self._color_scheme_window: Optional[tk.Toplevel] = None
 
     def _configure_window(self):
         """Set up the main application window."""
         self.title('Gallifreyan')
-        self.iconphoto(True, tk.PhotoImage(file=ICON_FILE))
+        self.iconphoto(True, tk.PhotoImage(file='src/assets/icon.png'))
 
         menu_bar = tk.Menu(self)
         file_menu = tk.Menu(menu_bar, tearoff=0)
@@ -45,7 +49,6 @@ class App(tk.Tk):
         settings_menu = tk.Menu(menu_bar, tearoff=0)
         settings_menu.add_command(label="Color Scheme", command=self._open_color_scheme_window)
         menu_bar.add_cascade(label="Settings", menu=settings_menu)
-
         self.config(menu=menu_bar, bg=WINDOW_BG)
 
     def _open_color_scheme_window(self):
@@ -53,16 +56,16 @@ class App(tk.Tk):
         if self._color_scheme_window and self._color_scheme_window.winfo_exists():
             self._color_scheme_window.focus()
         else:
-            self._color_scheme_window = ColorSchemeWindow(self, self.color_scheme, self.apply_color_scheme)
+            self._color_scheme_window = ColorSchemeWindow(self, self._color_scheme, self._apply_color_scheme)
 
-    def apply_color_scheme(self, color_scheme: ColorScheme):
+    def _apply_color_scheme(self, color_scheme: ColorScheme):
         """Apply the updated color scheme to the application."""
-        self.canvas_frame.canvas.configure(bg=color_scheme.canvas_bg)
-        Word.background = color_scheme.word_bg
-        Syllable.background = color_scheme.syllable_bg
-        Consonant.background = color_scheme.syllable_bg
-        Vowel.background = color_scheme.syllable_bg
-        DotConsonant.background = color_scheme.syllable_bg
+        self.canvas_frame.canvas.configure(bg=color_scheme.canvas_background)
+        Word.background = color_scheme.word_background
+        Syllable.background = color_scheme.syllable_background
+        Consonant.background = color_scheme.syllable_background
+        Vowel.background = color_scheme.syllable_background
+        DotConsonant.background = color_scheme.syllable_background
 
         Word.color = color_scheme.word_color
         Syllable.color = color_scheme.syllable_color
@@ -70,7 +73,7 @@ class App(tk.Tk):
         Vowel.color = color_scheme.vowel_color
         DotConsonant.color = color_scheme.dot_color
 
-        self.color_scheme = copy.copy(color_scheme)
+        self._color_scheme = copy.copy(color_scheme)
         self.canvas_frame.apply_color_changes()
 
     @staticmethod
@@ -79,41 +82,42 @@ class App(tk.Tk):
         repository.initialize()
 
     def _create_frames(self):
-        """Create all the frames used in the application."""
+        """Create all the frames used in the main window."""
         self.canvas_frame = CanvasFrame(self)
-        self.consonants_frame = LettersFrame(LetterType.CONSONANT, self, self.canvas_frame.entry)
-        self.vowels_frame = LettersFrame(LetterType.VOWEL, self, self.canvas_frame.entry)
-        self.special_characters_frame = SpecialCharactersFrame(self, self.canvas_frame.entry)
-        self.animation_frame = AnimationFrame(self, self._set_animation_state)
+        consonants_frame = LettersFrame(LetterType.CONSONANT, self, self.canvas_frame.entry)
+        vowels_frame = LettersFrame(LetterType.VOWEL, self, self.canvas_frame.entry)
 
-    def _layout_frames(self):
-        """Place the frames in the application window using a grid layout."""
-        self.consonants_frame.grid(row=0, column=0, columnspan=2, padx=PADX, pady=PADY, sticky='nw')
-        self.vowels_frame.grid(row=1, column=0, rowspan=2, padx=PADX, pady=PADY, sticky='nw')
-        self.special_characters_frame.grid(row=2, column=1, padx=PADX, pady=PADY, sticky='nw')
-        self.canvas_frame.grid(row=0, column=2, rowspan=3, padx=PADX, pady=PADY, sticky='nw')
+        tools_frame = tk.Frame(self)
+        tools_frame.configure(bg=WINDOW_BG)
+        animation_frame = AnimationFrame(tools_frame, self._set_animation_state)
+        special_characters_frame = SpecialCharactersFrame(tools_frame, self.canvas_frame.entry)
+        animation_frame.grid(row=0, column=0, pady=pady, sticky='nw')
+        special_characters_frame.grid(row=1, column=0, sticky='nw')
 
-        self.animation_frame.grid(row=1, column=1, padx=PADX, pady=PADY, sticky='nw')
-        self.rowconfigure(2, weight=1)
-        self.columnconfigure(1, weight=1)
+        consonants_frame.grid(row=0, column=0, columnspan=2, padx=PADX, pady=PADY, sticky='nw')
+        vowels_frame.grid(row=1, column=0, padx=PADX, pady=pady, sticky='nw')
+        tools_frame.grid(row=1, column=1, padx=PADX, pady=pady, sticky='nw')
+        self.canvas_frame.grid(row=0, column=2, rowspan=2, padx=padx, pady=PADY, sticky='nw')
 
     def _animation_loop(self):
+        """Recursively triggers the animation loop."""
         self.canvas_frame.perform_animation()
-        self.animation_task_id = self.after(DELAY, self._animation_loop)
+        self._animation_task_id = self.after(DELAY, self._animation_loop)
 
     def _set_animation_state(self, enabled: bool):
+        """Starts or stops the animation loop based on the given state."""
         if enabled:
-            if self.animation_task_id is None:
-                self.animation_task_id = self.after(DELAY, self._animation_loop)
+            if self._animation_task_id is None:
+                self._animation_task_id = self.after(DELAY, self._animation_loop)
         else:
-            if self.animation_task_id is not None:
-                self.after_cancel(self.animation_task_id)
-                self.animation_task_id = None
-        self.animation_enabled = enabled
+            if self._animation_task_id is not None:
+                self.after_cancel(self._animation_task_id)
+                self._animation_task_id = None
+        self._animation_enabled = enabled
 
     def _save_png(self):
         """Save the current canvas content as a PNG file."""
-        animation_enabled = self.animation_enabled
+        animation_enabled = self._animation_enabled
         self._set_animation_state(False)
 
         try:
@@ -127,7 +131,7 @@ class App(tk.Tk):
         """Save the current canvas content as an animated GIF."""
         progress_window: Optional[tk.Toplevel] = None
 
-        animation_enabled = self.animation_enabled
+        animation_enabled = self._animation_enabled
         self._set_animation_state(False)
 
         def save_gif(image, filename):

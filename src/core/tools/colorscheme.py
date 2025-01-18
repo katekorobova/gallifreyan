@@ -13,15 +13,21 @@ from ...config import (SYLLABLE_INITIAL_SCALE_MIN, CANVAS_BG, WORD_BG, SYLLABLE_
                        WORD_COLOR, SYLLABLE_COLOR, VOWEL_COLOR, DOT_COLOR,
                        BUTTON_WIDTH, BUTTON_HEIGHT, PADX, PADY)
 
+# Padding settings for UI layout
 padx = (0, PADX)
 pady = (0, PADY)
 
 
 class ColorScheme:
+    """
+    Represents the color scheme used for the canvas.
+    Stores background and foreground colors for various elements.
+    """
+
     def __init__(self):
-        self.canvas_bg: str = CANVAS_BG
-        self.word_bg: str = WORD_BG
-        self.syllable_bg: str = SYLLABLE_BG
+        self.canvas_background: str = CANVAS_BG
+        self.word_background: str = WORD_BG
+        self.syllable_background: str = SYLLABLE_BG
 
         self.word_color: str = WORD_COLOR
         self.syllable_color: str = SYLLABLE_COLOR
@@ -30,9 +36,19 @@ class ColorScheme:
 
 
 class ColorSchemeWindow(tk.Toplevel):
+    """
+    A GUI window for modifying the canvas's color scheme.
+    Provides options to change colors for canvas, words, syllables, vowels, and dots.
+    """
     CENTER = Point(180, 180)
 
     def __init__(self, master: tk.Tk, color_scheme: ColorScheme, command: Callable[[ColorScheme], None]):
+        """
+        Initializes the color scheme window.
+        :param master: The parent Tkinter window.
+        :param color_scheme: The current color scheme.
+        :param command: Callback function to apply the updated color scheme.
+        """
         super().__init__(master)
         self.withdraw()
         self.title("Color Scheme")
@@ -41,16 +57,27 @@ class ColorSchemeWindow(tk.Toplevel):
         self.resizable(False, False)
         self.color_scheme = copy.copy(color_scheme)
 
-        canvas_frame = self._create_canvas_frame()
-        word_frame = self._create_word_frame()
-        syllable_frame = self._create_syllable_frame()
-        vowel_frame = self._create_vowel_frame()
-        dot_frame = self._create_dot_frame()
+        # Create UI frames for color selection
+        canvas_frame = self._create_unary_frame('Canvas',
+                                                self.color_scheme.canvas_background, self._choose_canvas_background)
+        word_frame = self._create_binary_frame('Words', self.color_scheme.word_color, self._choose_word_color,
+                                               self.color_scheme.word_background, self._choose_word_background)
+        syllable_frame = self._create_binary_frame('Syllables',
+                                                   self.color_scheme.syllable_color, self._choose_syllable_color,
+                                                   self.color_scheme.syllable_background,
+                                                   self._choose_syllable_background)
+        vowel_frame = self._create_unary_frame('Vowels', self.color_scheme.vowel_color, self._choose_vowel_color)
+        dot_frame = self._create_unary_frame('Dots', self.color_scheme.dot_color, self._choose_dot_color)
 
-        self.canvas = tk.Canvas(self, bg=color_scheme.canvas_bg, width=self.CENTER[0] * 2, height=self.CENTER[1] * 2)
+        # Tiny canvas for previewing the changes
+        self.canvas = tk.Canvas(self, bg=color_scheme.canvas_background,
+                                width=self.CENTER[0] * 2, height=self.CENTER[1] * 2)
+
+        # Apply button to save changes
         self.apply_button = tk.Button(self, text="Apply", width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT,
                                       command=lambda: command(self.color_scheme))
 
+        # Grid layout positioning
         canvas_frame.grid(row=0, column=0, padx=PADX, pady=pady)
         word_frame.grid(row=1, column=0, padx=PADX, pady=pady)
         syllable_frame.grid(row=2, column=0, padx=PADX, pady=pady)
@@ -63,91 +90,52 @@ class ColorSchemeWindow(tk.Toplevel):
         self.grid_columnconfigure('all', weight=1)
 
         self._initialize_word()
-        self._redraw()
+        self._draw()
         self.deiconify()
 
-    def _create_canvas_frame(self) -> tk.Frame:
+    def _create_unary_frame(self, title: str, color: str, command: Callable[[tk.Label], None]) -> tk.Frame:
+        """Creates a frame containing a label, a color preview, and a button to change the color."""
         frame = tk.Frame(self)
-        label = tk.Label(frame, text='Canvas')
+        label = tk.Label(frame, text=title)
 
-        preview = tk.Label(frame, bg=self.color_scheme.canvas_bg,
-                           width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT, relief='raised')
-        button = tk.Button(frame, text='Change', command=lambda: self._choose_canvas_bg(preview),
-                                width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT)
+        preview = tk.Label(frame, bg=color, relief='raised',
+                           width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT)
+        button = tk.Button(frame, text='Change',
+                           command=lambda: command(preview),
+                           width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT)
 
         label.grid(row=0, column=0, columnspan=2)
         preview.grid(row=1, column=0, padx=padx)
         button.grid(row=1, column=1)
         return frame
 
-    def _create_word_frame(self) -> tk.Frame:
+    def _create_binary_frame(self, title: str, color: str, color_command: Callable[[tk.Label], None],
+                             background: str, background_command: Callable[[tk.Label], None]) -> tk.Frame:
+        """Creates a frame containing a label, two color preview labels, and buttons to change each color."""
         frame = tk.Frame(self)
-        label = tk.Label(frame, text='Words')
+        label = tk.Label(frame, text=title)
 
-        color_preview = tk.Label(frame, bg=self.color_scheme.word_color,
-                                 width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT, relief='raised')
-        color_button = tk.Button(frame, text='Change', command=lambda: self._choose_word_color(color_preview),
+        color_preview = tk.Label(frame, bg=color, relief='raised',
+                                 width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT)
+        color_button = tk.Button(frame, text='Change',
+                                 command=lambda: color_command(color_preview),
                                  width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT)
 
-        bg_preview = tk.Label(frame, bg=self.color_scheme.word_bg,
-                              width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT, relief='raised')
-        bg_button = tk.Button(frame, text='Change', command=lambda: self._choose_word_bg(bg_preview),
-                                        width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT)
+        background_preview = tk.Label(frame, bg=background, relief='raised',
+                                      width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT)
+        background_button = tk.Button(frame, text='Change',
+                                      command=lambda: background_command(background_preview),
+                                      width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT)
 
-        label.grid(row=0, column=0, columnspan=2,)
+        label.grid(row=0, column=0, columnspan=2, )
         color_preview.grid(row=1, column=0, padx=padx)
         color_button.grid(row=1, column=1)
-        bg_preview.grid(row=2, column=0, padx=padx)
-        bg_button.grid(row=2, column=1)
-        return frame
-
-    def _create_syllable_frame(self) -> tk.Frame:
-        frame = tk.Frame(self)
-        color_label = tk.Label(frame, text='Syllables')
-        color_preview = tk.Label(frame, bg=self.color_scheme.syllable_color,
-                                 width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT, relief='raised')
-        color_button = tk.Button(frame, text='Change', command=lambda: self._choose_syllable_color(color_preview),
-                                 width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT)
-
-        bg_preview = tk.Label(frame, bg=self.color_scheme.syllable_bg,
-                              width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT, relief='raised')
-        bg_button = tk.Button(frame, text='Change', command=lambda: self._choose_syllable_bg(bg_preview),
-                                               width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT)
-
-        color_label.grid(row=0, column=0, columnspan=2)
-        color_preview.grid(row=1, column=0, padx=padx)
-        color_button.grid(row=1, column=1)
-        bg_preview.grid(row=2, column=0, padx=padx)
-        bg_button.grid(row=2, column=1)
-        return frame
-
-    def _create_vowel_frame(self) -> tk.Frame:
-        frame = tk.Frame(self)
-        label = tk.Label(frame, text='Vowels')
-        preview = tk.Label(frame, bg=self.color_scheme.vowel_color,
-                           width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT, relief='raised')
-        button = tk.Button(frame, text='Change', command=lambda: self._choose_vowel_color(preview),
-                                            width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT)
-
-        label.grid(row=0, column=0, columnspan=2)
-        preview.grid(row=1, column=0, padx=padx)
-        button.grid(row=1, column=1)
-        return frame
-
-    def _create_dot_frame(self) -> tk.Frame:
-        frame = tk.Frame(self)
-        label = tk.Label(frame, text='Dots')
-        preview = tk.Label(frame, bg=self.color_scheme.dot_color,
-                           width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT, relief='raised')
-        button = tk.Button(frame, text='Change', command=lambda: self._choose_dot_color(preview),
-                                          width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT)
-
-        label.grid(row=0, column=0, columnspan=2)
-        preview.grid(row=1, column=0, padx=padx)
-        button.grid(row=1, column=1)
+        background_preview.grid(row=2, column=0, padx=padx)
+        background_button.grid(row=2, column=1)
         return frame
 
     def _initialize_word(self):
+        """Initializes the word preview."""
         self.word = Word(self.CENTER, [get_character(char, *repository.get().all[char]) for char in 'wʌz'])
         self.word.syllables[0].set_direction(0)
         self.word.syllables[1].set_direction(math.pi)
@@ -172,47 +160,47 @@ class ColorSchemeWindow(tk.Toplevel):
 
         self.word.update_properties_after_resizing()
 
-    def _choose_canvas_bg(self, preview: tk.Label):
+    def _choose_canvas_background(self, preview: tk.Label):
+        """Opens a color picker to change the canvas background color."""
         self.attributes('-disabled', True)
-
-        _, color = colorchooser.askcolor(title="Choose canvas background", color=self.color_scheme.canvas_bg)
+        _, color = colorchooser.askcolor(title="Choose Canvas Background", color=self.color_scheme.canvas_background)
         if color:
-            self.color_scheme.canvas_bg = color
+            self.color_scheme.canvas_background = color
             preview.config(bg=color)
             self.canvas.configure(bg=color)
 
         self.attributes('-disabled', False)
 
     def _choose_word_color(self, preview: tk.Label):
+        """Opens a color picker to change the word color."""
         self.attributes('-disabled', True)
-
-        _, color = colorchooser.askcolor(title="Choose word color", color=self.color_scheme.word_color)
+        _, color = colorchooser.askcolor(title="Choose Word Color", color=self.color_scheme.word_color)
         if color:
             self.color_scheme.word_color = color
             preview.config(bg=color)
 
             self.word.color = color
-            self._repaint()
+            self._redraw()
 
         self.attributes('-disabled', False)
 
-    def _choose_word_bg(self, preview: tk.Label):
+    def _choose_word_background(self, preview: tk.Label):
+        """Opens a color picker to change the word background."""
         self.attributes('-disabled', True)
-
-        _, color = colorchooser.askcolor(title="Choose word background", color=self.color_scheme.word_bg)
+        _, color = colorchooser.askcolor(title="Choose Word Background", color=self.color_scheme.word_background)
         if color:
-            self.color_scheme.word_bg = color
+            self.color_scheme.word_background = color
             preview.config(bg=color)
 
             self.word.background = color
-            self._repaint()
+            self._redraw()
 
         self.attributes('-disabled', False)
 
     def _choose_syllable_color(self, preview: tk.Label):
+        """Opens a color picker to change the syllable color."""
         self.attributes('-disabled', True)
-
-        _, color = colorchooser.askcolor(title="Choose syllable color", color=self.color_scheme.syllable_color)
+        _, color = colorchooser.askcolor(title="Choose Syllable Color", color=self.color_scheme.syllable_color)
         if color:
             self.color_scheme.syllable_color = color
             preview.config(bg=color)
@@ -221,16 +209,17 @@ class ColorSchemeWindow(tk.Toplevel):
                 syllable.color = color
             for consonant in self.consonants:
                 consonant.color = color
-            self._repaint()
+            self._redraw()
 
         self.attributes('-disabled', False)
 
-    def _choose_syllable_bg(self, preview: tk.Label):
+    def _choose_syllable_background(self, preview: tk.Label):
+        """Opens a color picker to change the syllable background."""
         self.attributes('-disabled', True)
-
-        _, color = colorchooser.askcolor(title="Choose syllable background", color=self.color_scheme.syllable_bg)
+        _, color = colorchooser.askcolor(title="Choose Syllable Background",
+                                         color=self.color_scheme.syllable_background)
         if color:
-            self.color_scheme.syllable_bg = color
+            self.color_scheme.syllable_background = color
             preview.config(bg=color)
 
             for syllable in self.word.syllables:
@@ -241,41 +230,43 @@ class ColorSchemeWindow(tk.Toplevel):
                 vowel.background = color
             for consonant in self.dots:
                 consonant.background = color
-            self._repaint()
+            self._redraw()
 
         self.attributes('-disabled', False)
 
     def _choose_vowel_color(self, preview: tk.Label):
+        """Opens a color picker to change the vowel color."""
         self.attributes('-disabled', True)
-
-        _, color = colorchooser.askcolor(title="Choose vowel color", color=self.color_scheme.vowel_color)
+        _, color = colorchooser.askcolor(title="Choose Vowel Color", color=self.color_scheme.vowel_color)
         if color:
             self.color_scheme.vowel_color = color
             preview.config(bg=color)
 
             for vowel in self.vowels:
                 vowel.color = color
-            self._repaint()
+            self._redraw()
 
         self.attributes('-disabled', False)
 
     def _choose_dot_color(self, preview: tk.Label):
+        """Opens a color picker to change the dot color."""
         self.attributes('-disabled', True)
-
-        _, color = colorchooser.askcolor(title="Choose dot color", color=self.color_scheme.dot_color)
+        _, color = colorchooser.askcolor(title="Choose Dot Color", color=self.color_scheme.dot_color)
         if color:
             self.color_scheme.dot_color = color
             preview.config(bg=color)
 
             for consonant in self.dots:
                 consonant.color = color
-            self._repaint()
+            self._redraw()
 
         self.attributes('-disabled', False)
 
-    def _redraw(self):
+    def _draw(self):
+        """Draws the word preview on the canvas."""
         self.word.put_image(self.canvas)
 
-    def _repaint(self):
+    def _redraw(self):
+        """Applies the selected color changes and updates the preview."""
         self.word.apply_color_changes()
-        self.word.put_image(self.canvas)
+        self._draw()

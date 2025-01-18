@@ -15,6 +15,7 @@ from ...config import (SYLLABLE_BG, SYLLABLE_COLOR, DOT_COLOR,
 
 
 class ConsonantType(Enum):
+    """Enumeration of different consonant types with their codes and group values."""
     STRAIGHT_ANGLE = ('sa', 2)
     OBTUSE_ANGLE = ('oa', 2)
     REFLEX_ANGLE = ('ra', 2)
@@ -28,6 +29,7 @@ class ConsonantType(Enum):
     SOLID_DOT = ('sd', 4)
 
     def __init__(self, code: str, group: int):
+        """Initialize a consonant type with a specific code and group."""
         self.code = code
         self.group = group
 
@@ -41,10 +43,12 @@ class ConsonantType(Enum):
 
 
 class Consonant(Letter, ABC):
+    """Abstract base class for consonant representations."""
     background = SYLLABLE_BG
     color = SYLLABLE_COLOR
 
     def __init__(self, text: str, borders: str, consonant_type: ConsonantType):
+        """Initialize a consonant with text, borders, and type."""
         super().__init__(text, LetterType.CONSONANT, borders)
         self.consonant_type = consonant_type
         self._distance = 0.0
@@ -99,7 +103,7 @@ class Consonant(Letter, ABC):
 
 
 class LineBasedConsonant(Consonant, ABC):
-    """Base class for line-based consonants."""
+    """Base class for consonants that use lines in their representation."""
     ANGLE = 0.0
 
     def __init__(self, text: str, borders: str, consonant_type: ConsonantType):
@@ -118,7 +122,7 @@ class LineBasedConsonant(Consonant, ABC):
             self._calculate_endpoint(self.direction + self.ANGLE)]
 
     def _calculate_endpoint(self, angle: float) -> Point:
-        """Helper to calculate an endpoint for a given angle."""
+        """Helper method to calculate an endpoint given an angle."""
         return Point(
             math.cos(angle) * self._distance,
             math.sin(angle) * self._distance)
@@ -166,7 +170,7 @@ class LineBasedConsonant(Consonant, ABC):
             for end in self._ends]
 
     def draw(self, image: ImageDraw.Draw):
-        """Draw the consonant."""
+        """Draw the consonant as a line."""
         for line_arg in self._line_args:
             image.line(**line_arg)
 

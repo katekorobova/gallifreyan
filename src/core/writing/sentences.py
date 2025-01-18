@@ -64,6 +64,9 @@ class Sentence:
         self.words_by_indices: list[Optional[AbstractWord]] = []
         self.characters: list[Character] = []
 
+    # =============================================
+    # Mouse events
+    # =============================================
     def press(self, event: Event):
         """Handle mouse button press on canvas."""
         for word in reversed(self.words):
@@ -82,23 +85,9 @@ class Sentence:
         """Handle mouse button release."""
         self.pressed = None
 
-    def perform_animation(self):
-        direction_sign = 1
-        for word in self.words:
-            word.perform_animation(direction_sign)
-            direction_sign = -direction_sign
-
-    def put_image(self, canvas: Canvas):
-        for item_id in self._ids_for_removal:
-            canvas.delete(item_id)
-            self._ids_for_removal.clear()
-        for word in self.words:
-            word.put_image(canvas)
-
-    def apply_color_changes(self):
-        for word in self.words:
-            word.apply_color_changes()
-
+    # =============================================
+    # Deletion
+    # =============================================
     def remove_characters(self, index: int, deleted: str):
         """Remove letters from the sentence."""
         end_index = index + len(deleted)
@@ -119,7 +108,26 @@ class Sentence:
             last_word.remove_characters(0, end_index - last_word_start)
 
         self._clean_up_removed(index, end_index)
-        self._absorb_following(index)
+        self._absorb_following_word(index)
+
+    def _absorb_following_word(self, index: int):
+        if not 0 < index < len(self.characters):
+            return
+
+        preceding_word = self.words_by_indices[index - 1]
+        following_word = self.words_by_indices[index]
+        if preceding_word is following_word:
+            return
+
+        following_characters = following_word.characters
+        following_len = len(following_characters)
+
+        if preceding_word.insert_characters(index - self.words_by_indices.index(preceding_word),
+                                            following_characters):
+            self.words_by_indices[index: index + following_len] = repeat(preceding_word, following_len)
+            if isinstance(following_word, Word):
+                self.words.remove(following_word)
+                self._ids_for_removal.append(following_word.canvas_item_id)
 
     def _clean_up_removed(self, index: int, end_index: int):
         self.characters[index:end_index] = []
@@ -127,6 +135,9 @@ class Sentence:
         self.words = [word for word in self.words if
                       (word in self.words_by_indices or self._ids_for_removal.append(word.canvas_item_id))]
 
+    # =============================================
+    # Insertion
+    # =============================================
     def insert_characters(self, index: int, inserted: str):
         """Insert characters at a specific index and update words."""
         characters = [get_character(char, *repository.get().all[char]) for char in inserted]
@@ -134,11 +145,11 @@ class Sentence:
 
         words_with_space_indicators = split_into_words(characters)
         if len(words_with_space_indicators) == 1:
-            self._insert_one(index, *words_with_space_indicators[0])
+            self._insert_single_word(index, *words_with_space_indicators[0])
         else:
-            self._insert_many(index, words_with_space_indicators)
+            self._insert_multiple_words(index, words_with_space_indicators)
 
-    def _insert_one(self, index: int, word_chars: list[Character], is_space: bool):
+    def _insert_single_word(self, index: int, word_chars: list[Character], is_space: bool):
         """Insert a single word at a specific index."""
         word_len = len(word_chars)
         preceding_word = self.words_by_indices[index - 1] if index > 0 else None
@@ -156,7 +167,7 @@ class Sentence:
             self.words_by_indices[index:index] = repeat(word, word_len)
             self._absorb_nones(index + word_len, word)
 
-    def _insert_many(self, index: int, words_with_space_indicators: list[tuple[list[Character], bool]]):
+    def _insert_multiple_words(self, index: int, words_with_space_indicators: list[tuple[list[Character], bool]]):
         """Insert multiple words at a specific index."""
         self._split_word(index)
         preceding_word = self.words_by_indices[index - 1] if index > 0 else None
@@ -189,6 +200,18 @@ class Sentence:
             self.words_by_indices[current_index: current_index] = repeat(word, word_len)
             self._absorb_nones(current_index + word_len, word)
 
+    def _split_word(self, index: int):
+        """Split the word at the specified index, updating words as needed."""
+        if 0 < index < len(self.words_by_indices):
+            word = self.words_by_indices[index - 1]
+            if word and word is self.words_by_indices[index]:
+                word.remove_starting_with(index - self.words_by_indices.index(word))
+                for i in range(index, len(self.words_by_indices)):
+                    if word is self.words_by_indices[i]:
+                        self.words_by_indices[i] = None
+                    else:
+                        return
+
     def _new_word(self, characters: list[Character], is_space) -> Word:
         if is_space:
             word = SpaceWord(characters)
@@ -197,24 +220,6 @@ class Sentence:
                               random.randint(DEFAULT_WORD_RADIUS, CANVAS_HEIGHT - DEFAULT_WORD_RADIUS)), characters)
             self.words.append(word)
         return word
-
-    def _absorb_following(self, index: int):
-        if not 0 < index < len(self.characters):
-            return
-
-        preceding_word = self.words_by_indices[index - 1]
-        following_word = self.words_by_indices[index]
-        if preceding_word is following_word:
-            return
-
-        following_characters = following_word.characters
-        following_len = len(following_characters)
-
-        if preceding_word.insert_characters(index - self.words_by_indices.index(preceding_word), following_characters):
-            self.words_by_indices[index: index + following_len] = repeat(preceding_word, following_len)
-            if isinstance(following_word, Word):
-                self.words.remove(following_word)
-                self._ids_for_removal.append(following_word.canvas_item_id)
 
     def _absorb_nones(self, index: int, preceding_word: AbstractWord):
         if index >= len(self.characters):
@@ -232,6 +237,9 @@ class Sentence:
 
         self.words_by_indices[index: index + remaining_len] = repeat(word, remaining_len)
 
+    # =============================================
+    # Drawing
+    # =============================================
     def get_image(self) -> Optional[Image.Image]:
         if not self.words:
             return None
@@ -242,14 +250,22 @@ class Sentence:
             image.paste(word_image, tuple(word.center - Word.IMAGE_CENTER), word_image)
         return image
 
-    def _split_word(self, index: int):
-        """Split the word at the specified index, updating words as needed."""
-        if 0 < index < len(self.words_by_indices):
-            word = self.words_by_indices[index - 1]
-            if word and word is self.words_by_indices[index]:
-                word.remove_starting_with(index - self.words_by_indices.index(word))
-                for i in range(index, len(self.words_by_indices)):
-                    if word is self.words_by_indices[i]:
-                        self.words_by_indices[i] = None
-                    else:
-                        return
+    def put_image(self, canvas: Canvas):
+        for item_id in self._ids_for_removal:
+            canvas.delete(item_id)
+            self._ids_for_removal.clear()
+        for word in self.words:
+            word.put_image(canvas)
+
+    def apply_color_changes(self):
+        for word in self.words:
+            word.apply_color_changes()
+
+    # =============================================
+    # Animation
+    # =============================================
+    def perform_animation(self):
+        direction_sign = 1
+        for word in self.words:
+            word.perform_animation(direction_sign)
+            direction_sign = -direction_sign

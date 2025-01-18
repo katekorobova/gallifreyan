@@ -38,17 +38,16 @@ def save_image(image: Optional[Image.Image], name: str, extension: str, callback
 class ProgressWindow(tk.Toplevel):
     def __init__(self, master: tk.Tk):
         super().__init__(master)
+        self.withdraw()
+        self.title("Wait")
         self.transient(master)
         self.geometry("300x100+500+500")
         self.protocol("WM_DELETE_WINDOW", lambda: None)
-        self.title("Wait")
-
-        icon = tk.PhotoImage(file='src/assets/icon.png')
-        self.iconphoto(False, icon)
 
         self.label = tk.Label(self)
         self.label.pack()
         self.configure_progress_label(0)
+        self.deiconify()
 
     def configure_progress_label(self, index: int):
         self.label.config(text="Your GIF is being processed: {:2.2f}%".format(99 * (index + 1) / CYCLE))

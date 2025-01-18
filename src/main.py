@@ -4,14 +4,15 @@ import copy
 import tkinter as tk
 from typing import Optional
 
+from src.core.tools.animation import AnimationFrame
 from .config import WINDOW_BG, CYCLE, DELAY, PADX, PADY, ICON_FILE
 from .core import repository
-from .core.components.characters import LetterType
-from .core.components.consonants import Consonant, DotConsonant
-from .core.components.syllables import Syllable
-from .core.components.vowels import Vowel
-from .core.components.words import Word
-from .core.frames import LettersFrame, CanvasFrame, SpecialCharactersFrame, ToolsFrame
+from .core.writing.characters import LetterType
+from .core.writing.consonants import Consonant, DotConsonant
+from .core.writing.syllables import Syllable
+from .core.writing.vowels import Vowel
+from .core.writing.words import Word
+from .core.frames import LettersFrame, CanvasFrame, SpecialCharactersFrame
 from .core.tools.colorscheme import ColorSchemeWindow, ColorScheme
 from .core.tools.export import ProgressWindow, save_image
 
@@ -32,8 +33,8 @@ class App(tk.Tk):
 
     def _configure_window(self):
         """Set up the main application window."""
-        icon = tk.PhotoImage(file=ICON_FILE)
-        self.iconphoto(False, icon)
+        self.title('Gallifreyan')
+        self.iconphoto(True, tk.PhotoImage(file=ICON_FILE))
 
         menu_bar = tk.Menu(self)
         file_menu = tk.Menu(menu_bar, tearoff=0)
@@ -45,24 +46,24 @@ class App(tk.Tk):
         settings_menu.add_command(label="Color Scheme", command=self._open_color_scheme_window)
         menu_bar.add_cascade(label="Settings", menu=settings_menu)
 
-        self.title('Gallifreyan')
         self.config(menu=menu_bar, bg=WINDOW_BG)
-        self.update_idletasks()
-
-        window_width = self.winfo_width()
-        window_height = self.winfo_height()
-        menu_height = self.winfo_rooty() - self.winfo_y()
-        self.geometry(f"{window_width}x{window_height + menu_height}")
 
     def _open_color_scheme_window(self):
         """Open the color scheme window."""
         if self._color_scheme_window and self._color_scheme_window.winfo_exists():
-            self._color_scheme_window.deiconify()
+            self._color_scheme_window.focus()
         else:
             self._color_scheme_window = ColorSchemeWindow(self, self.color_scheme, self.apply_color_scheme)
 
     def apply_color_scheme(self, color_scheme: ColorScheme):
         """Apply the updated color scheme to the application."""
+        self.canvas_frame.canvas.configure(bg=color_scheme.canvas_bg)
+        Word.background = color_scheme.word_bg
+        Syllable.background = color_scheme.syllable_bg
+        Consonant.background = color_scheme.syllable_bg
+        Vowel.background = color_scheme.syllable_bg
+        DotConsonant.background = color_scheme.syllable_bg
+
         Word.color = color_scheme.word_color
         Syllable.color = color_scheme.syllable_color
         Consonant.color = color_scheme.syllable_color
@@ -83,7 +84,7 @@ class App(tk.Tk):
         self.consonants_frame = LettersFrame(LetterType.CONSONANT, self, self.canvas_frame.entry)
         self.vowels_frame = LettersFrame(LetterType.VOWEL, self, self.canvas_frame.entry)
         self.special_characters_frame = SpecialCharactersFrame(self, self.canvas_frame.entry)
-        self.tools_frame = ToolsFrame(self, self._set_animation_state)
+        self.animation_frame = AnimationFrame(self, self._set_animation_state)
 
     def _layout_frames(self):
         """Place the frames in the application window using a grid layout."""
@@ -92,7 +93,7 @@ class App(tk.Tk):
         self.special_characters_frame.grid(row=2, column=1, padx=PADX, pady=PADY, sticky='nw')
         self.canvas_frame.grid(row=0, column=2, rowspan=3, padx=PADX, pady=PADY, sticky='nw')
 
-        self.tools_frame.grid(row=1, column=1, padx=PADX, pady=PADY, sticky='nw')
+        self.animation_frame.grid(row=1, column=1, padx=PADX, pady=PADY, sticky='nw')
         self.rowconfigure(2, weight=1)
         self.columnconfigure(1, weight=1)
 

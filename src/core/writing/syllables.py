@@ -156,56 +156,6 @@ class Syllable(AbstractSyllable):
         self.text = ''.join(letter.text for letter in self.letters)
 
     # =============================================
-    # Helper Functions for Updating Image Arguments
-    # =============================================
-    @staticmethod
-    def _calculate_adjusted_radius(base_radius: float, adjustment: float, min_radius: float = MIN_RADIUS):
-        """Calculate an adjusted radius with constraints."""
-        return max(base_radius + adjustment, min_radius)
-
-    def _update_inner_circle_args(self):
-        """Prepare arguments for drawing inner circles."""
-        self._inner_circle_arg_dict = []
-        if len(self._inner.borders) == 1:
-            adjusted_radius = self._calculate_adjusted_radius(self.inner_radius, self._inner.half_line_widths[0])
-            self._inner_circle_arg_dict.append(self._create_circle_args(adjusted_radius, self._inner.line_widths[0]))
-        else:
-            for i in range(2):
-                adjusted_radius = self._calculate_adjusted_radius(
-                    self.inner_radius, (-1) ** i * self.half_line_distance + self._inner.half_line_widths[i])
-                self._inner_circle_arg_dict.append(
-                    self._create_circle_args(adjusted_radius, self._inner.line_widths[i]))
-
-    def _create_circle_args(self, adjusted_radius: float, line_width: float) -> dict:
-        """Generate circle arguments for drawing."""
-        start, end = self.IMAGE_CENTER.shift(-adjusted_radius), self.IMAGE_CENTER.shift(adjusted_radius)
-        return {'xy': (start, end), 'outline': self.color, 'fill': self.background, 'width': line_width}
-
-    def _create_outer_circle(self):
-        """Draw the outer circle for the syllable."""
-        self._border_draw.rectangle(((0, 0), self._border_image.size), fill=0)
-        self._mask_draw.rectangle(((0, 0), self._mask_image.size), fill=1)
-
-        if len(self._outer.borders) == 1:
-            adjusted_radius = self._calculate_adjusted_radius(self.outer_radius, self._outer.half_line_widths[0])
-            start, end = self.IMAGE_CENTER.shift(-adjusted_radius), self.IMAGE_CENTER.shift(adjusted_radius)
-            self._border_draw.ellipse((start, end), outline=self.color, width=self._outer.line_widths[0])
-            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._outer.line_widths[0])
-        else:
-            adjusted_radius = self.outer_radius + self.half_line_distance + self._outer.half_line_widths[0]
-            start = self.IMAGE_CENTER.shift(-adjusted_radius)
-            end = self.IMAGE_CENTER.shift(adjusted_radius)
-            self._border_draw.ellipse((start, end),
-                                      outline=self.color, fill=self.background, width=self._outer.line_widths[0])
-
-            adjusted_radius = max(
-                self.outer_radius - self.half_line_distance + self._outer.half_line_widths[1], MIN_RADIUS)
-            start = self.IMAGE_CENTER.shift(-adjusted_radius)
-            end = self.IMAGE_CENTER.shift(adjusted_radius)
-            self._border_draw.ellipse((start, end), outline=self.color, width=self._outer.line_widths[1])
-            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._outer.line_widths[1])
-
-    # =============================================
     # Insertion
     # =============================================
     def add(self, character: Character) -> bool:
@@ -404,10 +354,8 @@ class Syllable(AbstractSyllable):
         self.set_scale(min(max(new_radius / DEFAULT_WORD_RADIUS / self._parent_scale,
                                        SYLLABLE_SCALE_MIN), SYLLABLE_SCALE_MAX))
 
-    def _adjust_inner_scale(self, distance: float):
-        """Adjust the inner scale based on the moved distance."""
-        new_radius = distance - self._distance_bias
-        self.inner_scale = min(max(new_radius / self.outer_radius, INNER_CIRCLE_SCALE_MIN), INNER_CIRCLE_SCALE_MAX)
+    def set_inner_scale(self, scale: float):
+        self.inner_scale = scale
         self.inner_radius = self.outer_radius * self.inner_scale
 
         for consonant in self.consonants:
@@ -418,6 +366,11 @@ class Syllable(AbstractSyllable):
 
         self._update_inner_circle_args()
         self._image_ready = False
+
+    def _adjust_inner_scale(self, distance: float):
+        """Adjust the inner scale based on the moved distance."""
+        new_radius = distance - self._distance_bias
+        self.set_inner_scale(min(max(new_radius / self.outer_radius, INNER_CIRCLE_SCALE_MIN), INNER_CIRCLE_SCALE_MAX))
 
     def _update_properties_after_resizing(self):
         """Update scaling and circle radii, and calculate image properties."""
@@ -444,20 +397,6 @@ class Syllable(AbstractSyllable):
     # =============================================
     # Rotation
     # =============================================
-    def perform_animation(self, direction_sign: int, is_tail: bool):
-        delta = direction_sign * 2 * math.pi / CYCLE
-
-        if self.vowel:
-            self.vowel.set_direction(self.vowel.direction - 2 * delta)
-
-        for consonant in self.consonants:
-            consonant.set_direction(consonant.direction + 2 * delta)
-
-        if is_tail:
-            self.set_direction(self.direction + delta)
-        else:
-            self._image_ready = False
-
     def set_direction(self, direction: float):
         self.direction = direction
 
@@ -473,6 +412,56 @@ class Syllable(AbstractSyllable):
         """Adjust the direction of the syllable when moved."""
         adjusted_point = point - self._point_bias
         self.set_direction(adjusted_point.direction())
+
+    # =============================================
+    # Helper Functions for Updating Image Arguments
+    # =============================================
+    def _update_inner_circle_args(self):
+        """Prepare arguments for drawing inner circles."""
+        self._inner_circle_arg_dict = []
+        if len(self._inner.borders) == 1:
+            adjusted_radius = self._calculate_adjusted_radius(self.inner_radius, self._inner.half_line_widths[0])
+            self._inner_circle_arg_dict.append(self._create_circle_args(adjusted_radius, self._inner.line_widths[0]))
+        else:
+            for i in range(2):
+                adjusted_radius = self._calculate_adjusted_radius(
+                    self.inner_radius, (-1) ** i * self.half_line_distance + self._inner.half_line_widths[i])
+                self._inner_circle_arg_dict.append(
+                    self._create_circle_args(adjusted_radius, self._inner.line_widths[i]))
+
+    def _create_circle_args(self, adjusted_radius: float, line_width: float) -> dict:
+        """Generate circle arguments for drawing."""
+        start, end = self.IMAGE_CENTER.shift(-adjusted_radius), self.IMAGE_CENTER.shift(adjusted_radius)
+        return {'xy': (start, end), 'outline': self.color, 'fill': self.background, 'width': line_width}
+
+    def _create_outer_circle(self):
+        """Draw the outer circle for the syllable."""
+        self._border_draw.rectangle(((0, 0), self._border_image.size), fill=0)
+        self._mask_draw.rectangle(((0, 0), self._mask_image.size), fill=1)
+
+        if len(self._outer.borders) == 1:
+            adjusted_radius = self._calculate_adjusted_radius(self.outer_radius, self._outer.half_line_widths[0])
+            start, end = self.IMAGE_CENTER.shift(-adjusted_radius), self.IMAGE_CENTER.shift(adjusted_radius)
+            self._border_draw.ellipse((start, end), outline=self.color, width=self._outer.line_widths[0])
+            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._outer.line_widths[0])
+        else:
+            adjusted_radius = self.outer_radius + self.half_line_distance + self._outer.half_line_widths[0]
+            start = self.IMAGE_CENTER.shift(-adjusted_radius)
+            end = self.IMAGE_CENTER.shift(adjusted_radius)
+            self._border_draw.ellipse((start, end),
+                                      outline=self.color, fill=self.background, width=self._outer.line_widths[0])
+
+            adjusted_radius = max(
+                self.outer_radius - self.half_line_distance + self._outer.half_line_widths[1], MIN_RADIUS)
+            start = self.IMAGE_CENTER.shift(-adjusted_radius)
+            end = self.IMAGE_CENTER.shift(adjusted_radius)
+            self._border_draw.ellipse((start, end), outline=self.color, width=self._outer.line_widths[1])
+            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._outer.line_widths[1])
+
+    @staticmethod
+    def _calculate_adjusted_radius(base_radius: float, adjustment: float, min_radius: float = MIN_RADIUS):
+        """Calculate an adjusted radius with constraints."""
+        return max(base_radius + adjustment, min_radius)
 
     # =============================================
     # Drawing
@@ -515,3 +504,20 @@ class Syllable(AbstractSyllable):
         self._update_inner_circle_args()
         self._create_outer_circle()
         self._image_ready = False
+
+    # =============================================
+    # Animation
+    # =============================================
+    def perform_animation(self, direction_sign: int, is_tail: bool):
+        delta = direction_sign * 2 * math.pi / CYCLE
+
+        if self.vowel:
+            self.vowel.set_direction(self.vowel.direction - 2 * delta)
+
+        for consonant in self.consonants:
+            consonant.set_direction(consonant.direction + 2 * delta)
+
+        if is_tail:
+            self.set_direction(self.direction + delta)
+        else:
+            self._image_ready = False

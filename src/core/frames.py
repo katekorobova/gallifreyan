@@ -1,14 +1,14 @@
 import logging
 import tkinter as tk
-from typing import Callable
 
 from PIL import Image, ImageTk
 
 from . import repository
-from .components.characters import LetterType
-from .components.sentences import Sentence
-from ..config import (FONT, WINDOW_BG, BUTTON_HEIGHT, BUTTON_WIDTH, BUTTON_IMAGE_SIZE,
-                      CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_BG, BUTTON_BG)
+from .writing.characters import LetterType
+from .writing.sentences import Sentence
+from ..config import (WINDOW_BG, CANVAS_BG, BUTTON_BG,
+                      BUTTON_HEIGHT, BUTTON_WIDTH, BUTTON_IMAGE_SIZE,
+                      CANVAS_WIDTH, CANVAS_HEIGHT, FONT)
 
 
 class CharacterButton(tk.Button):
@@ -66,31 +66,6 @@ class SpecialCharactersFrame(tk.Frame):
         for i, character in enumerate(characters):
             button = CharacterButton(self, character, entry)
             button.grid(row=0, column=i, sticky='news')
-
-
-class ToolButton(tk.Button):
-    def __init__(self, master: tk.Frame, text: str, command: Callable[[bool], None]):
-        super().__init__(master, text=text, font=FONT,
-                         height=BUTTON_HEIGHT, width=BUTTON_WIDTH * 3,
-                         command=lambda: self._call_command(command))
-        self.pressed = False
-
-    def _call_command(self, command: Callable[[bool], None]):
-        if self.pressed:
-            self.configure(relief='raised')
-            self.pressed = False
-        else:
-            self.configure(relief='sunken')
-            self.pressed = True
-        command(self.pressed)
-
-
-class ToolsFrame(tk.Frame):
-    def __init__(self, win: tk.Tk, command: Callable[[bool], None]):
-        super().__init__(win, bg=WINDOW_BG)
-
-        button = ToolButton(self, 'Animation', command)
-        button.grid(row=0, column=0, sticky='nw')
 
 
 class CanvasFrame(tk.Frame):

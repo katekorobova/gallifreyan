@@ -105,13 +105,16 @@ class Word(AbstractWord):
         self._distance_bias = 0.0
         self._point_bias = Point()
 
+    # =============================================
+    # Initialization
+    # =============================================
     @classmethod
     def _create_empty_image(cls, mode='RGBA') -> tuple[Image.Image, ImageDraw.Draw]:
         """Create an empty image and its drawing object."""
         image = Image.new(mode, (cls.IMAGE_CENTER * 2))
         return image, ImageDraw.Draw(image)
 
-    def update_image_properties(self):
+    def update_properties_after_resizing(self):
         """Update properties based on the head syllable scale."""
         head_scale = self.head.scale
         self.outer_radius = DEFAULT_WORD_RADIUS * self.outer_circle_scale * head_scale
@@ -119,13 +122,6 @@ class Word(AbstractWord):
         self._half_line_widths = [width / 2 for width in self._line_widths]
         self._half_line_distance = half_line_distance(head_scale)
         self._create_outer_circle()
-
-    def apply_color_changes(self):
-        self._create_outer_circle()
-        if self.syllables:
-            for syllable in self.syllables:
-                syllable.apply_color_changes()
-            self._image_ready = False
 
     def set_syllables(self):
         self.syllables = unique_syllables(self.syllables_by_indices)
@@ -136,11 +132,14 @@ class Word(AbstractWord):
             self.head = self.syllables[0]
             self.tail = self.syllables[1:]
             self.head.update_scale()
-            self.update_image_properties()
+            self.update_properties_after_resizing()
         else:
             self.head = None
             self.tail = []
 
+    # =============================================
+    # Pressing
+    # =============================================
     def press(self, point: Point) -> bool:
         """Handle press events."""
         word_point = point - self.center
@@ -206,6 +205,9 @@ class Word(AbstractWord):
         self.pressed_type = PressedType.PARENT
         self._point_bias = word_point
 
+    # =============================================
+    # Repositioning
+    # =============================================
     def move(self, point: Point):
         """Handle move events."""
         word_point = point - self.center
@@ -224,119 +226,27 @@ class Word(AbstractWord):
         """Move a pressed child syllable."""
         if self._pressed is self.head:
             self.head.move(word_point)
-            self.update_image_properties()
+            self.update_properties_after_resizing()
         else:
             head_radius = self.head.outer_radius
             self._pressed.move(word_point, head_radius)
 
+    # =============================================
+    # Resizing
+    # =============================================
     def _resize(self, word_point: Point):
         """Resize the word based on movement."""
+        head_scale = self.head.scale
         new_radius = word_point.distance() - self._distance_bias
-        self.outer_circle_scale = min(max(new_radius / DEFAULT_WORD_RADIUS / self.head.scale, OUTER_CIRCLE_SCALE_MIN),
+        self.outer_circle_scale = min(max(new_radius / DEFAULT_WORD_RADIUS / head_scale, OUTER_CIRCLE_SCALE_MIN),
                                       OUTER_CIRCLE_SCALE_MAX)
-        self.update_image_properties()
 
-    def put_image(self, canvas: tk.Canvas):
-        """Create and display the word image on the canvas."""
-        if self._image_ready:
-            if self.canvas_item_id is not None:
-                canvas.tag_raise(self.canvas_item_id)
-            return
+        self.outer_radius = DEFAULT_WORD_RADIUS * self.outer_circle_scale * head_scale
+        self._create_outer_circle()
 
-        if self.canvas_item_id is not None:
-            canvas.delete(self.canvas_item_id)
-
-        if self.syllables:
-            self._create_image()
-            self._image_tk.paste(self._image)
-            self.canvas_item_id = canvas.create_image(self.center, image=self._image_tk)
-        else:
-            self._image_ready = True
-            self.canvas_item_id = None
-
-    def _create_image(self):
-        if self.head:
-            if self.tail:
-                # Clear the image
-                self._draw.rectangle(((0, 0), self._image.size), fill=self.background)
-
-                # Paste the head syllable onto the image
-                self._paste_head()
-
-                # Paste other syllables onto the image
-                head_radius = self.head.scale * DEFAULT_WORD_RADIUS
-                for s in self.tail:
-                    self._paste_tail(s, head_radius)
-
-                # Paste the outer circle image
-                self._image.paste(self._border_image, mask=self._mask_image)
-            else:
-                # Clear the image
-                self._draw.rectangle(((0, 0), self._image.size), fill=0)
-
-                # Paste the head syllable onto the image
-                self._paste_head()
-
-        self._image_ready = True
-
-    def _paste_head(self):
-        image = self.head.create_image()
-        self._image.paste(image, tuple(self.IMAGE_CENTER - Syllable.IMAGE_CENTER), image)
-
-    def _paste_tail(self, syllable: Syllable, radius: float):
-        image = syllable.create_image()
-        self._image.paste(image, tuple(self.IMAGE_CENTER - Syllable.IMAGE_CENTER +
-                                       Point(round(math.cos(syllable.direction) * radius),
-                                             round(math.sin(syllable.direction) * radius))), image)
-
-    def _create_outer_circle(self):
-        """Create the outer circle representation."""
-
-        self._border_draw.rectangle(((0, 0), self._border_image.size), fill=0)
-        self._mask_draw.rectangle(((0, 0), self._border_image.size), fill=1)
-        if len(self.borders) == 1:
-            adjusted_radius = self.outer_radius + self._half_line_widths[0]
-            start = self.IMAGE_CENTER.shift(-adjusted_radius)
-            end = self.IMAGE_CENTER.shift(adjusted_radius)
-            self._border_draw.ellipse((start, end), outline=self.color, width=self._line_widths[0])
-            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._line_widths[0])
-        else:
-            adjusted_radius = self.outer_radius + self._half_line_distance + self._half_line_widths[0]
-            start = self.IMAGE_CENTER.shift(-adjusted_radius)
-            end = self.IMAGE_CENTER.shift(adjusted_radius)
-            self._border_draw.ellipse((start, end), outline=self.color,
-                                      fill=self.background, width=self._line_widths[0])
-
-            adjusted_radius = max(self.outer_radius - self._half_line_distance + self._half_line_widths[1], MIN_RADIUS)
-            start = self.IMAGE_CENTER.shift(-adjusted_radius)
-            end = self.IMAGE_CENTER.shift(adjusted_radius)
-            self._border_draw.ellipse((start, end), outline=self.color, width=self._line_widths[1])
-            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._line_widths[1])
-
-    def remove_starting_with(self, index: int):
-        """Remove characters from the word, updating properties accordingly."""
-        self._split_syllable(index)
-
-        super().remove_starting_with(index)
-        self.syllables_by_indices[index:] = []
-
-        self.set_syllables()
-        self._image_ready = False
-
-    def remove_characters(self, index: int, end_index: int):
-        """Remove characters from the word and update syllables."""
-        self._split_syllable(index)
-        self._split_syllable(end_index)
-
-        super().remove_characters(index, end_index)
-        self.syllables_by_indices[index: end_index] = []
-
-        start = self._absorb_following(index)
-        self._redistribute(start)
-
-        self.set_syllables()
-        self._image_ready = False
-
+    # =============================================
+    # Insertion and Deletion
+    # =============================================
     def insert_characters(self, index: int, characters: list[Character]) -> bool:
         """Insert characters at a specific index and update syllables."""
         if any(character.character_type == CharacterType.SPACE for character in characters):
@@ -353,6 +263,30 @@ class Word(AbstractWord):
         self.set_syllables()
         self._image_ready = False
         return True
+
+    def remove_characters(self, index: int, end_index: int):
+        """Remove characters from the word and update syllables."""
+        self._split_syllable(index)
+        self._split_syllable(end_index)
+
+        super().remove_characters(index, end_index)
+        self.syllables_by_indices[index: end_index] = []
+
+        start = self._absorb_following(index)
+        self._redistribute(start)
+
+        self.set_syllables()
+        self._image_ready = False
+
+    def remove_starting_with(self, index: int):
+        """Remove characters from the word, updating properties accordingly."""
+        self._split_syllable(index)
+
+        super().remove_starting_with(index)
+        self.syllables_by_indices[index:] = []
+
+        self.set_syllables()
+        self._image_ready = False
 
     def _split_syllable(self, index: int):
         """Split the syllable at the specified index, updating syllables as needed."""
@@ -444,11 +378,104 @@ class Word(AbstractWord):
     def _check_syllable_start(self, index: int, consonant: Consonant) -> bool:
         return self.syllables_by_indices[index] and self.syllables_by_indices[index].head is consonant
 
+    # =============================================
+    # Helper Functions for Updating Image Arguments
+    # =============================================
+    def _create_outer_circle(self):
+        """Create the outer circle representation."""
+
+        self._border_draw.rectangle(((0, 0), self._border_image.size), fill=0)
+        self._mask_draw.rectangle(((0, 0), self._border_image.size), fill=1)
+        if len(self.borders) == 1:
+            adjusted_radius = self.outer_radius + self._half_line_widths[0]
+            start = self.IMAGE_CENTER.shift(-adjusted_radius)
+            end = self.IMAGE_CENTER.shift(adjusted_radius)
+            self._border_draw.ellipse((start, end), outline=self.color, width=self._line_widths[0])
+            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._line_widths[0])
+        else:
+            adjusted_radius = self.outer_radius + self._half_line_distance + self._half_line_widths[0]
+            start = self.IMAGE_CENTER.shift(-adjusted_radius)
+            end = self.IMAGE_CENTER.shift(adjusted_radius)
+            self._border_draw.ellipse((start, end), outline=self.color,
+                                      fill=self.background, width=self._line_widths[0])
+
+            adjusted_radius = max(self.outer_radius - self._half_line_distance + self._half_line_widths[1], MIN_RADIUS)
+            start = self.IMAGE_CENTER.shift(-adjusted_radius)
+            end = self.IMAGE_CENTER.shift(adjusted_radius)
+            self._border_draw.ellipse((start, end), outline=self.color, width=self._line_widths[1])
+            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._line_widths[1])
+    # =============================================
+    # Drawing
+    # =============================================
+
     def get_image(self) -> Image:
         if not self._image_ready:
             self._create_image()
         return self._image
 
+    def put_image(self, canvas: tk.Canvas):
+        """Create and display the word image on the canvas."""
+        if self._image_ready:
+            if self.canvas_item_id is not None:
+                canvas.tag_raise(self.canvas_item_id)
+            return
+
+        if self.canvas_item_id is not None:
+            canvas.delete(self.canvas_item_id)
+
+        if self.syllables:
+            self._create_image()
+            self._image_tk.paste(self._image)
+            self.canvas_item_id = canvas.create_image(self.center, image=self._image_tk)
+        else:
+            self._image_ready = True
+            self.canvas_item_id = None
+
+    def _create_image(self):
+        if self.head:
+            if self.tail:
+                # Clear the image
+                self._draw.rectangle(((0, 0), self._image.size), fill=self.background)
+
+                # Paste the head syllable onto the image
+                self._paste_head()
+
+                # Paste other syllables onto the image
+                head_radius = self.head.scale * DEFAULT_WORD_RADIUS
+                for s in self.tail:
+                    self._paste_tail(s, head_radius)
+
+                # Paste the outer circle image
+                self._image.paste(self._border_image, mask=self._mask_image)
+            else:
+                # Clear the image
+                self._draw.rectangle(((0, 0), self._image.size), fill=0)
+
+                # Paste the head syllable onto the image
+                self._paste_head()
+
+        self._image_ready = True
+
+    def _paste_head(self):
+        image = self.head.create_image()
+        self._image.paste(image, tuple(self.IMAGE_CENTER - Syllable.IMAGE_CENTER), image)
+
+    def _paste_tail(self, syllable: Syllable, radius: float):
+        image = syllable.create_image()
+        self._image.paste(image, tuple(self.IMAGE_CENTER - Syllable.IMAGE_CENTER +
+                                       Point(round(math.cos(syllable.direction) * radius),
+                                             round(math.sin(syllable.direction) * radius))), image)
+
+    def apply_color_changes(self):
+        self._create_outer_circle()
+        if self.syllables:
+            for syllable in self.syllables:
+                syllable.apply_color_changes()
+            self._image_ready = False
+
+    # =============================================
+    # Animation
+    # =============================================
     def perform_animation(self, direction_sign: int):
         if self.head:
             self.head.perform_animation(direction_sign, False)

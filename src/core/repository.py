@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Optional
 
-from .components.characters import LetterType, CharacterType
+from .writing.characters import LetterType, CharacterType
 from ..config import SEPARATOR, SPACE
 
 _repository: Optional[_CharacterRepository] = None  # Global repository instance

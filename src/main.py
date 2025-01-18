@@ -1,32 +1,44 @@
+from __future__ import annotations
+
+import copy
 import tkinter as tk
-from tkinter import filedialog, messagebox
-from typing import Optional, Callable
+from typing import Optional
 
-from PIL import Image
-
-from .config import PADX, PADY, WINDOW_BG, CYCLE, DELAY
+from .config import WINDOW_BG, CYCLE, DELAY, PADX, PADY
 from .core import repository
-from .core.components.characters import LetterType
-from .core.frames import LettersFrame, CanvasFrame, SpecialCharactersFrame, ToolsFrame
+from .core.tools.colorscheme import ColorSchemeWindow, ColorScheme
+from .core.tools.export import ProgressWindow, save_image
+from .core.widgets.animation import AnimationFrame
+from .core.widgets.canvas import CanvasFrame
+from .core.widgets.keyboard import LettersFrame, SpecialCharactersFrame
+from .core.writing.characters import LetterType
+from .core.writing.consonants import Consonant, DotConsonant
+from .core.writing.syllables import Syllable
+from .core.writing.vowels import Vowel
+from .core.writing.words import Word
 
-SAVE_ERROR = "Save Error"
+# Padding settings for UI layout
+padx = (0, PADX)
+pady = (0, PADY)
 
 
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.animation_enabled = False
-        self.animation_task_id: Optional[str] = None
-
         self._initialize_character_repository()
-        self._create_frames()
-        self._layout_frames()
         self._configure_window()
+        self._create_frames()
+
+        self._animation_enabled = False
+        self._animation_task_id: Optional[str] = None
+
+        self._color_scheme = ColorScheme()
+        self._color_scheme_window: Optional[tk.Toplevel] = None
 
     def _configure_window(self):
         """Set up the main application window."""
-        icon = tk.PhotoImage(file='src/assets/icon.png')
-        self.iconphoto(False, icon)
+        self.title('Gallifreyan')
+        self.iconphoto(True, tk.PhotoImage(file='src/assets/icon.png'))
 
         menu_bar = tk.Menu(self)
         file_menu = tk.Menu(menu_bar, tearoff=0)
@@ -34,14 +46,35 @@ class App(tk.Tk):
         file_menu.add_command(label="Export as GIF", command=self._save_gif)
         menu_bar.add_cascade(label="File", menu=file_menu)
 
-        self.title('Gallifreyan')
+        settings_menu = tk.Menu(menu_bar, tearoff=0)
+        settings_menu.add_command(label="Color Scheme", command=self._open_color_scheme_window)
+        menu_bar.add_cascade(label="Settings", menu=settings_menu)
         self.config(menu=menu_bar, bg=WINDOW_BG)
-        self.update_idletasks()
 
-        window_width = self.winfo_width()
-        window_height = self.winfo_height()
-        menu_height = self.winfo_rooty() - self.winfo_y()
-        self.geometry(f"{window_width}x{window_height + menu_height}")
+    def _open_color_scheme_window(self):
+        """Open the color scheme window."""
+        if self._color_scheme_window and self._color_scheme_window.winfo_exists():
+            self._color_scheme_window.focus()
+        else:
+            self._color_scheme_window = ColorSchemeWindow(self, self._color_scheme, self._apply_color_scheme)
+
+    def _apply_color_scheme(self, color_scheme: ColorScheme):
+        """Apply the updated color scheme to the application."""
+        self.canvas_frame.canvas.configure(bg=color_scheme.canvas_background)
+        Word.background = color_scheme.word_background
+        Syllable.background = color_scheme.syllable_background
+        Consonant.background = color_scheme.syllable_background
+        Vowel.background = color_scheme.syllable_background
+        DotConsonant.background = color_scheme.syllable_background
+
+        Word.color = color_scheme.word_color
+        Syllable.color = color_scheme.syllable_color
+        Consonant.color = color_scheme.syllable_color
+        Vowel.color = color_scheme.vowel_color
+        DotConsonant.color = color_scheme.dot_color
+
+        self._color_scheme = copy.copy(color_scheme)
+        self.canvas_frame.apply_color_changes()
 
     @staticmethod
     def _initialize_character_repository():
@@ -49,74 +82,57 @@ class App(tk.Tk):
         repository.initialize()
 
     def _create_frames(self):
-        """Create all the frames used in the application."""
+        """Create all the frames used in the main window."""
         self.canvas_frame = CanvasFrame(self)
-        self.consonants_frame = LettersFrame(LetterType.CONSONANT, self, self.canvas_frame.entry)
-        self.vowels_frame = LettersFrame(LetterType.VOWEL, self, self.canvas_frame.entry)
-        self.special_characters_frame = SpecialCharactersFrame(self, self.canvas_frame.entry)
-        self.tools_frame = ToolsFrame(self, self._toggle_animation)
+        consonants_frame = LettersFrame(LetterType.CONSONANT, self, self.canvas_frame.entry)
+        vowels_frame = LettersFrame(LetterType.VOWEL, self, self.canvas_frame.entry)
 
-    def _layout_frames(self):
-        """Place the frames in the application window using a grid layout."""
-        self.consonants_frame.grid(row=0, column=0, columnspan=2, padx=PADX, pady=PADY, sticky='nw')
-        self.vowels_frame.grid(row=1, column=0, rowspan=2, padx=PADX, pady=PADY, sticky='nw')
-        self.special_characters_frame.grid(row=2, column=1, padx=PADX, pady=PADY, sticky='nw')
-        self.canvas_frame.grid(row=0, column=2, rowspan=3, padx=PADX, pady=PADY, sticky='nw')
+        tools_frame = tk.Frame(self)
+        tools_frame.configure(bg=WINDOW_BG)
+        animation_frame = AnimationFrame(tools_frame, self._set_animation_state)
+        special_characters_frame = SpecialCharactersFrame(tools_frame, self.canvas_frame.entry)
+        animation_frame.grid(row=0, column=0, pady=pady, sticky='nw')
+        special_characters_frame.grid(row=1, column=0, sticky='nw')
 
-        self.tools_frame.grid(row=1, column=1, padx=PADX, pady=PADY, sticky='nw')
-        self.rowconfigure(2, weight=1)
-        self.columnconfigure(1, weight=1)
+        consonants_frame.grid(row=0, column=0, columnspan=2, padx=PADX, pady=PADY, sticky='nw')
+        vowels_frame.grid(row=1, column=0, padx=PADX, pady=pady, sticky='nw')
+        tools_frame.grid(row=1, column=1, padx=PADX, pady=pady, sticky='nw')
+        self.canvas_frame.grid(row=0, column=2, rowspan=2, padx=padx, pady=PADY, sticky='nw')
 
     def _animation_loop(self):
+        """Recursively triggers the animation loop."""
         self.canvas_frame.perform_animation()
-        self.animation_task_id = self.after(DELAY, self._animation_loop)
+        self._animation_task_id = self.after(DELAY, self._animation_loop)
 
-    def _toggle_animation(self):
-        if self.animation_enabled:
-            self.after_cancel(self.animation_task_id)
-            self.animation_enabled = False
+    def _set_animation_state(self, enabled: bool):
+        """Starts or stops the animation loop based on the given state."""
+        if enabled:
+            if self._animation_task_id is None:
+                self._animation_task_id = self.after(DELAY, self._animation_loop)
         else:
-            self.animation_task_id = self.after(DELAY, self._animation_loop)
-            self.animation_enabled = True
-
-    def _save_image(self, extension: str, callback: Callable[[Image.Image, str], None]):
-        """Generic method to save the current canvas content as an image."""
-        try:
-            image = self.canvas_frame.sentence.get_image()
-            name = self.canvas_frame.entry.get()
-
-            if not image:
-                messagebox.showerror(SAVE_ERROR, "The canvas is empty.")
-                return
-
-            filename = filedialog.asksaveasfilename(
-                title=f"Save as {extension.upper()}",
-                filetypes=[(f"{extension.upper()} Files", f"*.{extension}")],
-                initialfile=name,
-                defaultextension=f".{extension}")
-
-            if not filename:
-                return  # User cancelled the save dialog
-
-            if not filename.lower().endswith(f".{extension}"):
-                messagebox.showerror(SAVE_ERROR, f"File must have a .{extension} extension.")
-                return
-
-            callback(image, filename)
-            messagebox.showinfo("Save Successful", f"Image saved as {filename}")
-        except Exception as e:
-            messagebox.showerror(SAVE_ERROR, f"Failed to save the image: {e}")
+            if self._animation_task_id is not None:
+                self.after_cancel(self._animation_task_id)
+                self._animation_task_id = None
+        self._animation_enabled = enabled
 
     def _save_png(self):
         """Save the current canvas content as a PNG file."""
-        self._save_image("png", lambda image, filename: image.save(filename))
+        animation_enabled = self._animation_enabled
+        self._set_animation_state(False)
+
+        try:
+            save_image(self.canvas_frame.sentence.get_image(),
+                       self.canvas_frame.entry.get(), "png",
+                       lambda image, filename: image.save(filename))
+        finally:
+            self._set_animation_state(animation_enabled)
 
     def _save_gif(self):
         """Save the current canvas content as an animated GIF."""
         progress_window: Optional[tk.Toplevel] = None
-        animation_enabled = self.animation_enabled
-        if animation_enabled:
-            self._toggle_animation()
+
+        animation_enabled = self._animation_enabled
+        self._set_animation_state(False)
 
         def save_gif(image, filename):
             nonlocal progress_window
@@ -131,33 +147,13 @@ class App(tk.Tk):
             image.save(filename, save_all=True, append_images=images, duration=DELAY, loop=0)
 
         try:
-            self._save_image("gif", save_gif)
+            save_image(self.canvas_frame.sentence.get_image(),
+                       self.canvas_frame.entry.get(), "gif", save_gif)
         finally:
             if progress_window:
                 progress_window.destroy()
 
-            if animation_enabled:
-                self._toggle_animation()
-
-
-class ProgressWindow(tk.Toplevel):
-    def __init__(self, master: tk.Tk):
-        super().__init__(master)
-        self.transient(master)
-        self.geometry("300x100+500+500")
-        self.protocol("WM_DELETE_WINDOW", lambda: None)
-        self.title("Wait")
-
-        icon = tk.PhotoImage(file='src/assets/icon.png')
-        self.iconphoto(False, icon)
-
-        self.label = tk.Label(self)
-        self.label.pack()
-        self.configure_progress_label(0)
-
-    def configure_progress_label(self, index: int):
-        self.label.config(text="Your GIF is being processed: {:2.2f}%".format(99 * (index + 1) / CYCLE))
-        self.label.master.update()
+            self._set_animation_state(animation_enabled)
 
 
 if __name__ == '__main__':

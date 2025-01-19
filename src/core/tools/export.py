@@ -4,7 +4,7 @@ from typing import Callable, Optional
 
 from PIL import Image
 
-from ...config import CYCLE
+from . import AnimationProperties
 
 SAVE_ERROR = "Save Error"
 
@@ -40,7 +40,6 @@ class ProgressWindow(tk.Toplevel):
 
     def __init__(self, master: tk.Tk):
         super().__init__(master)
-        self.withdraw()
         self.title("Wait")
         self.transient(master)
         self.geometry("300x100+500+500")
@@ -49,9 +48,9 @@ class ProgressWindow(tk.Toplevel):
         self.label = tk.Label(self)
         self.label.pack()
         self.configure_progress_label(0)
-        self.deiconify()
 
     def configure_progress_label(self, index: int):
         """Updates the label to display the current progress."""
-        self.label.config(text="Your GIF is being processed: {:2.2f}%".format(99 * (index + 1) / CYCLE))
+        self.label.config(text="Your GIF is being processed: {:2.2f}%"
+                          .format(99 * (index + 1) / AnimationProperties.cycle))
         self.label.master.update()

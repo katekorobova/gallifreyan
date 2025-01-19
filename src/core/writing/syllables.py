@@ -9,13 +9,14 @@ from .characters import Letter, Separator, Character
 from .consonants import Consonant
 from .vowels import Vowel, VowelType
 from .. import repository
+from ..tools import AnimationProperties
 from ..utils import Point, PressedType, half_line_distance
 from ...config import (SYLLABLE_IMAGE_RADIUS, DEFAULT_WORD_RADIUS, MIN_RADIUS,
                        SYLLABLE_INITIAL_SCALE_MIN, SYLLABLE_INITIAL_SCALE_MAX,
                        SYLLABLE_SCALE_MIN, SYLLABLE_SCALE_MAX,
                        INNER_CIRCLE_INITIAL_SCALE_MIN, INNER_CIRCLE_INITIAL_SCALE_MAX,
                        INNER_CIRCLE_SCALE_MIN, INNER_CIRCLE_SCALE_MAX,
-                       SYLLABLE_BG, SYLLABLE_COLOR, CYCLE, ALEPH)
+                       SYLLABLE_BG, SYLLABLE_COLOR, ALEPH)
 
 
 class AbstractSyllable(ABC):
@@ -352,7 +353,7 @@ class Syllable(AbstractSyllable):
         """Adjust the outer scale based on the moved distance."""
         new_radius = distance - self._distance_bias
         self.set_scale(min(max(new_radius / DEFAULT_WORD_RADIUS / self._parent_scale,
-                                       SYLLABLE_SCALE_MIN), SYLLABLE_SCALE_MAX))
+                               SYLLABLE_SCALE_MIN), SYLLABLE_SCALE_MAX))
 
     def set_inner_scale(self, scale: float):
         self.inner_scale = scale
@@ -509,7 +510,7 @@ class Syllable(AbstractSyllable):
     # Animation
     # =============================================
     def perform_animation(self, direction_sign: int, is_tail: bool):
-        delta = direction_sign * 2 * math.pi / CYCLE
+        delta = direction_sign * 2 * math.pi / AnimationProperties.cycle
 
         if self.vowel:
             self.vowel.set_direction(self.vowel.direction - 2 * delta)

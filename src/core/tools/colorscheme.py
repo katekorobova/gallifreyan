@@ -6,6 +6,7 @@ from typing import Callable
 
 from .. import repository
 from ..utils import Point
+from ..widgets import DefaultCanvas
 from ..writing.consonants import DotConsonant
 from ..writing.sentences import get_character
 from ..writing.words import Word
@@ -50,7 +51,6 @@ class ColorSchemeWindow(tk.Toplevel):
         :param command: Callback function to apply the updated color scheme.
         """
         super().__init__(master)
-        self.withdraw()
         self.title("Color Scheme")
         self.transient(master)
         self.geometry("+200+200")
@@ -69,13 +69,13 @@ class ColorSchemeWindow(tk.Toplevel):
         vowel_frame = self._create_unary_frame('Vowels', self.color_scheme.vowel_color, self._choose_vowel_color)
         dot_frame = self._create_unary_frame('Dots', self.color_scheme.dot_color, self._choose_dot_color)
 
-        # Tiny canvas for previewing the changes
-        self.canvas = tk.Canvas(self, bg=color_scheme.canvas_background,
-                                width=self.CENTER[0] * 2, height=self.CENTER[1] * 2)
-
         # Apply button to save changes
-        self.apply_button = tk.Button(self, text="Apply", width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT,
-                                      command=lambda: command(self.color_scheme))
+        apply_button = tk.Button(self, text="Apply", width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT,
+                                 command=lambda: command(self.color_scheme))
+
+        # Tiny canvas for previewing the changes
+        self.canvas = DefaultCanvas(self, bg=color_scheme.canvas_background,
+                                    width=self.CENTER[0] * 2, height=self.CENTER[1] * 2)
 
         # Grid layout positioning
         canvas_frame.grid(row=0, column=0, padx=PADX, pady=pady)
@@ -83,22 +83,18 @@ class ColorSchemeWindow(tk.Toplevel):
         syllable_frame.grid(row=2, column=0, padx=PADX, pady=pady)
         vowel_frame.grid(row=3, column=0, padx=PADX, pady=pady)
         dot_frame.grid(row=4, column=0, padx=PADX, pady=pady)
-
-        self.apply_button.grid(row=5, column=0, sticky='s', padx=PADX, pady=pady)
+        apply_button.grid(row=5, column=0, sticky=tk.S, padx=PADX, pady=pady)
         self.canvas.grid(row=0, column=2, rowspan=6, padx=padx, pady=PADY)
-        self.grid_rowconfigure('all', weight=1)
-        self.grid_columnconfigure('all', weight=1)
 
         self._initialize_word()
         self._draw()
-        self.deiconify()
 
     def _create_unary_frame(self, title: str, color: str, command: Callable[[tk.Label], None]) -> tk.Frame:
         """Creates a frame containing a label, a color preview, and a button to change the color."""
         frame = tk.Frame(self)
         label = tk.Label(frame, text=title)
 
-        preview = tk.Label(frame, bg=color, relief='raised',
+        preview = tk.Label(frame, bg=color, relief=tk.RAISED,
                            width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT)
         button = tk.Button(frame, text='Change',
                            command=lambda: command(preview),
@@ -115,13 +111,13 @@ class ColorSchemeWindow(tk.Toplevel):
         frame = tk.Frame(self)
         label = tk.Label(frame, text=title)
 
-        color_preview = tk.Label(frame, bg=color, relief='raised',
+        color_preview = tk.Label(frame, bg=color, relief=tk.RAISED,
                                  width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT)
         color_button = tk.Button(frame, text='Change',
                                  command=lambda: color_command(color_preview),
                                  width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT)
 
-        background_preview = tk.Label(frame, bg=background, relief='raised',
+        background_preview = tk.Label(frame, bg=background, relief=tk.RAISED,
                                       width=BUTTON_WIDTH * 2, height=BUTTON_HEIGHT)
         background_button = tk.Button(frame, text='Change',
                                       command=lambda: background_command(background_preview),

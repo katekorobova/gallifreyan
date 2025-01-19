@@ -2,6 +2,7 @@ import math
 import random
 from abc import ABC, abstractmethod
 from enum import auto, Enum
+from itertools import repeat
 
 from PIL import ImageDraw
 
@@ -61,8 +62,9 @@ class Letter(Character):
         self.personal_direction = 0.0
         self._set_personal_direction(random.uniform(0.9 * math.pi, 1.1 * math.pi))
 
-        self.line_widths: list[int] = []
-        self.half_line_widths: list[float] = []
+        length = len(borders)
+        self.line_widths: list[int] = list(repeat(0, length))
+        self.half_line_widths: list[float] = list(repeat(0.0, length))
         self._half_line_distance = 0.0
 
     def initialize(self, syllable):

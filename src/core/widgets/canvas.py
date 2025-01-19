@@ -1,30 +1,38 @@
 import logging
 import tkinter as tk
 
-from ...config import WINDOW_BG, FONT, CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_BG
+from . import DefaultFrame, DefaultLabel, DefaultCanvas
+from ...config import ITEM_BG, TEXT_COLOR, PADX, PADY, FONT
 from ...core import repository
 from ...core.writing.sentences import Sentence
 
+padx = (0, PADX)
+pady = (0, PADY)
 
-class CanvasFrame(tk.Frame):
+
+class CanvasFrame(DefaultFrame):
     """
     A frame containing a canvas for drawing and an entry field for text input.
     This class manages user interactions with the canvas and the associated sentence object.
     """
+
     def __init__(self, win: tk.Tk):
-        super().__init__(win, bg=WINDOW_BG)
+        super().__init__(win)
         self.sentence = Sentence()
 
+        label = DefaultLabel(self, text='Start Typing Your Transcription Here')
+
         # Entry widget with validation
-        self.entry = tk.Entry(
-            self, font=FONT, validate='key',
-            validatecommand=(self.register(self._attempt_action), '%d', '%i', '%S'),
-        )
-        self.entry.grid(row=0, column=0, sticky='news')
+        self.entry = tk.Entry(self, font=FONT, fg=TEXT_COLOR, bg=ITEM_BG, insertbackground=TEXT_COLOR,
+                              bd=2, relief=tk.RAISED, validate='key',
+                              validatecommand=(self.register(self._attempt_action), '%d', '%i', '%S'))
 
         # Canvas for drawing
-        self.canvas = tk.Canvas(self, width=CANVAS_WIDTH, height=CANVAS_HEIGHT, bg=CANVAS_BG)
-        self.canvas.grid(row=1, column=0)
+        self.canvas = DefaultCanvas(self)
+
+        label.grid(row=0, column=0, padx=PADX, sticky=tk.W)
+        self.entry.grid(row=1, column=0, padx=PADX, sticky=tk.NSEW)
+        self.canvas.grid(row=2, column=0, padx=PADX, pady=pady, sticky=tk.NSEW)
 
         # Canvas event bindings
         self._bind_canvas_events()

@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from enum import Enum, auto
 
-from ..config.constants import LINE_WIDTHS, MIN_LINE_WIDTH, DEFAULT_HALF_LINE_DISTANCE, MIN_HALF_LINE_DISTANCE
+from ..config import LINE_WIDTHS, MIN_LINE_WIDTH, DEFAULT_HALF_LINE_DISTANCE, MIN_HALF_LINE_DISTANCE
 
 
 # =============================================

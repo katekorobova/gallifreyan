@@ -1,12 +1,13 @@
 import math
 from abc import ABC
 from enum import Enum
+from itertools import repeat
 
 from PIL import ImageDraw
 
 from .characters import Letter, LetterType
 from ..utils import Point, PressedType, line_width, half_line_distance
-from ...config import MIN_RADIUS, SYLLABLE_BG, VOWEL_COLOR
+from ...config import VOWEL_COLOR, MIN_RADIUS, SYLLABLE_BG
 
 
 class VowelType(str, Enum):
@@ -30,7 +31,7 @@ class Vowel(Letter, ABC):
         self._center = Point()
         self._bias = Point()
         self.pressed_type = PressedType.PARENT
-        self._radii: list[float] = []
+        self._radii: list[float] = list(repeat(0.0, len(borders)))
         self._ellipse_args: list[dict] = []
 
     def press(self, point: Point) -> bool:
@@ -61,8 +62,8 @@ class Vowel(Letter, ABC):
 
     def _calculate_center_and_radii(self):
         self._center = Point(math.cos(self.direction) * self._distance, math.sin(self.direction) * self._distance)
-        self._radii = [max(self._radius - i * 2 * self._half_line_distance, MIN_RADIUS) for i in
-                       range(len(self.borders))]
+        self._radii = [max(self._radius - i * 2 * self._half_line_distance, MIN_RADIUS)
+                       for i in range(len(self.borders))]
 
     @staticmethod
     def get_vowel(text: str, border: str, vowel_type_code: str):

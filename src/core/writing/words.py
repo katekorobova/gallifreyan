@@ -79,8 +79,10 @@ class Word(AbstractWord):
         self.center = center
         self.borders = '21'
         self.outer_radius = 0.0
-        self._line_widths: list[int] = []
-        self._half_line_widths: list[float] = []
+
+        length = len(self.borders)
+        self._line_widths: list[int] = list(repeat(0, length))
+        self._half_line_widths: list[float] = list(repeat(0.0, length))
         self._half_line_distance = 0.0
         self.outer_circle_scale = OUTER_CIRCLE_SCALE_MIN
 
@@ -329,7 +331,7 @@ class Word(AbstractWord):
                 break
 
     def _process_consonant(self, index: int, consonant: Consonant, state: _RedistributionState) -> None:
-        """Process consonant letters and update syllables."""
+        """Process consonant letter and update state."""
         if state.syllable:
             if not state.cons2 and state.syllable.add(consonant):
                 state.cons2 = consonant
@@ -349,7 +351,7 @@ class Word(AbstractWord):
                 self.syllables_by_indices[index] = state.syllable
 
     def _process_vowel(self, index: int, vowel: Vowel, state: _RedistributionState) -> None:
-        """Process vowel letters and update syllables."""
+        """Process vowel letter and update state."""
         if state.syllable:
             state.syllable.add(vowel)
             self.syllables_by_indices[index] = state.syllable
@@ -362,8 +364,7 @@ class Word(AbstractWord):
                 self.syllables_by_indices[index] = Syllable(vowel=vowel)
 
     def _process_separator(self, index: int, separator: Separator, state: _RedistributionState) -> None:
-        """Process vowel letters and update syllables."""
-
+        """Process separator character and update state."""
         if state.syllable and state.syllable.add(separator):
             self.syllables_by_indices[index] = state.syllable
         else:
@@ -383,7 +384,6 @@ class Word(AbstractWord):
     # =============================================
     def _create_outer_circle(self):
         """Create the outer circle representation."""
-
         self._border_draw.rectangle(((0, 0), self._border_image.size), fill=0)
         self._mask_draw.rectangle(((0, 0), self._border_image.size), fill=1)
         if len(self.borders) == 1:

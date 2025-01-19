@@ -4,8 +4,9 @@ import copy
 import tkinter as tk
 from typing import Optional
 
-from .config import WINDOW_BG, CYCLE, DELAY, PADX, PADY
+from .config import WINDOW_BG, PADX, PADY
 from .core import repository
+from .core.tools import AnimationProperties
 from .core.tools.colorscheme import ColorSchemeWindow, ColorScheme
 from .core.tools.export import ProgressWindow, save_image
 from .core.widgets.animation import AnimationFrame
@@ -89,26 +90,26 @@ class App(tk.Tk):
 
         tools_frame = tk.Frame(self)
         tools_frame.configure(bg=WINDOW_BG)
-        animation_frame = AnimationFrame(tools_frame, self._set_animation_state)
         special_characters_frame = SpecialCharactersFrame(tools_frame, self.canvas_frame.entry)
-        animation_frame.grid(row=0, column=0, pady=pady, sticky='nw')
-        special_characters_frame.grid(row=1, column=0, sticky='nw')
+        animation_frame = AnimationFrame(tools_frame, self._set_animation_state)
+        special_characters_frame.grid(row=0, column=0, pady=pady, sticky=tk.NW)
+        animation_frame.grid(row=1, column=0, sticky=tk.NW)
 
-        consonants_frame.grid(row=0, column=0, columnspan=2, padx=PADX, pady=PADY, sticky='nw')
-        vowels_frame.grid(row=1, column=0, padx=PADX, pady=pady, sticky='nw')
-        tools_frame.grid(row=1, column=1, padx=PADX, pady=pady, sticky='nw')
-        self.canvas_frame.grid(row=0, column=2, rowspan=2, padx=padx, pady=PADY, sticky='nw')
+        consonants_frame.grid(row=0, column=0, columnspan=2, padx=PADX, pady=PADY, sticky=tk.NW)
+        vowels_frame.grid(row=1, column=0, padx=PADX, pady=pady, sticky=tk.NW)
+        tools_frame.grid(row=1, column=1, padx=PADX, pady=pady, sticky=tk.NW)
+        self.canvas_frame.grid(row=0, column=2, rowspan=2, padx=padx, pady=PADY, sticky=tk.NW)
 
     def _animation_loop(self):
         """Recursively triggers the animation loop."""
         self.canvas_frame.perform_animation()
-        self._animation_task_id = self.after(DELAY, self._animation_loop)
+        self._animation_task_id = self.after(AnimationProperties.delay, self._animation_loop)
 
     def _set_animation_state(self, enabled: bool):
         """Starts or stops the animation loop based on the given state."""
         if enabled:
             if self._animation_task_id is None:
-                self._animation_task_id = self.after(DELAY, self._animation_loop)
+                self._animation_task_id = self.after(AnimationProperties.delay, self._animation_loop)
         else:
             if self._animation_task_id is not None:
                 self.after_cancel(self._animation_task_id)
@@ -139,12 +140,12 @@ class App(tk.Tk):
             progress_window = ProgressWindow(self)
 
             images = []
-            for i in range(1, CYCLE):
+            for i in range(1, AnimationProperties.cycle):
                 self.canvas_frame.sentence.perform_animation()
                 images.append(self.canvas_frame.sentence.get_image())
                 progress_window.configure_progress_label(i)
 
-            image.save(filename, save_all=True, append_images=images, duration=DELAY, loop=0)
+            image.save(filename, save_all=True, append_images=images, duration=AnimationProperties.delay, loop=0)
 
         try:
             save_image(self.canvas_frame.sentence.get_image(),

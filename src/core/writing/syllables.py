@@ -27,23 +27,17 @@ class AbstractSyllable(ABC):
 
     @abstractmethod
     def remove_starting_with(self, character: Character) -> None:
-        """
-        Remove a character from the syllable, updating properties accordingly.
-        """
+        """Remove a character from the syllable, updating properties accordingly."""
         pass
 
     @abstractmethod
     def add(self, character: Character) -> bool:
-        """
-        Add a character to the syllable, if possible.
-        """
+        """Add a character to the syllable, if possible."""
         pass
 
     @abstractmethod
     def insert(self, index: int, character: Character) -> bool:
-        """
-        Insert a character into the syllable, if possible.
-        """
+        """Insert a character into the syllable, if possible."""
         pass
 
 
@@ -53,18 +47,14 @@ class SeparatorSyllable(AbstractSyllable):
         self.characters = [separator]
 
     def remove_starting_with(self, character: Character) -> None:
-        """
-        Remove a character from the syllable, updating properties accordingly.
-        """
+        """Remove a character from the syllable, updating properties accordingly."""
         if isinstance(character, Separator) and character in self.characters:
             index = self.characters.index(character)
             self.characters[index:] = []
             self._update_text()
 
     def add(self, character: Character) -> bool:
-        """
-        Add a character to the syllable, if possible.
-        """
+        """Add a character to the syllable, if possible."""
         if isinstance(character, Separator):
             self.characters.append(character)
             self._update_text()
@@ -73,9 +63,7 @@ class SeparatorSyllable(AbstractSyllable):
             return False
 
     def insert(self, index: int, character: Character) -> bool:
-        """
-        Insert a character into the syllable, if possible.
-        """
+        """Insert a character into the syllable, if possible."""
         if isinstance(character, Separator):
             self.characters.insert(index, character)
             self.head = self.characters[0]

@@ -81,8 +81,8 @@ class Word(AbstractWord):
         self.outer_radius = 0.0
 
         length = len(self.borders)
-        self._line_widths: list[int] = list(repeat(0, length))
-        self._half_line_widths: list[float] = list(repeat(0.0, length))
+        self._line_widths = list(repeat(0, length))
+        self._half_line_widths = list(repeat(0.0, length))
         self._half_line_distance = 0.0
         self.outer_circle_scale = OUTER_CIRCLE_SCALE_MIN
 

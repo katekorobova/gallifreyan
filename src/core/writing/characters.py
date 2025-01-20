@@ -11,7 +11,7 @@ from ...config import SYLLABLE_IMAGE_RADIUS
 
 
 class CharacterType(Enum):
-    """Enumeration to represent types of letters."""
+    """Enumeration to represent types of characters."""
     LETTER = auto()
     SEPARATOR = auto()
     SPACE = auto()
@@ -63,8 +63,8 @@ class Letter(Character):
         self._set_personal_direction(random.uniform(0.9 * math.pi, 1.1 * math.pi))
 
         length = len(borders)
-        self.line_widths: list[int] = list(repeat(0, length))
-        self.half_line_widths: list[float] = list(repeat(0.0, length))
+        self.line_widths = list(repeat(0, length))
+        self.half_line_widths = list(repeat(0.0, length))
         self._half_line_distance = 0.0
 
     def initialize(self, syllable):

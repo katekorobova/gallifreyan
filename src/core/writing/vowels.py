@@ -31,7 +31,7 @@ class Vowel(Letter, ABC):
         self._center = Point()
         self._bias = Point()
         self.pressed_type = PressedType.PARENT
-        self._radii: list[float] = list(repeat(0.0, len(borders)))
+        self._radii = list(repeat(0.0, len(borders)))
         self._ellipse_args: list[dict] = []
 
     def press(self, point: Point) -> bool:
@@ -53,8 +53,8 @@ class Vowel(Letter, ABC):
 
     def update_argument_dictionaries(self):
         self._ellipse_args = []
-        for i, width in enumerate(self.line_widths):
-            adjusted_radius = self._radii[i] + self.half_line_widths[i]
+        for width, half_width, radius in zip(self.line_widths, self.half_line_widths, self._radii):
+            adjusted_radius = radius + half_width
             start = (self.IMAGE_CENTER + self._center).shift(-adjusted_radius)
             end = (self.IMAGE_CENTER + self._center).shift(adjusted_radius)
             self._ellipse_args.append({'xy': (start, end), 'outline': self.color,

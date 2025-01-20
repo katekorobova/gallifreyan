@@ -3,17 +3,22 @@ from typing import Callable
 
 from ...config import (FRAME_BG, ITEM_BG, PRESSED_BG, CANVAS_BG,
                        CANVAS_WIDTH, CANVAS_HEIGHT, BUTTON_HEIGHT,
-                       TEXT_COLOR, LABEL_TEXT_COLOR, FONT)
+                       TEXT_COLOR, LABEL_TEXT_COLOR, FONT, SECONDARY_FONT)
 
 
 class DefaultFrame(tk.Frame):
     def __init__(self, master: tk.Misc):
-        super().__init__(master, bg=FRAME_BG, bd=1, relief=tk.RAISED)
+        super().__init__(master, bg=FRAME_BG, bd=2, relief=tk.SUNKEN)
 
 
 class DefaultLabel(tk.Label):
     def __init__(self, master: tk.Misc, text: str):
-        super().__init__(master, bg=FRAME_BG, fg=LABEL_TEXT_COLOR, font=FONT, text=text)
+        super().__init__(master, text=text, font=FONT, bg=master['bg'], fg=LABEL_TEXT_COLOR)
+
+
+class SecondaryLabel(tk.Label):
+    def __init__(self, master: tk.Misc, text: str):
+        super().__init__(master, text=text, font=SECONDARY_FONT, bg=master['bg'], fg=LABEL_TEXT_COLOR)
 
 
 class DefaultCanvas(tk.Canvas):

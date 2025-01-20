@@ -7,7 +7,7 @@ from typing import Optional
 from .config import WINDOW_BG, PADX, PADY
 from .core import repository
 from .core.tools import AnimationProperties
-from .core.tools.colorscheme import ColorSchemeWindow, ColorScheme
+from .core.tools.colorscheme import ColorSchemeWindow, ColorScheme, ColorSchemeComponent, get_default_color_scheme
 from .core.tools.export import ProgressWindow, save_image
 from .core.widgets.animation import AnimationFrame
 from .core.widgets.canvas import CanvasFrame
@@ -33,7 +33,7 @@ class App(tk.Tk):
         self._animation_enabled = False
         self._animation_task_id: Optional[str] = None
 
-        self._color_scheme = ColorScheme()
+        self._color_scheme = get_default_color_scheme()
         self._color_scheme_window: Optional[tk.Toplevel] = None
 
     def _configure_window(self):
@@ -61,18 +61,27 @@ class App(tk.Tk):
 
     def _apply_color_scheme(self, color_scheme: ColorScheme):
         """Apply the updated color scheme to the application."""
-        self.canvas_frame.canvas.configure(bg=color_scheme.canvas_background)
-        Word.background = color_scheme.word_background
-        Syllable.background = color_scheme.syllable_background
-        Consonant.background = color_scheme.syllable_background
-        Vowel.background = color_scheme.syllable_background
-        DotConsonant.background = color_scheme.syllable_background
+        canvas_background = color_scheme[ColorSchemeComponent.CANVAS_BG]
+        word_background = color_scheme[ColorSchemeComponent.WORD_BG]
+        syllable_background = color_scheme[ColorSchemeComponent.SYLLABLE_BG]
 
-        Word.color = color_scheme.word_color
-        Syllable.color = color_scheme.syllable_color
-        Consonant.color = color_scheme.syllable_color
-        Vowel.color = color_scheme.vowel_color
-        DotConsonant.color = color_scheme.dot_color
+        word_color = color_scheme[ColorSchemeComponent.WORD_COLOR]
+        syllable_color = color_scheme[ColorSchemeComponent.SYLLABLE_COLOR]
+        vowel_color = color_scheme[ColorSchemeComponent.VOWEL_COLOR]
+        dot_color = color_scheme[ColorSchemeComponent.DOT_COLOR]
+
+        self.canvas_frame.canvas.configure(bg=canvas_background)
+        Word.background = word_background
+        Syllable.background = syllable_background
+        Consonant.background = syllable_background
+        Vowel.background = syllable_background
+        DotConsonant.background = syllable_background
+
+        Word.color = word_color
+        Syllable.color = syllable_color
+        Consonant.color = syllable_color
+        Vowel.color = vowel_color
+        DotConsonant.color = dot_color
 
         self._color_scheme = copy.copy(color_scheme)
         self.canvas_frame.apply_color_changes()

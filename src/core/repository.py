@@ -43,9 +43,8 @@ class _CharacterRepository:
 
         # Populate dictionaries
         letters: dict[str, tuple[str, str]] = {}
-        for i, row in enumerate(table):
-            for j, letter in enumerate(row):
-                border, typ = borders[i], types[j]
+        for row, border in zip(table, borders):
+            for letter, typ in zip(row, types):
                 letters[letter] = (border, typ)
                 if letter not in disabled:
                     self.all[letter] = CharacterType.LETTER, [letter_type, border, typ]

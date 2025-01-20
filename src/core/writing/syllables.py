@@ -138,9 +138,9 @@ class Syllable(AbstractSyllable):
     def _update_key_properties(self):
         """Update syllable properties such as consonants, letters, and text representation."""
         self.head = self.cons1 or self.vowel
-        self._outer = self.cons1 or Consonant.get_consonant(ALEPH, *repository.get().consonants[ALEPH])
-        self._inner = self.cons2 or self._outer
-        self.consonants = sorted({self._outer, self._inner}, key=lambda l: l.consonant_type.group)
+        self.outer = self.cons1 or Consonant.get_consonant(ALEPH, *repository.get().consonants[ALEPH])
+        self.inner = self.cons2 or self.outer
+        self.consonants = sorted({self.outer, self.inner}, key=lambda l: l.consonant_type.group)
         self.letters = [item for item in [self.cons1, self.cons2, self.vowel] if item]
         self.text = ''.join(letter.text for letter in self.letters)
 
@@ -367,8 +367,8 @@ class Syllable(AbstractSyllable):
         self.outer_radius = DEFAULT_WORD_RADIUS * self.scale
         self.inner_radius = self.outer_radius * self.inner_scale
         self.half_line_distance = half_line_distance(self.scale)
-        self.border_offset = ((len(self._outer.borders) - 1) * self.half_line_distance,
-                              (len(self._inner.borders) - 1) * self.half_line_distance)
+        self.border_offset = ((len(self.outer.borders) - 1) * self.half_line_distance,
+                              (len(self.inner.borders) - 1) * self.half_line_distance)
 
         for consonant in self.consonants:
             consonant.resize(self)
@@ -408,15 +408,15 @@ class Syllable(AbstractSyllable):
     def _update_inner_circle_args(self):
         """Prepare arguments for drawing inner circles."""
         self._inner_circle_arg_dict = []
-        if len(self._inner.borders) == 1:
-            adjusted_radius = self._calculate_adjusted_radius(self.inner_radius, self._inner.half_line_widths[0])
-            self._inner_circle_arg_dict.append(self._create_circle_args(adjusted_radius, self._inner.line_widths[0]))
+        if len(self.inner.borders) == 1:
+            adjusted_radius = self._calculate_adjusted_radius(self.inner_radius, self.inner.half_line_widths[0])
+            self._inner_circle_arg_dict.append(self._create_circle_args(adjusted_radius, self.inner.line_widths[0]))
         else:
             for i in range(2):
                 adjusted_radius = self._calculate_adjusted_radius(
-                    self.inner_radius, (-1) ** i * self.half_line_distance + self._inner.half_line_widths[i])
+                    self.inner_radius, (-1) ** i * self.half_line_distance + self.inner.half_line_widths[i])
                 self._inner_circle_arg_dict.append(
-                    self._create_circle_args(adjusted_radius, self._inner.line_widths[i]))
+                    self._create_circle_args(adjusted_radius, self.inner.line_widths[i]))
 
     def _create_circle_args(self, adjusted_radius: float, line_width: float) -> dict:
         """Generate circle arguments for drawing."""
@@ -428,24 +428,24 @@ class Syllable(AbstractSyllable):
         self._border_draw.rectangle(((0, 0), self._border_image.size), fill=0)
         self._mask_draw.rectangle(((0, 0), self._mask_image.size), fill=1)
 
-        if len(self._outer.borders) == 1:
-            adjusted_radius = self._calculate_adjusted_radius(self.outer_radius, self._outer.half_line_widths[0])
+        if len(self.outer.borders) == 1:
+            adjusted_radius = self._calculate_adjusted_radius(self.outer_radius, self.outer.half_line_widths[0])
             start, end = self.IMAGE_CENTER.shift(-adjusted_radius), self.IMAGE_CENTER.shift(adjusted_radius)
-            self._border_draw.ellipse((start, end), outline=self.color, width=self._outer.line_widths[0])
-            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._outer.line_widths[0])
+            self._border_draw.ellipse((start, end), outline=self.color, width=self.outer.line_widths[0])
+            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self.outer.line_widths[0])
         else:
-            adjusted_radius = self.outer_radius + self.half_line_distance + self._outer.half_line_widths[0]
+            adjusted_radius = self.outer_radius + self.half_line_distance + self.outer.half_line_widths[0]
             start = self.IMAGE_CENTER.shift(-adjusted_radius)
             end = self.IMAGE_CENTER.shift(adjusted_radius)
             self._border_draw.ellipse((start, end),
-                                      outline=self.color, fill=self.background, width=self._outer.line_widths[0])
+                                      outline=self.color, fill=self.background, width=self.outer.line_widths[0])
 
             adjusted_radius = max(
-                self.outer_radius - self.half_line_distance + self._outer.half_line_widths[1], MIN_RADIUS)
+                self.outer_radius - self.half_line_distance + self.outer.half_line_widths[1], MIN_RADIUS)
             start = self.IMAGE_CENTER.shift(-adjusted_radius)
             end = self.IMAGE_CENTER.shift(adjusted_radius)
-            self._border_draw.ellipse((start, end), outline=self.color, width=self._outer.line_widths[1])
-            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._outer.line_widths[1])
+            self._border_draw.ellipse((start, end), outline=self.color, width=self.outer.line_widths[1])
+            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self.outer.line_widths[1])
 
     @staticmethod
     def _calculate_adjusted_radius(base_radius: float, adjustment: float, min_radius: float = MIN_RADIUS):

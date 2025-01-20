@@ -484,8 +484,8 @@ class CircleConsonant(Consonant):
     def __init__(self, text: str, borders: str):
         super().__init__(text, borders, ConsonantType.CIRCLE)
 
-        self._width = 0.0
-        self._half_width = 0.0
+        self._line_width = 0.0
+        self._half_line_width = 0.0
         self._radius = 0.0
         self._center = Point()
         self._ellipse_args = {}
@@ -508,11 +508,14 @@ class CircleConsonant(Consonant):
         outer_radius = syllable.outer_radius
         inner_radius = syllable.inner_radius
         border_offset = syllable.border_offset
+        inner_half_line_width = syllable.inner.half_line_widths[0]
 
-        self._width = min(self.line_widths)
-        self._half_width = self._width / 2
-        self._radius = max((outer_radius - border_offset[0] - inner_radius - border_offset[1]) / 4, MIN_RADIUS)
-        self._distance = inner_radius + border_offset[1] + self._radius
+        self._line_width = min(self.line_widths)
+        self._half_line_width = self._line_width / 2
+        self._radius = max((outer_radius - border_offset[0] - inner_radius - border_offset[1]
+                            - inner_half_line_width + self.half_line_widths[0]) / 4, MIN_RADIUS)
+        self._distance = inner_radius + border_offset[1] + self._radius \
+                         + inner_half_line_width - self.half_line_widths[0]
         self._calculate_center()
 
     def _update_properties_after_rotation(self):
@@ -524,10 +527,10 @@ class CircleConsonant(Consonant):
                              math.sin(self.direction) * self._distance)
 
     def update_argument_dictionaries(self):
-        adjusted_radius = self._radius + self._half_width
+        adjusted_radius = self._radius + self._half_line_width
         start = (self.IMAGE_CENTER + self._center).shift(-adjusted_radius)
         end = (self.IMAGE_CENTER + self._center).shift(adjusted_radius)
-        self._ellipse_args = {'xy': (start, end), 'outline': self.color, 'fill': self.background, 'width': self._width}
+        self._ellipse_args = {'xy': (start, end), 'outline': self.color, 'fill': self.background, 'width': self._line_width}
 
     def draw(self, image: ImageDraw.Draw):
         image.ellipse(**self._ellipse_args)

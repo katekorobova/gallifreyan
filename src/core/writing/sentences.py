@@ -15,6 +15,8 @@ from ...config import CANVAS_WIDTH, CANVAS_HEIGHT, DEFAULT_WORD_RADIUS
 
 
 def get_character(text: str, typ: CharacterType, args: Optional[list]) -> Character:
+    """Create a Character instance based on its type and properties."""
+
     def get_letter(letter_text: str, letter_type: LetterType, *letter_args):
         if letter_type == LetterType.CONSONANT:
             return Consonant.get_consonant(letter_text, *letter_args)
@@ -34,6 +36,7 @@ def get_character(text: str, typ: CharacterType, args: Optional[list]) -> Charac
 
 
 def split_into_words(characters: list[Character]) -> list[tuple[list[Character], bool]]:
+    """Split a list of characters into words and spaces."""
     words: list[tuple[list[Character], bool]] = []
     is_space = False
     current_word = []
@@ -51,13 +54,16 @@ def split_into_words(characters: list[Character]) -> list[tuple[list[Character],
 
 
 def unique_words(items: list[AbstractWord]) -> list[AbstractWord]:
-    """Return a list of unique items while preserving order."""
+    """Return a list of unique words while preserving their original order."""
     seen = set()
     return [item for item in items if not (item in seen or seen.add(item))]
 
 
 class Sentence:
+    """Represents a sentence composed of multiple words, supporting editing and rendering."""
+
     def __init__(self):
+        """Initialize an empty Sentence object."""
         self.words: list[Word] = []
         self.pressed: Optional[Word] = None
         self._ids_for_removal: list[int] = []
@@ -111,6 +117,7 @@ class Sentence:
         self._absorb_following_word(index)
 
     def _absorb_following_word(self, index: int):
+        """Merge the word at the given index with the preceding word if possible."""
         if not 0 < index < len(self.characters):
             return
 
@@ -130,6 +137,7 @@ class Sentence:
                 self._ids_for_removal.append(following_word.canvas_item_id)
 
     def _clean_up_removed(self, index: int, end_index: int):
+        """Remove characters and words in the given range and update the word list."""
         self.characters[index:end_index] = []
         self.words_by_indices[index:end_index] = []
         self.words = [word for word in self.words if
@@ -139,7 +147,7 @@ class Sentence:
     # Insertion
     # =============================================
     def insert_characters(self, index: int, inserted: str):
-        """Insert characters at a specific index and update words."""
+        """Insert characters at the specified index and update words accordingly."""
         characters = [get_character(char, *repository.get().all[char]) for char in inserted]
         self.characters[index: index] = characters
 
@@ -150,7 +158,7 @@ class Sentence:
             self._insert_multiple_words(index, words_with_space_indicators)
 
     def _insert_single_word(self, index: int, word_chars: list[Character], is_space: bool):
-        """Insert a single word at a specific index."""
+        """Insert a single word at the specified index, merging with adjacent words if possible."""
         word_len = len(word_chars)
         preceding_word = self.words_by_indices[index - 1] if index > 0 else None
         following_word = self.words_by_indices[index] if index < len(self.words_by_indices) else None
@@ -168,7 +176,7 @@ class Sentence:
             self._absorb_nones(index + word_len, word)
 
     def _insert_multiple_words(self, index: int, words_with_space_indicators: list[tuple[list[Character], bool]]):
-        """Insert multiple words at a specific index."""
+        """Insert multiple words at the specified index."""
         self._split_word(index)
         preceding_word = self.words_by_indices[index - 1] if index > 0 else None
         following_word = self.words_by_indices[index] if index < len(self.words_by_indices) else None
@@ -213,6 +221,7 @@ class Sentence:
                         return
 
     def _new_word(self, characters: list[Character], is_space) -> Word:
+        """Create a new word object from the given characters."""
         if is_space:
             word = SpaceWord(characters)
         else:
@@ -222,6 +231,7 @@ class Sentence:
         return word
 
     def _absorb_nones(self, index: int, preceding_word: AbstractWord):
+        """Absorb trailing None entries in words_by_indices into the preceding word."""
         if index >= len(self.characters):
             return
 
@@ -241,6 +251,7 @@ class Sentence:
     # Drawing
     # =============================================
     def get_image(self) -> Optional[Image.Image]:
+        """Generate an image representing the sentence."""
         if not self.words:
             return None
 
@@ -251,6 +262,7 @@ class Sentence:
         return image
 
     def put_image(self, canvas: Canvas):
+        """Render the sentence onto a given Tkinter canvas."""
         for item_id in self._ids_for_removal:
             canvas.delete(item_id)
             self._ids_for_removal.clear()
@@ -258,6 +270,7 @@ class Sentence:
             word.put_image(canvas)
 
     def apply_color_changes(self):
+        """Apply any color scheme changes to the sentence."""
         for word in self.words:
             word.apply_color_changes()
 
@@ -265,6 +278,7 @@ class Sentence:
     # Animation
     # =============================================
     def perform_animation(self):
+        """Apply animation effects to the sentence."""
         direction_sign = 1
         for word in self.words:
             word.perform_animation(direction_sign)

@@ -18,24 +18,28 @@ from ...config import (WORD_IMAGE_RADIUS, DEFAULT_WORD_RADIUS, MIN_RADIUS,
 
 @dataclass
 class _RedistributionState:
+    """Represents the state during syllable redistribution."""
     syllable: Optional[Syllable] = None
     cons2: Optional[Consonant] = None
     completed = False
 
 
 def unique_syllables(items: list[AbstractSyllable]) -> list[Syllable]:
-    """Return a list of unique items while preserving order."""
+    """Return a list of unique syllables while preserving order."""
     seen = set()
     return [item for item in items if not (item in seen or seen.add(item)) and isinstance(item, Syllable)]
 
 
 class AbstractWord(ABC):
+    """Abstract class representing a word composed of characters."""
+
     def __init__(self):
+        """Initialize an abstract word object."""
         self.characters: list[Character] = []
         self.text = ''
 
     def insert_characters(self, index: int, characters: list[Character]) -> bool:
-        """Insert characters at a specific index """
+        """Insert characters at the specified index."""
         self.characters[index:index] = characters
         self._update_text()
         return True
@@ -51,17 +55,21 @@ class AbstractWord(ABC):
         self._update_text()
 
     def _update_text(self):
+        """Update the word's text representation."""
         self.text = ''.join(character.text for character in self.characters)
 
 
 class SpaceWord(AbstractWord):
+    """Represents a word consisting only of space characters."""
+
     def __init__(self, characters: list[Character]):
+        """Initialize a space word object."""
         super().__init__()
         self.characters = characters
         self._update_text()
 
     def insert_characters(self, index: int, characters: list[Character]) -> bool:
-        """Insert characters at a specific index """
+        """Insert characters at the specified index """
         if any(character.character_type != CharacterType.SPACE for character in characters):
             return False
 
@@ -69,12 +77,13 @@ class SpaceWord(AbstractWord):
 
 
 class Word(AbstractWord):
+    """Represents a structured word with characters, syllables, and image rendering."""
     IMAGE_CENTER = Point(WORD_IMAGE_RADIUS, WORD_IMAGE_RADIUS)
-
     background = WORD_BG
     color = WORD_COLOR
 
     def __init__(self, center: Point, characters: list[Character]):
+        """Initialize a Word instance with a center point and characters."""
         super().__init__()
         self.center = center
         self.borders = '21'
@@ -126,6 +135,7 @@ class Word(AbstractWord):
         self._create_outer_circle()
 
     def set_syllables(self):
+        """Organize characters into syllables and update relationships."""
         self.syllables = unique_syllables(self.syllables_by_indices)
         if self.syllables:
             for i in reversed(range(0, len(self.syllables) - 1)):
@@ -250,7 +260,7 @@ class Word(AbstractWord):
     # Insertion and Deletion
     # =============================================
     def insert_characters(self, index: int, characters: list[Character]) -> bool:
-        """Insert characters at a specific index and update syllables."""
+        """Insert characters at the specified index and update syllables."""
         if any(character.character_type == CharacterType.SPACE for character in characters):
             return False
 
@@ -377,6 +387,7 @@ class Word(AbstractWord):
                 self.syllables_by_indices[index] = SeparatorSyllable(separator)
 
     def _check_syllable_start(self, index: int, consonant: Consonant) -> bool:
+        """Check if the given consonant starts the syllable at the specified index."""
         return self.syllables_by_indices[index] and self.syllables_by_indices[index].head is consonant
 
     # =============================================
@@ -409,6 +420,7 @@ class Word(AbstractWord):
     # Drawing
     # =============================================
     def get_image(self) -> Image:
+        """Retrieve the generated image, creating it if necessary."""
         if not self._image_ready:
             self._create_image()
         return self._image
@@ -432,6 +444,7 @@ class Word(AbstractWord):
             self.canvas_item_id = None
 
     def _create_image(self):
+        """Generate the full word image by assembling syllables and outer elements."""
         if self.head:
             if self.tail:
                 # Clear the image
@@ -457,16 +470,19 @@ class Word(AbstractWord):
         self._image_ready = True
 
     def _paste_head(self):
-        image = self.head.create_image()
+        """Paste the head syllable's image onto the word image."""
+        image = self.head.get_image()
         self._image.paste(image, tuple(self.IMAGE_CENTER - Syllable.IMAGE_CENTER), image)
 
     def _paste_tail(self, syllable: Syllable, radius: float):
-        image = syllable.create_image()
+        """Paste a non-head syllable's image at a calculated position on the head syllable's orbit."""
+        image = syllable.get_image()
         self._image.paste(image, tuple(self.IMAGE_CENTER - Syllable.IMAGE_CENTER +
                                        Point(round(math.cos(syllable.direction) * radius),
                                              round(math.sin(syllable.direction) * radius))), image)
 
     def apply_color_changes(self):
+        """Apply color changes to the image and its syllables."""
         self._create_outer_circle()
         if self.syllables:
             for syllable in self.syllables:
@@ -477,6 +493,7 @@ class Word(AbstractWord):
     # Animation
     # =============================================
     def perform_animation(self, direction_sign: int):
+        """Perform an animation step, changing syllables' directions."""
         if self.head:
             self.head.perform_animation(direction_sign, False)
 

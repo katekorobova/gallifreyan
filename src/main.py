@@ -4,6 +4,8 @@ import copy
 import tkinter as tk
 from typing import Optional
 
+from PIL import Image
+
 from .config import WINDOW_BG, PADX, PADY
 from .core import repository
 from .core.tools import AnimationProperties
@@ -35,6 +37,7 @@ class App(tk.Tk):
 
         self._color_scheme = get_default_color_scheme()
         self._color_scheme_window: Optional[tk.Toplevel] = None
+        self._apply_color_scheme(self._color_scheme)
 
     def _configure_window(self):
         """Set up the main application window."""
@@ -130,35 +133,43 @@ class App(tk.Tk):
         animation_enabled = self._animation_enabled
         self._set_animation_state(False)
 
+        def save_png(image: Image.Image, filename: str):
+            bbox = image.getchannel("A").getbbox()
+            cropped_image = image.crop(bbox)
+            cropped_image.save(filename)
+
         try:
-            save_image(self.canvas_frame.sentence.get_image(),
-                       self.canvas_frame.entry.get(), "png",
-                       lambda image, filename: image.save(filename))
+            save_image(image=self.canvas_frame.sentence.get_image(),
+                       name=self.canvas_frame.entry.get(), extension='png', callback=save_png)
         finally:
             self._set_animation_state(animation_enabled)
 
     def _save_gif(self):
         """Save the current canvas content as an animated GIF."""
-        progress_window: Optional[tk.Toplevel] = None
+        progress_window: Optional[ProgressWindow] = None
 
         animation_enabled = self._animation_enabled
         self._set_animation_state(False)
 
-        def save_gif(image, filename):
+        def save_gif(image: Image.Image, filename: str):
             nonlocal progress_window
             progress_window = ProgressWindow(self)
+
+            bbox = image.getchannel("A").getbbox()
+            cropped_image = image.crop(bbox)
 
             images = []
             for i in range(1, AnimationProperties.cycle):
                 self.canvas_frame.sentence.perform_animation()
-                images.append(self.canvas_frame.sentence.get_image())
+                images.append(self.canvas_frame.sentence.get_image().crop(bbox))
                 progress_window.configure_progress_label(i)
 
-            image.save(filename, save_all=True, append_images=images, duration=AnimationProperties.delay, loop=0)
+            cropped_image.save(filename, save_all=True, append_images=images,
+                               duration=AnimationProperties.delay, loop=0)
 
         try:
-            save_image(self.canvas_frame.sentence.get_image(),
-                       self.canvas_frame.entry.get(), "gif", save_gif)
+            save_image(image=self.canvas_frame.sentence.get_image(),
+                       name=self.canvas_frame.entry.get(), extension='gif', callback=save_gif)
         finally:
             if progress_window:
                 progress_window.destroy()

@@ -137,7 +137,7 @@ class ColorSchemeWindow(tk.Toplevel):
         label.grid(row=0, column=0, columnspan=2, padx=PADX, sticky=tk.W)
         preview.grid(row=1, column=0, padx=PADX, pady=pady, sticky=tk.NSEW)
         button.grid(row=1, column=1, padx=padx, pady=pady, sticky=tk.NSEW)
-        frame.columnconfigure('all', weight=1)
+        frame.columnconfigure(tk.ALL, weight=1)
 
         self.previews[component] = preview
         return frame
@@ -170,7 +170,7 @@ class ColorSchemeWindow(tk.Toplevel):
         color_button.grid(row=1, column=1, padx=padx, pady=pady, sticky=tk.NSEW)
         background_preview.grid(row=2, column=0, padx=PADX, pady=pady, sticky=tk.NSEW)
         background_button.grid(row=2, column=1, padx=padx, pady=pady, sticky=tk.NSEW)
-        frame.columnconfigure('all', weight=1)
+        frame.columnconfigure(tk.ALL, weight=1)
 
         self.previews[color_component] = color_preview
         self.previews[background_component] = background_preview

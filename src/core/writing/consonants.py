@@ -8,7 +8,7 @@ from enum import Enum
 
 from PIL import ImageDraw
 
-from .characters import Letter, LetterType
+from .characters import Letter, CharacterType
 from ..utils import Point, line_width
 from ...config import (SYLLABLE_BG, SYLLABLE_COLOR, DOT_COLOR,
                        DEFAULT_DOT_RADIUS, MIN_RADIUS)
@@ -49,7 +49,7 @@ class Consonant(Letter, ABC):
 
     def __init__(self, text: str, borders: str, consonant_type: ConsonantType):
         """Initialize a consonant with text, borders, and type."""
-        super().__init__(text, LetterType.CONSONANT, borders)
+        super().__init__(text, CharacterType.CONSONANT, borders)
         self.consonant_type = consonant_type
         self._distance = 0.0
         self._bias = Point()

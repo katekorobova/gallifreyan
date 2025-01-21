@@ -3,11 +3,11 @@ import tkinter as tk
 from PIL import Image, ImageTk
 
 from . import DefaultFrame, DefaultLabel
+from ..writing.characters import CharacterType
 from ...config import (PRESSED_BG, FRAME_BG, ITEM_BG, FONT, PADX, PADY,
                        BUTTON_HEIGHT, BUTTON_WIDTH, BUTTON_IMAGE_SIZE,
                        TEXT_COLOR, DISABLED_TEXT_COLOR, LABEL_TEXT_COLOR)
 from ...core import repository
-from ...core.writing.characters import LetterType
 
 padx = (0, PADX)
 pady = (0, PADY)
@@ -24,29 +24,30 @@ class CharacterButton(tk.Button):
                          command=lambda: entry.insert(tk.INSERT, character))
 
 
-class LettersFrame(DefaultFrame):
+class CharactersFrame(DefaultFrame):
     """A frame containing buttons for letter input."""
 
-    def __init__(self, typ: LetterType, win: tk.Tk, entry: tk.Entry):
+    def __init__(self, typ: CharacterType, win: tk.Tk, entry: tk.Entry):
         super().__init__(win)
         self.images = []
-        label = DefaultLabel(self, text='Consonants' if typ == LetterType.CONSONANT else 'Vowels')
+        label = DefaultLabel(
+            self, text='Consonants' if typ == CharacterType.CONSONANT else 'Vowels')
         table = self._create_table(typ, entry)
 
         label.grid(row=0, column=0, padx=PADX, sticky=tk.W)
         table.grid(row=1, column=0, padx=PADX, pady=pady, sticky=tk.NSEW)
 
-    def _create_table(self, letter_type: LetterType, entry: tk.Entry) -> tk.Frame:
+    def _create_table(self, character_type: CharacterType, entry: tk.Entry) -> tk.Frame:
         """Adds letter buttons and image labels to the frame."""
         table = tk.Frame(self, bg=FRAME_BG)
         self._create_label(table).grid(row=0, column=0, sticky=tk.NSEW)
         rep = repository.get()
-        borders = rep.borders[letter_type]
-        types = rep.types[letter_type]
-        letters = rep.tables[letter_type]
-        disabled = rep.disabled[letter_type]
+        borders = rep.borders[character_type]
+        types = rep.types[character_type]
+        letters = rep.tables[character_type]
+        disabled = rep.disabled[character_type]
 
-        letter_type_str = 'consonants' if letter_type == LetterType.CONSONANT else 'vowels'
+        letter_type_str = 'consonants' if character_type == CharacterType.CONSONANT else 'vowels'
         for i, border in enumerate(borders):
             label = self._create_label(table, f'src/assets/images/borders/{border}.png')
             label.grid(row=i + 1, column=0, sticky=tk.NSEW)

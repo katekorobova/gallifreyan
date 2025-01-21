@@ -5,7 +5,7 @@ from typing import Optional
 
 from PIL import Image
 
-from .characters import CharacterType, LetterType, Character, Separator, Space
+from .characters import CharacterType, Character, Separator, Space
 from .consonants import Consonant
 from .vowels import Vowel
 from .words import Word, SpaceWord, AbstractWord
@@ -16,17 +16,10 @@ from ...config import CANVAS_WIDTH, CANVAS_HEIGHT, DEFAULT_WORD_RADIUS
 
 def get_character(text: str, typ: CharacterType, args: Optional[list]) -> Character:
     """Create a Character instance based on its type and properties."""
-
-    def get_letter(letter_text: str, letter_type: LetterType, *letter_args):
-        if letter_type == LetterType.CONSONANT:
-            return Consonant.get_consonant(letter_text, *letter_args)
-        if letter_type == LetterType.VOWEL:
-            return Vowel.get_vowel(letter_text, *letter_args)
-        raise ValueError(
-                f"There is no such letter type: '{letter_type}' (symbol='{letter_text}')")
-
-    if typ == CharacterType.LETTER:
-        return get_letter(text, *args)
+    if typ == CharacterType.CONSONANT:
+        return Consonant.get_consonant(text, *args)
+    if typ == CharacterType.VOWEL:
+        return Vowel.get_vowel(text, *args)
     if typ == CharacterType.SEPARATOR:
         return Separator(text)
     if typ == CharacterType.SPACE:

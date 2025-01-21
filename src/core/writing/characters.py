@@ -12,7 +12,9 @@ from ...config import SYLLABLE_IMAGE_RADIUS
 
 class CharacterType(Enum):
     """Enumeration to represent types of characters."""
-    LETTER = auto()
+    CONSONANT = auto()
+    VOWEL = auto()
+    # DIGIT = auto()
     SEPARATOR = auto()
     SPACE = auto()
 
@@ -42,20 +44,13 @@ class Space(Character):
         super().__init__(text, CharacterType.SPACE)
 
 
-class LetterType(Enum):
-    """Enumeration to represent types of letters."""
-    CONSONANT = auto()
-    VOWEL = auto()
-
-
 class Letter(Character):
     """Abstract base class representing a generic letter."""
     IMAGE_CENTER = Point(SYLLABLE_IMAGE_RADIUS, SYLLABLE_IMAGE_RADIUS)
 
-    def __init__(self, text: str, letter_type: LetterType, borders: str):
+    def __init__(self, text: str, character_type: CharacterType, borders: str):
         """Initialize a Letter instance."""
-        super().__init__(text, CharacterType.LETTER)
-        self.letter_type = letter_type
+        super().__init__(text, character_type)
         self.borders = borders
         self.direction = 0.0
         self.parent_direction = 0.0

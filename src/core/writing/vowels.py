@@ -5,7 +5,7 @@ from itertools import repeat
 
 from PIL import ImageDraw
 
-from .characters import Letter, LetterType
+from .characters import Letter, CharacterType
 from ..utils import Point, PressedType, line_width, half_line_distance
 from ...config import VOWEL_COLOR, MIN_RADIUS, SYLLABLE_BG
 
@@ -26,7 +26,7 @@ class Vowel(Letter, ABC):
 
     def __init__(self, text: str, borders: str, vowel_type: VowelType):
         """Initialize a vowel with text, borders, and vowel type."""
-        super().__init__(text, LetterType.VOWEL, borders)
+        super().__init__(text, CharacterType.VOWEL, borders)
         self.vowel_type = vowel_type
         self._radius = 0.0
         self._distance = 0.0
@@ -100,8 +100,6 @@ class LargeVowel(Vowel):
 
     def _update_properties_after_resizing(self, syllable):
         """Update vowel properties after resizing."""
-        super()._update_properties_after_resizing(syllable)
-
         scale = syllable.scale * self.DEFAULT_RATIO
         self.line_widths = [line_width(x, scale) for x in self.borders]
         self.half_line_widths = [w / 2 for w in self.line_widths]

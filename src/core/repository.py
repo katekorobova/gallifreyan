@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Optional
 
-from .writing.characters import LetterType, CharacterType
+from .writing.characters import CharacterType
 from ..config import SEPARATOR, SPACE
 
 _repository: Optional[_CharacterRepository] = None  # Global repository instance
@@ -16,26 +16,30 @@ class _CharacterRepository:
     def __init__(self):
         self.consonants: dict[str, tuple[str, str]] = {}
         self.vowels: dict[str, tuple[str, str]] = {}
-        self.disabled: dict[LetterType, list[str]] = \
-            {LetterType.CONSONANT: [], LetterType.VOWEL: []}
-        self.tables: dict[LetterType, list[list[str]]] = \
-            {LetterType.CONSONANT: [], LetterType.VOWEL: []}
-        self.borders: dict[LetterType, list[str]] = {LetterType.CONSONANT: [], LetterType.VOWEL: []}
-        self.types: dict[LetterType, list[str]] = {LetterType.CONSONANT: [], LetterType.VOWEL: []}
-        self.all: dict[str, tuple[CharacterType, Optional[list]]] = {
+        self.digits: dict[str, tuple[str, str]] = {}
+
+        self.disabled: dict[CharacterType, list[str]] = \
+            {CharacterType.CONSONANT: [], CharacterType.VOWEL: []}
+        self.tables: dict[CharacterType, list[list[str]]] = \
+            {CharacterType.CONSONANT: [], CharacterType.VOWEL: []}
+        self.borders: dict[CharacterType, list[str]] = \
+            {CharacterType.CONSONANT: [], CharacterType.VOWEL: []}
+        self.types: dict[CharacterType, list[str]] = \
+            {CharacterType.CONSONANT: [], CharacterType.VOWEL: []}
+        self.all: dict[str, tuple[CharacterType, Optional[tuple[str, str]]]] = {
             SEPARATOR: (CharacterType.SEPARATOR, None),
             SPACE: (CharacterType.SPACE, None)}
 
         # Load data for consonants and vowels
-        self._load_letters(LetterType.CONSONANT)
-        self._load_letters(LetterType.VOWEL)
+        self._load_characters(CharacterType.CONSONANT)
+        self._load_characters(CharacterType.VOWEL)
 
-    def _load_letters(self, letter_type: LetterType) -> None:
+    def _load_characters(self, character_type: CharacterType) -> None:
         """
         A helper method to load letters, borders, and types from a file.
         Updates corresponding tables and dictionaries.
         """
-        if letter_type == LetterType.CONSONANT:
+        if character_type == CharacterType.CONSONANT:
             file_path = self.CONSONANT_FILE_PATH
             table_attr = 'consonant_table'
             letters_attr = 'consonants'
@@ -47,7 +51,7 @@ class _CharacterRepository:
         with open(file_path, 'r', encoding='utf-8') as file:
             data = json.load(file)
 
-        table = data['letters']
+        table = data['characters']
         borders = data['borders']
         types = data['types']
         disabled = data['disabled']
@@ -58,15 +62,15 @@ class _CharacterRepository:
             for letter, typ in zip(row, types):
                 letters[letter] = (border, typ)
                 if letter not in disabled:
-                    self.all[letter] = CharacterType.LETTER, [letter_type, border, typ]
+                    self.all[letter] = character_type, (border, typ)
 
         setattr(self, letters_attr, letters)
         setattr(self, table_attr, table)
 
-        self.disabled[letter_type] = disabled
-        self.tables[letter_type] = table
-        self.borders[letter_type] = borders
-        self.types[letter_type] = types
+        self.disabled[character_type] = disabled
+        self.tables[character_type] = table
+        self.borders[character_type] = borders
+        self.types[character_type] = types
 
 
 def initialize():

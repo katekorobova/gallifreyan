@@ -6,6 +6,7 @@ from typing import Optional
 
 from PIL import Image
 
+from .core.writing.characters import CharacterType
 from .config import WINDOW_BG, PADX, PADY
 from .core import repository
 from .core.tools import AnimationProperties
@@ -14,8 +15,7 @@ from .core.tools.colorscheme import (ColorSchemeWindow, ColorScheme, ColorScheme
 from .core.tools.export import ProgressWindow, save_image
 from .core.widgets.animation import AnimationFrame
 from .core.widgets.canvas import CanvasFrame
-from .core.widgets.keyboard import LettersFrame, SpecialCharactersFrame
-from .core.writing.characters import LetterType
+from .core.widgets.keyboard import CharactersFrame, SpecialCharactersFrame
 from .core.writing.consonants import Consonant, DotConsonant
 from .core.writing.syllables import Syllable
 from .core.writing.vowels import Vowel
@@ -100,8 +100,8 @@ class App(tk.Tk):
     def _create_frames(self):
         """Create all the frames used in the main window."""
         self.canvas_frame = CanvasFrame(self)
-        consonants_frame = LettersFrame(LetterType.CONSONANT, self, self.canvas_frame.entry)
-        vowels_frame = LettersFrame(LetterType.VOWEL, self, self.canvas_frame.entry)
+        consonants_frame = CharactersFrame(CharacterType.CONSONANT, self, self.canvas_frame.entry)
+        vowels_frame = CharactersFrame(CharacterType.VOWEL, self, self.canvas_frame.entry)
 
         tools_frame = tk.Frame(self)
         tools_frame.configure(bg=WINDOW_BG)

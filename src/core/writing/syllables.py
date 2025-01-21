@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import math
 import random
 from abc import ABC, abstractmethod
@@ -20,8 +22,13 @@ from ...config import (SYLLABLE_IMAGE_RADIUS, DEFAULT_WORD_RADIUS, MIN_RADIUS,
 
 
 class AbstractSyllable(ABC):
+    """
+    Abstract base class for representing syllables.
+    Provides an interface for managing characters within a syllable.
+    """
 
     def __init__(self, head: Character):
+        """Initialize a syllable with a head character."""
         self.head = head
         self.text = head.text
 
@@ -42,7 +49,10 @@ class AbstractSyllable(ABC):
 
 
 class SeparatorSyllable(AbstractSyllable):
+    """Represents a syllable consisting of only separator characters."""
+
     def __init__(self, separator: Separator):
+        """Initialize a separator syllable with a given separator character."""
         super().__init__(separator)
         self.characters = [separator]
 
@@ -73,19 +83,21 @@ class SeparatorSyllable(AbstractSyllable):
             return False
 
     def _update_text(self):
+        """Update the syllable's text representation based on its characters."""
         self.text = ''.join(char.text for char in self.characters)
 
 
 class Syllable(AbstractSyllable):
     """
-    Represents a syllable, combining consonants and vowels into structured elements with visual representation.
+    Represents a structured syllable, which may consist of consonants and vowels.
+    Manages visual representation and interactive behavior.
     """
     IMAGE_CENTER = Point(SYLLABLE_IMAGE_RADIUS, SYLLABLE_IMAGE_RADIUS)
-
     background = SYLLABLE_BG
     color = SYLLABLE_COLOR
 
     def __init__(self, cons1: Consonant = None, vowel: Vowel = None):
+        """Initialize a syllable with an optional consonant and vowel."""
         super().__init__(cons1 or vowel)
 
         # Image-related attributes
@@ -126,7 +138,8 @@ class Syllable(AbstractSyllable):
     # =============================================
     # Initialization
     # =============================================
-    def set_following(self, following) -> None:
+    def set_following(self, following: Optional[Syllable]) -> None:
+        """Set the following syllable."""
         self._following = following
 
     @classmethod
@@ -179,6 +192,7 @@ class Syllable(AbstractSyllable):
         return True
 
     def _insert_consonant(self, index: int, consonant: Consonant) -> bool:
+        """Insert a consonant at the specified index if compatible."""
         match index:
             case 0:
                 if not self.cons1:
@@ -196,6 +210,7 @@ class Syllable(AbstractSyllable):
         return False
 
     def _insert_vowel(self, index: int, vowel: Vowel) -> bool:
+        """Inserts a vowel at the specified index if compatible."""
         match index:
             case 1:
                 if not self.cons2 and not self.vowel:
@@ -307,6 +322,7 @@ class Syllable(AbstractSyllable):
     # Repositioning
     # =============================================
     def move(self, point: Point, radius=0.0):
+        """Move the object based on the provided point and head syllable's radius."""
         shifted = point - Point(math.cos(self.direction) * radius, math.sin(self.direction) * radius)
         distance = shifted.distance()
 
@@ -330,10 +346,12 @@ class Syllable(AbstractSyllable):
     # Resizing
     # =============================================
     def set_scale(self, scale: float):
+        """Set the personal scale of the object and update properties accordingly."""
         self._personal_scale = scale
         self._update_properties_after_resizing()
 
     def update_scale(self, parent_scale=1.0):
+        """Update the scale based on the parent scale."""
         self._parent_scale = parent_scale
         self._update_properties_after_resizing()
 
@@ -344,6 +362,7 @@ class Syllable(AbstractSyllable):
                                SYLLABLE_SCALE_MIN), SYLLABLE_SCALE_MAX))
 
     def set_inner_scale(self, scale: float):
+        """Set the inner circle scale and update related properties."""
         self.inner_scale = scale
         self.inner_radius = self.outer_radius * self.inner_scale
 
@@ -387,6 +406,7 @@ class Syllable(AbstractSyllable):
     # Rotation
     # =============================================
     def set_direction(self, direction: float):
+        """Set the direction of the object and update letters."""
         self.direction = direction
 
         for consonant in self.consonants:
@@ -455,8 +475,8 @@ class Syllable(AbstractSyllable):
     # =============================================
     # Drawing
     # =============================================
-    def create_image(self) -> Image:
-        """Render the syllable image."""
+    def get_image(self) -> Image:
+        """Generate the syllable image."""
         if self._image_ready:
             return self._image
 
@@ -476,14 +496,17 @@ class Syllable(AbstractSyllable):
         return self._image
 
     def _draw_consonants(self):
+        """Draw all consonants."""
         for cons in self.consonants:
             cons.draw(self._draw)
 
     def _draw_inner_circle(self):
+        """Draw the inner circle using predefined arguments."""
         for args in self._inner_circle_arg_dict:
             self._draw.ellipse(**args)
 
     def apply_color_changes(self):
+        """Update color-dependent arguments."""
         for consonant in self.consonants:
             consonant.update_argument_dictionaries()
 
@@ -498,6 +521,7 @@ class Syllable(AbstractSyllable):
     # Animation
     # =============================================
     def perform_animation(self, direction_sign: int, is_tail: bool):
+        """Perform an animation step by adjusting directions."""
         delta = direction_sign * 2 * math.pi / AnimationProperties.cycle
 
         if self.vowel:

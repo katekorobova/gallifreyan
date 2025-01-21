@@ -43,11 +43,11 @@ class ProgressWindow(tk.Toplevel):
         self.title("Wait")
         self.transient(master)
         self.geometry("300x100+500+500")
-        self.protocol("WM_DELETE_WINDOW", lambda: None)
+        self.attributes('-disabled', True)
 
         self.label = tk.Label(self)
-        self.label.pack()
         self.configure_progress_label(0)
+        self.label.pack()
 
     def configure_progress_label(self, index: int):
         """Updates the label to display the current progress."""

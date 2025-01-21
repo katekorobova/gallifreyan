@@ -22,6 +22,7 @@ pady = (0, PADY)
 
 
 class ColorSchemeComponent(Enum):
+    """Enumeration of different components that can have customizable colors."""
     CANVAS_BG = auto()
     WORD_BG = auto()
     SYLLABLE_BG = auto()
@@ -46,15 +47,18 @@ _default_color_scheme: ColorScheme = {
 
 
 def get_default_color_scheme():
+    """Returns a copy of the default color scheme."""
     return copy.copy(_default_color_scheme)
 
 
 def reset_color_scheme(color_scheme: ColorScheme):
+    """Resets the given color scheme to the default values."""
     for key, value in _default_color_scheme.items():
         color_scheme[key] = value
 
 
 class ColorSchemeSection(Enum):
+    """Enumeration of different sections in the color scheme settings."""
     CANVAS = auto()
     WORDS = auto()
     SYLLABLES = auto()
@@ -69,9 +73,11 @@ class ColorSchemeWindow(tk.Toplevel):
     """
     CENTER = Point(250, 250)
     BUTTON_WIDTH = 8
+    WORD = 'wʌz'
 
-    def __init__(self, master: tk.Tk, color_scheme: ColorScheme, command: Callable[[ColorScheme], None]):
-        """Initializes the color scheme window."""
+    def __init__(self, master: tk.Tk, color_scheme: ColorScheme,
+                 command: Callable[[ColorScheme], None]):
+        """Initialize the color scheme window."""
         super().__init__(master, bg=WINDOW_BG)
         self.title("Color Scheme")
         self.transient(master)
@@ -80,6 +86,11 @@ class ColorSchemeWindow(tk.Toplevel):
         self.color_scheme = copy.copy(color_scheme)
         self.previews: dict[ColorSchemeComponent, tk.Label] = {}
 
+        self._setup_ui(command)
+        self._initialize_word()
+        self._draw()
+
+    def _setup_ui(self, command: Callable[[ColorScheme], None]):
         # Create UI frames for color selection
         canvas_color_frame = self._create_unary_frame(ColorSchemeSection.CANVAS)
         word_color_frame = self._create_binary_frame(ColorSchemeSection.WORDS)
@@ -89,13 +100,15 @@ class ColorSchemeWindow(tk.Toplevel):
 
         button_frame = DefaultFrame(self)
         reset_button = self._create_button(button_frame, text='Reset', command=self._reset_scheme)
-        apply_button = self._create_button(button_frame, text='Apply', command=lambda: command(self.color_scheme))
+        apply_button = self._create_button(button_frame, text='Apply',
+                                           command=lambda: command(self.color_scheme))
         reset_button.grid(row=0, column=0, padx=PADX, pady=PADY, sticky=tk.NSEW)
         apply_button.grid(row=0, column=1, padx=padx, pady=PADY, sticky=tk.NSEW)
 
         # Tiny canvas for previewing the changes
         canvas_frame = DefaultFrame(self)
-        self.canvas = DefaultCanvas(canvas_frame, bg=color_scheme[ColorSchemeComponent.CANVAS_BG],
+        self.canvas = DefaultCanvas(canvas_frame,
+                                    bg=self.color_scheme[ColorSchemeComponent.CANVAS_BG],
                                     width=self.CENTER[0] * 2, height=self.CENTER[1] * 2)
         self.canvas.pack(padx=PADX, pady=PADY)
 
@@ -111,11 +124,8 @@ class ColorSchemeWindow(tk.Toplevel):
         for i in range(len(ColorSchemeSection)):
             self.rowconfigure(i, weight=1)
 
-        self._initialize_word()
-        self._draw()
-
     def _create_unary_frame(self, section: ColorSchemeSection) -> tk.Frame:
-        """Creates a frame containing a label, a color preview, and a button to change the color."""
+        """Create a frame containing a label, a color preview, and a button to change the color."""
         match section:
             case ColorSchemeSection.CANVAS:
                 title = 'Canvas'
@@ -132,7 +142,8 @@ class ColorSchemeWindow(tk.Toplevel):
         frame = DefaultFrame(self)
         label = SecondaryLabel(frame, text=title)
         preview = self._create_preview(frame, self.color_scheme[component])
-        button = self._create_button(frame, text='Change', command=lambda: self._choose_color(component))
+        button = self._create_button(frame, text='Change',
+                                     command=lambda: self._choose_color(component))
 
         label.grid(row=0, column=0, columnspan=2, padx=PADX, sticky=tk.W)
         preview.grid(row=1, column=0, padx=PADX, pady=pady, sticky=tk.NSEW)
@@ -143,8 +154,7 @@ class ColorSchemeWindow(tk.Toplevel):
         return frame
 
     def _create_binary_frame(self, section: ColorSchemeSection) -> tk.Frame:
-        """Creates a frame containing a label, two color preview labels, and buttons to change each color."""
-
+        """Create a frame containing a label, two color previews, and two buttons."""
         match section:
             case ColorSchemeSection.WORDS:
                 title = 'Words'
@@ -160,10 +170,11 @@ class ColorSchemeWindow(tk.Toplevel):
         frame = DefaultFrame(self)
         label = SecondaryLabel(frame, text=title)
         color_preview = self._create_preview(frame, self.color_scheme[color_component])
-        color_button = self._create_button(frame, text='Change', command=lambda: self._choose_color(color_component))
+        color_button = self._create_button(
+            frame, text='Change', command=lambda: self._choose_color(color_component))
         background_preview = self._create_preview(frame, self.color_scheme[background_component])
-        background_button = self._create_button(frame, text='Change',
-                                                command=lambda: self._choose_color(background_component))
+        background_button = self._create_button(
+            frame, text='Change', command=lambda: self._choose_color(background_component))
 
         label.grid(row=0, column=0, columnspan=2, padx=PADX, sticky=tk.W)
         color_preview.grid(row=1, column=0, padx=PADX, pady=pady, sticky=tk.NSEW)
@@ -177,17 +188,20 @@ class ColorSchemeWindow(tk.Toplevel):
         return frame
 
     def _create_preview(self, master: tk.Misc, color: str):
+        """Create a label with a predefined style."""
         return tk.Label(master, bg=color, font=SECONDARY_FONT, relief=tk.RAISED,
                         width=self.BUTTON_WIDTH, height=BUTTON_HEIGHT)
 
     def _create_button(self, master: tk.Misc, text: str, command: Callable[[], None]):
+        """Create a button with a predefined style."""
         return tk.Button(master, text=text, command=command,
                          bg=ITEM_BG, fg=TEXT_COLOR, font=SECONDARY_FONT,
                          width=self.BUTTON_WIDTH, height=BUTTON_HEIGHT)
 
     def _initialize_word(self):
-        """Initializes the word preview."""
-        self.word = Word(self.CENTER, [get_character(char, *repository.get().all[char]) for char in 'wʌz'])
+        """Initialize the word preview."""
+        self.word = Word(self.CENTER,
+                         [get_character(char, *repository.get().all[char]) for char in self.WORD])
         self.word.syllables[0].set_direction(0)
         self.word.syllables[1].set_direction(math.pi)
 
@@ -212,7 +226,7 @@ class ColorSchemeWindow(tk.Toplevel):
         self.word.update_properties_after_resizing()
 
     def _choose_color(self, component: ColorSchemeComponent):
-        """Opens a color picker to change the color."""
+        """Open a color picker to change the color."""
         match component:
             case ColorSchemeComponent.CANVAS_BG:
                 name = 'Canvas Background'
@@ -247,16 +261,19 @@ class ColorSchemeWindow(tk.Toplevel):
         self.attributes('-disabled', False)
 
     def _set_canvas_background(self, color: str):
+        """Set the background color of the canvas."""
         self.color_scheme[ColorSchemeComponent.CANVAS_BG] = color
         self.previews[ColorSchemeComponent.CANVAS_BG].config(bg=color)
         self.canvas.configure(bg=color)
 
     def _set_word_background(self, color: str):
+        """Set the background color of the word."""
         self.color_scheme[ColorSchemeComponent.WORD_BG] = color
         self.previews[ColorSchemeComponent.WORD_BG].config(bg=color)
         self.word.background = color
 
     def _set_syllable_background(self, color: str):
+        """Set the background color for syllables, consonants, vowels, and dots."""
         self.color_scheme[ColorSchemeComponent.SYLLABLE_BG] = color
         self.previews[ColorSchemeComponent.SYLLABLE_BG].config(bg=color)
 
@@ -270,11 +287,13 @@ class ColorSchemeWindow(tk.Toplevel):
             consonant.background = color
 
     def _set_word_color(self, color: str):
+        """Set the color of the word."""
         self.color_scheme[ColorSchemeComponent.WORD_COLOR] = color
         self.previews[ColorSchemeComponent.WORD_COLOR].config(bg=color)
         self.word.color = color
 
     def _set_syllable_color(self, color: str):
+        """Set the color for syllables and consonants."""
         self.color_scheme[ColorSchemeComponent.SYLLABLE_COLOR] = color
         self.previews[ColorSchemeComponent.SYLLABLE_COLOR].config(bg=color)
 
@@ -284,6 +303,7 @@ class ColorSchemeWindow(tk.Toplevel):
             consonant.color = color
 
     def _set_vowel_color(self, color: str):
+        """Set the color for vowels."""
         self.color_scheme[ColorSchemeComponent.VOWEL_COLOR] = color
         self.previews[ColorSchemeComponent.VOWEL_COLOR].config(bg=color)
 
@@ -291,6 +311,7 @@ class ColorSchemeWindow(tk.Toplevel):
             vowel.color = color
 
     def _set_dot_color(self, color: str):
+        """Set the color for dots."""
         self.color_scheme[ColorSchemeComponent.DOT_COLOR] = color
         self.previews[ColorSchemeComponent.DOT_COLOR].config(bg=color)
 
@@ -310,10 +331,10 @@ class ColorSchemeWindow(tk.Toplevel):
         self._redraw()
 
     def _draw(self):
-        """Draws the word preview on the canvas."""
+        """Draw the word preview on the canvas."""
         self.word.put_image(self.canvas)
 
     def _redraw(self):
-        """Applies the selected color changes and updates the preview."""
+        """Apply the selected color changes and update the preview."""
         self.word.apply_color_changes()
         self._draw()

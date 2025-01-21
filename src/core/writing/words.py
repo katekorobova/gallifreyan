@@ -27,7 +27,8 @@ class _RedistributionState:
 def unique_syllables(items: list[AbstractSyllable]) -> list[Syllable]:
     """Return a list of unique syllables while preserving order."""
     seen = set()
-    return [item for item in items if not (item in seen or seen.add(item)) and isinstance(item, Syllable)]
+    return [item for item in items
+            if not (item in seen or seen.add(item)) and isinstance(item, Syllable)]
 
 
 class AbstractWord(ABC):
@@ -155,50 +156,39 @@ class Word(AbstractWord):
     def press(self, point: Point) -> bool:
         """Handle press events."""
         word_point = point - self.center
-
         if self.tail:
             distance = word_point.distance()
-
-            # Check if the press is outside the outer boundary
             if distance > self.outer_radius + self._half_line_distance:
                 return False
 
-            # Check if the press is on the outer border
-            if distance > self.outer_radius - self._half_line_distance:
-                self._handle_outer_border_press(distance)
-                return True
+            return (self._handle_outer_border_press(distance) or
+                    self._handle_tail_press(word_point) or
+                    self._handle_head_press(word_point) or
+                    self._handle_parent_press(word_point))
 
-            # Handle press if it is on the tail
-            for syllable in reversed(self.tail):
-                if self._handle_tail_press(syllable, word_point):
-                    return True
-
-            # Handle press if it is on the head
-            if self._handle_head_press(word_point):
-                return True
-
-            # Handle press events for the parent
-            self._handle_parent_press(word_point)
-            return True
-        elif self.head:
+        if self.head:
             return self._handle_head_press(word_point)
-        else:
-            return False
 
-    def _handle_outer_border_press(self, distance: float) -> None:
+        return False
+
+    def _handle_outer_border_press(self, distance: float) -> bool:
         """Handle press events on the outer border."""
-        self.pressed_type = PressedType.BORDER
-        self._distance_bias = distance - self.outer_radius
-
-    def _handle_tail_press(self, syllable: Syllable, word_point: Point) -> bool:
-        """Attempt to press a child syllable."""
-        head_radius = self.head.outer_radius
-        offset_point = word_point - Point(math.cos(syllable.direction) * head_radius,
-                                          math.sin(syllable.direction) * head_radius)
-        if syllable.press(offset_point):
-            self.pressed_type = PressedType.CHILD
-            self._pressed = syllable
+        if distance > self.outer_radius - self._half_line_distance:
+            self.pressed_type = PressedType.BORDER
+            self._distance_bias = distance - self.outer_radius
             return True
+        return False
+
+    def _handle_tail_press(self, word_point: Point) -> bool:
+        """Attempt to press a non-head syllable."""
+        for syllable in reversed(self.tail):
+            head_radius = self.head.outer_radius
+            offset_point = word_point - Point(math.cos(syllable.direction) * head_radius,
+                                              math.sin(syllable.direction) * head_radius)
+            if syllable.press(offset_point):
+                self.pressed_type = PressedType.CHILD
+                self._pressed = syllable
+                return True
         return False
 
     def _handle_head_press(self, word_point: Point) -> bool:
@@ -211,11 +201,13 @@ class Word(AbstractWord):
                 self.pressed_type = PressedType.CHILD
                 self._pressed = self.head
             return True
+        return False
 
-    def _handle_parent_press(self, word_point: Point) -> None:
+    def _handle_parent_press(self, word_point: Point) -> bool:
         """Handle press events for the parent."""
         self.pressed_type = PressedType.PARENT
         self._point_bias = word_point
+        return True
 
     # =============================================
     # Repositioning
@@ -250,8 +242,9 @@ class Word(AbstractWord):
         """Resize the word based on movement."""
         head_scale = self.head.scale
         new_radius = word_point.distance() - self._distance_bias
-        self.outer_circle_scale = min(max(new_radius / DEFAULT_WORD_RADIUS / head_scale, OUTER_CIRCLE_SCALE_MIN),
-                                      OUTER_CIRCLE_SCALE_MAX)
+        self.outer_circle_scale = min(
+            max(new_radius / DEFAULT_WORD_RADIUS / head_scale, OUTER_CIRCLE_SCALE_MIN),
+            OUTER_CIRCLE_SCALE_MAX)
 
         self.outer_radius = DEFAULT_WORD_RADIUS * self.outer_circle_scale * head_scale
         self._create_outer_circle()
@@ -340,7 +333,8 @@ class Word(AbstractWord):
             if state.completed:
                 break
 
-    def _process_consonant(self, index: int, consonant: Consonant, state: _RedistributionState) -> None:
+    def _process_consonant(
+            self, index: int, consonant: Consonant, state: _RedistributionState) -> None:
         """Process consonant letter and update state."""
         if state.syllable:
             if not state.cons2 and state.syllable.add(consonant):
@@ -373,7 +367,8 @@ class Word(AbstractWord):
             else:
                 self.syllables_by_indices[index] = Syllable(vowel=vowel)
 
-    def _process_separator(self, index: int, separator: Separator, state: _RedistributionState) -> None:
+    def _process_separator(
+            self, index: int, separator: Separator, state: _RedistributionState) -> None:
         """Process separator character and update state."""
         if state.syllable and state.syllable.add(separator):
             self.syllables_by_indices[index] = state.syllable
@@ -388,7 +383,8 @@ class Word(AbstractWord):
 
     def _check_syllable_start(self, index: int, consonant: Consonant) -> bool:
         """Check if the given consonant starts the syllable at the specified index."""
-        return self.syllables_by_indices[index] and self.syllables_by_indices[index].head is consonant
+        return self.syllables_by_indices[index] and \
+            self.syllables_by_indices[index].head is consonant
 
     # =============================================
     # Helper Functions for Updating Image Arguments
@@ -404,13 +400,16 @@ class Word(AbstractWord):
             self._border_draw.ellipse((start, end), outline=self.color, width=self._line_widths[0])
             self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._line_widths[0])
         else:
-            adjusted_radius = self.outer_radius + self._half_line_distance + self._half_line_widths[0]
+            adjusted_radius = \
+                self.outer_radius + self._half_line_distance + self._half_line_widths[0]
             start = self.IMAGE_CENTER.shift(-adjusted_radius)
             end = self.IMAGE_CENTER.shift(adjusted_radius)
             self._border_draw.ellipse((start, end), outline=self.color,
                                       fill=self.background, width=self._line_widths[0])
 
-            adjusted_radius = max(self.outer_radius - self._half_line_distance + self._half_line_widths[1], MIN_RADIUS)
+            adjusted_radius = max(
+                self.outer_radius - self._half_line_distance + self._half_line_widths[1],
+                MIN_RADIUS)
             start = self.IMAGE_CENTER.shift(-adjusted_radius)
             end = self.IMAGE_CENTER.shift(adjusted_radius)
             self._border_draw.ellipse((start, end), outline=self.color, width=self._line_widths[1])
@@ -475,7 +474,7 @@ class Word(AbstractWord):
         self._image.paste(image, tuple(self.IMAGE_CENTER - Syllable.IMAGE_CENTER), image)
 
     def _paste_tail(self, syllable: Syllable, radius: float):
-        """Paste a non-head syllable's image at a calculated position on the head syllable's orbit."""
+        """Paste a non-head syllable's image at a position on the head syllable's orbit."""
         image = syllable.get_image()
         self._image.paste(image, tuple(self.IMAGE_CENTER - Syllable.IMAGE_CENTER +
                                        Point(round(math.cos(syllable.direction) * radius),

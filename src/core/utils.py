@@ -3,13 +3,15 @@ from __future__ import annotations
 import math
 from enum import Enum, auto
 
-from ..config import LINE_WIDTHS, MIN_LINE_WIDTH, DEFAULT_HALF_LINE_DISTANCE, MIN_HALF_LINE_DISTANCE
+from ..config import (LINE_WIDTHS, MIN_LINE_WIDTH,
+                      DEFAULT_HALF_LINE_DISTANCE, MIN_HALF_LINE_DISTANCE)
 
 
 # =============================================
 # Enum for Pressed Types
 # =============================================
 class PressedType(Enum):
+    """Enumeration for different types of pressed elements."""
     PARENT = auto()
     BORDER = auto()
     INNER = auto()
@@ -23,15 +25,19 @@ class Point(tuple):
     """A 2D point with basic vector operations."""
 
     def __new__(cls, x: float = 0.0, y: float = 0.0):
+        """Create a new Point instance."""
         return super().__new__(cls, (x, y))
 
     def __add__(self, other: Point) -> Point:
+        """Add two points component-wise."""
         return Point(self[0] + other[0], self[1] + other[1])
 
     def __sub__(self, other: Point) -> Point:
+        """Subtract two points component-wise."""
         return Point(self[0] - other[0], self[1] - other[1])
 
     def __mul__(self, other: float) -> Point:
+        """Scale the point by a scalar value."""
         return Point(self[0] * other, self[1] * other)
 
     def distance(self) -> float:

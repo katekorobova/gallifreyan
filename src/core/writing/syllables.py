@@ -35,17 +35,14 @@ class AbstractSyllable(ABC):
     @abstractmethod
     def remove_starting_with(self, character: Character) -> None:
         """Remove a character from the syllable, updating properties accordingly."""
-        pass
 
     @abstractmethod
     def add(self, character: Character) -> bool:
         """Add a character to the syllable, if possible."""
-        pass
 
     @abstractmethod
     def insert(self, index: int, character: Character) -> bool:
         """Insert a character into the syllable, if possible."""
-        pass
 
 
 class SeparatorSyllable(AbstractSyllable):
@@ -69,8 +66,8 @@ class SeparatorSyllable(AbstractSyllable):
             self.characters.append(character)
             self._update_text()
             return True
-        else:
-            return False
+
+        return False
 
     def insert(self, index: int, character: Character) -> bool:
         """Insert a character into the syllable, if possible."""
@@ -79,8 +76,8 @@ class SeparatorSyllable(AbstractSyllable):
             self.head = self.characters[0]
             self._update_text()
             return True
-        else:
-            return False
+
+        return False
 
     def _update_text(self):
         """Update the syllable's text representation based on its characters."""
@@ -122,8 +119,10 @@ class Syllable(AbstractSyllable):
         self.inner_radius = 0.0
         self.half_line_distance = 0.0
         self.border_offset = (0.0, 0.0)
-        self._personal_scale = random.uniform(SYLLABLE_INITIAL_SCALE_MIN, SYLLABLE_INITIAL_SCALE_MAX)
-        self.inner_scale = random.uniform(INNER_CIRCLE_INITIAL_SCALE_MIN, INNER_CIRCLE_INITIAL_SCALE_MAX)
+        self._personal_scale = \
+            random.uniform(SYLLABLE_INITIAL_SCALE_MIN, SYLLABLE_INITIAL_SCALE_MAX)
+        self.inner_scale = \
+            random.uniform(INNER_CIRCLE_INITIAL_SCALE_MIN, INNER_CIRCLE_INITIAL_SCALE_MAX)
         self._update_properties_after_resizing()
 
         self.direction = 0
@@ -151,7 +150,8 @@ class Syllable(AbstractSyllable):
     def _update_key_properties(self):
         """Update syllable properties such as consonants, letters, and text representation."""
         self.head = self.cons1 or self.vowel
-        self.outer = self.cons1 or Consonant.get_consonant(ALEPH, *repository.get().consonants[ALEPH])
+        self.outer = self.cons1 or \
+                     Consonant.get_consonant(ALEPH, *repository.get().consonants[ALEPH])
         self.inner = self.cons2 or self.outer
         self.consonants = sorted({self.outer, self.inner}, key=lambda l: l.consonant_type.group)
         self.letters = [item for item in [self.cons1, self.cons2, self.vowel] if item]
@@ -164,8 +164,9 @@ class Syllable(AbstractSyllable):
         """Add a letter to the syllable, if possible."""
         if isinstance(character, Vowel) and not self.vowel:
             self.vowel = character
-        elif isinstance(character, Consonant) \
-                and not self.cons2 and not self.vowel and Consonant.compatible(self.cons1, character):
+        elif isinstance(character, Consonant) and \
+                not self.cons2 and not self.vowel and \
+                Consonant.compatible(self.cons1, character):
             self.cons2 = character
         else:
             return False
@@ -198,7 +199,7 @@ class Syllable(AbstractSyllable):
                 if not self.cons1:
                     self.cons1 = consonant
                     return True
-                elif not self.cons2 and Consonant.compatible(consonant, self.cons1):
+                if not self.cons2 and Consonant.compatible(consonant, self.cons1):
                     self.cons2 = self.cons1
                     self.cons1 = consonant
                     return True
@@ -242,56 +243,44 @@ class Syllable(AbstractSyllable):
     def press(self, point: Point) -> bool:
         """Handle press events at a given point."""
         distance = point.distance()
-
-        # Check if the press is outside the outer boundary
         if distance > self.outer_radius + self.half_line_distance:
             return False
 
-        # Check if the press is on the outer border
-        if distance > self.outer_radius - self.half_line_distance:
-            self._handle_outer_border_press(distance)
-            return True
+        return (self._handle_outer_border_press(distance) or
+                self._handle_visible_vowel_press(point) or
+                self._handle_inner_space_press(point, distance) or
+                self._handle_inner_border_press(distance) or
+                self._handle_consonant_press(point) or
+                self._handle_hidden_vowel_press(point) or
+                self._handle_parent_press(point))
 
-        # Handle press if it is on a visible vowel
-        if self._handle_visible_vowel_press(point):
-            return True
-
-        # Check if the press is within the inner radius
-        if distance < self.inner_radius - self.half_line_distance:
-            self._handle_parent_press(point)
-            return True
-
-        # Check if the press is on the inner border
-        if distance < self.inner_radius + self.half_line_distance:
-            self._handle_inner_border_press(distance)
-            return True
-
-        # Handle press if it is on a consonant
-        if self._handle_consonant_press(point):
-            return True
-
-        # Handle press if it is on a hidden vowel
-        if self._handle_hidden_vowel_press(point):
-            return True
-
-        # Handle press events for the parent
-        self._handle_parent_press(point)
-        return True
-
-    def _handle_outer_border_press(self, distance: float) -> None:
+    def _handle_outer_border_press(self, distance: float) -> bool:
         """Handle press events on the outer border."""
-        self.pressed_type = PressedType.BORDER
-        self._distance_bias = distance - self.outer_radius
+        if distance > self.outer_radius - self.half_line_distance:
+            self.pressed_type = PressedType.BORDER
+            self._distance_bias = distance - self.outer_radius
+            return True
+        return False
 
-    def _handle_inner_border_press(self, distance: float) -> None:
+    def _handle_inner_space_press(self, point: Point, distance: float) -> bool:
+        """Handle press events inside the inner circle."""
+        if distance < self.inner_radius - self.half_line_distance:
+            return self._handle_parent_press(point)
+        return False
+
+    def _handle_inner_border_press(self, distance: float) -> bool:
         """Handle press events on the inner border."""
-        self.pressed_type = PressedType.INNER
-        self._distance_bias = distance - self.inner_radius
+        if distance < self.inner_radius + self.half_line_distance:
+            self.pressed_type = PressedType.INNER
+            self._distance_bias = distance - self.inner_radius
+            return True
+        return False
 
-    def _handle_parent_press(self, point: Point) -> None:
+    def _handle_parent_press(self, point: Point) -> bool:
         """Handle press events for the parent."""
         self.pressed_type = PressedType.PARENT
         self._point_bias = point
+        return True
 
     def _handle_visible_vowel_press(self, point: Point) -> bool:
         """Handle press events for visible vowels."""
@@ -323,7 +312,8 @@ class Syllable(AbstractSyllable):
     # =============================================
     def move(self, point: Point, radius=0.0):
         """Move the object based on the provided point and head syllable's radius."""
-        shifted = point - Point(math.cos(self.direction) * radius, math.sin(self.direction) * radius)
+        shifted = point - Point(
+            math.cos(self.direction) * radius, math.sin(self.direction) * radius)
         distance = shifted.distance()
 
         match self.pressed_type:
@@ -378,7 +368,9 @@ class Syllable(AbstractSyllable):
     def _adjust_inner_scale(self, distance: float):
         """Adjust the inner scale based on the moved distance."""
         new_radius = distance - self._distance_bias
-        self.set_inner_scale(min(max(new_radius / self.outer_radius, INNER_CIRCLE_SCALE_MIN), INNER_CIRCLE_SCALE_MAX))
+        self.set_inner_scale(
+            min(max(new_radius / self.outer_radius, INNER_CIRCLE_SCALE_MIN),
+                INNER_CIRCLE_SCALE_MAX))
 
     def _update_properties_after_resizing(self):
         """Update scaling and circle radii, and calculate image properties."""
@@ -429,19 +421,24 @@ class Syllable(AbstractSyllable):
         """Prepare arguments for drawing inner circles."""
         self._inner_circle_arg_dict = []
         if len(self.inner.borders) == 1:
-            adjusted_radius = self._calculate_adjusted_radius(self.inner_radius, self.inner.half_line_widths[0])
-            self._inner_circle_arg_dict.append(self._create_circle_args(adjusted_radius, self.inner.line_widths[0]))
+            adjusted_radius = self._calculate_adjusted_radius(
+                self.inner_radius, self.inner.half_line_widths[0])
+            self._inner_circle_arg_dict.append(
+                self._create_circle_args(adjusted_radius, self.inner.line_widths[0]))
         else:
             for i in range(2):
                 adjusted_radius = self._calculate_adjusted_radius(
-                    self.inner_radius, (-1) ** i * self.half_line_distance + self.inner.half_line_widths[i])
+                    self.inner_radius,
+                    (-1) ** i * self.half_line_distance + self.inner.half_line_widths[i])
                 self._inner_circle_arg_dict.append(
                     self._create_circle_args(adjusted_radius, self.inner.line_widths[i]))
 
     def _create_circle_args(self, adjusted_radius: float, line_width: float) -> dict:
         """Generate circle arguments for drawing."""
-        start, end = self.IMAGE_CENTER.shift(-adjusted_radius), self.IMAGE_CENTER.shift(adjusted_radius)
-        return {'xy': (start, end), 'outline': self.color, 'fill': self.background, 'width': line_width}
+        start, end = \
+            self.IMAGE_CENTER.shift(-adjusted_radius), self.IMAGE_CENTER.shift(adjusted_radius)
+        return {'xy': (start, end), 'outline': self.color,
+                'fill': self.background, 'width': line_width}
 
     def _create_outer_circle(self):
         """Draw the outer circle for the syllable."""
@@ -449,26 +446,35 @@ class Syllable(AbstractSyllable):
         self._mask_draw.rectangle(((0, 0), self._mask_image.size), fill=1)
 
         if len(self.outer.borders) == 1:
-            adjusted_radius = self._calculate_adjusted_radius(self.outer_radius, self.outer.half_line_widths[0])
-            start, end = self.IMAGE_CENTER.shift(-adjusted_radius), self.IMAGE_CENTER.shift(adjusted_radius)
-            self._border_draw.ellipse((start, end), outline=self.color, width=self.outer.line_widths[0])
-            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self.outer.line_widths[0])
+            adjusted_radius = self._calculate_adjusted_radius(
+                self.outer_radius, self.outer.half_line_widths[0])
+            start, end = \
+                self.IMAGE_CENTER.shift(-adjusted_radius), self.IMAGE_CENTER.shift(adjusted_radius)
+            self._border_draw.ellipse((start, end), outline=self.color,
+                                      width=self.outer.line_widths[0])
+            self._mask_draw.ellipse((start, end), outline=1, fill=0,
+                                    width=self.outer.line_widths[0])
         else:
-            adjusted_radius = self.outer_radius + self.half_line_distance + self.outer.half_line_widths[0]
+            adjusted_radius = \
+                self.outer_radius + self.half_line_distance + self.outer.half_line_widths[0]
             start = self.IMAGE_CENTER.shift(-adjusted_radius)
             end = self.IMAGE_CENTER.shift(adjusted_radius)
-            self._border_draw.ellipse((start, end),
-                                      outline=self.color, fill=self.background, width=self.outer.line_widths[0])
+            self._border_draw.ellipse((start, end), outline=self.color,
+                                      fill=self.background, width=self.outer.line_widths[0])
 
             adjusted_radius = max(
-                self.outer_radius - self.half_line_distance + self.outer.half_line_widths[1], MIN_RADIUS)
+                self.outer_radius - self.half_line_distance + self.outer.half_line_widths[1],
+                MIN_RADIUS)
             start = self.IMAGE_CENTER.shift(-adjusted_radius)
             end = self.IMAGE_CENTER.shift(adjusted_radius)
-            self._border_draw.ellipse((start, end), outline=self.color, width=self.outer.line_widths[1])
-            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self.outer.line_widths[1])
+            self._border_draw.ellipse((start, end), outline=self.color,
+                                      width=self.outer.line_widths[1])
+            self._mask_draw.ellipse((start, end), outline=1, fill=0,
+                                    width=self.outer.line_widths[1])
 
     @staticmethod
-    def _calculate_adjusted_radius(base_radius: float, adjustment: float, min_radius: float = MIN_RADIUS):
+    def _calculate_adjusted_radius(
+            base_radius: float, adjustment: float, min_radius: float = MIN_RADIUS):
         """Calculate an adjusted radius with constraints."""
         return max(base_radius + adjustment, min_radius)
 

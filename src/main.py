@@ -9,7 +9,8 @@ from PIL import Image
 from .config import WINDOW_BG, PADX, PADY
 from .core import repository
 from .core.tools import AnimationProperties
-from .core.tools.colorscheme import ColorSchemeWindow, ColorScheme, ColorSchemeComponent, get_default_color_scheme
+from .core.tools.colorscheme import (ColorSchemeWindow, ColorScheme, ColorSchemeComponent,
+                                     get_default_color_scheme)
 from .core.tools.export import ProgressWindow, save_image
 from .core.widgets.animation import AnimationFrame
 from .core.widgets.canvas import CanvasFrame
@@ -26,6 +27,7 @@ pady = (0, PADY)
 
 
 class App(tk.Tk):
+    """The main application class"""
     def __init__(self):
         super().__init__()
         self._initialize_character_repository()
@@ -60,7 +62,8 @@ class App(tk.Tk):
         if self._color_scheme_window and self._color_scheme_window.winfo_exists():
             self._color_scheme_window.focus()
         else:
-            self._color_scheme_window = ColorSchemeWindow(self, self._color_scheme, self._apply_color_scheme)
+            self._color_scheme_window = ColorSchemeWindow(
+                self, self._color_scheme, self._apply_color_scheme)
 
     def _apply_color_scheme(self, color_scheme: ColorScheme):
         """Apply the updated color scheme to the application."""
@@ -121,7 +124,8 @@ class App(tk.Tk):
         """Starts or stops the animation loop based on the given state."""
         if enabled:
             if self._animation_task_id is None:
-                self._animation_task_id = self.after(AnimationProperties.delay, self._animation_loop)
+                self._animation_task_id = self.after(
+                    AnimationProperties.delay, self._animation_loop)
         else:
             if self._animation_task_id is not None:
                 self.after_cancel(self._animation_task_id)

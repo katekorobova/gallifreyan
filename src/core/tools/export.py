@@ -9,7 +9,8 @@ from . import AnimationProperties
 SAVE_ERROR = "Save Error"
 
 
-def save_image(image: Optional[Image.Image], name: str, extension: str, callback: Callable[[Image.Image, str], None]):
+def save_image(image: Optional[Image.Image], name: str, extension: str,
+               callback: Callable[[Image.Image, str], None]):
     """Generic method to save the current canvas content as an image."""
     try:
         if not image:
@@ -51,6 +52,6 @@ class ProgressWindow(tk.Toplevel):
 
     def configure_progress_label(self, index: int):
         """Updates the label to display the current progress."""
-        self.label.config(text="Your GIF is being processed: {:2.2f}%"
-                          .format(99 * (index + 1) / AnimationProperties.cycle))
+        percentage = 99 * (index + 1) / AnimationProperties.cycle
+        self.label.config(text=f"Your GIF is being processed: {percentage:2.2f}%")
         self.label.master.update()

@@ -17,20 +17,36 @@ class AnimationFrame(DefaultFrame):
         super().__init__(win)
 
         button = ToolButton(self, 'Animation', command)
-        cycle_bar = self._create_bar('Number of Frames', 'cycle', CYCLE_MIN, CYCLE_MAX, CYCLE_STEP)
-        delay_bar = self._create_bar('Delay Time in ms', 'delay', DELAY_MIN, DELAY_MAX, DELAY_STEP)
+        cycle_scale = self._create_scale('cycle')
+        delay_scale = self._create_scale('delay')
 
         button.grid(row=0, column=0, padx=PADX, pady=PADY)
-        cycle_bar.grid(row=1, column=0, sticky=tk.NSEW, padx=PADX, pady=pady)
-        delay_bar.grid(row=2, column=0, sticky=tk.NSEW, padx=PADX, pady=pady)
+        cycle_scale.grid(row=1, column=0, sticky=tk.NSEW, padx=PADX, pady=pady)
+        delay_scale.grid(row=2, column=0, sticky=tk.NSEW, padx=PADX, pady=pady)
 
-    def _create_bar(self, label: str, attribute: str, from_: int, to: int, resolution: int) -> tk.Scale:
-        bar = tk.Scale(self, label=label, font=SECONDARY_FONT, from_=from_, to=to, resolution=resolution,
-                       bg=ITEM_BG, fg=TEXT_COLOR, activebackground=PRESSED_BG, troughcolor=PRESSED_BG,
-                       orient=tk.HORIZONTAL, bd=2, relief=tk.SUNKEN, highlightthickness=0,
-                       command=lambda value: self._change_value(value, attribute))
-        bar.set(getattr(AnimationProperties, attribute))
-        return bar
+    def _create_scale(self, attribute: str) -> tk.Scale:
+        match attribute:
+            case 'cycle':
+                label = 'Number of Frames'
+                from_ = CYCLE_MIN
+                to = CYCLE_MAX
+                resolution = CYCLE_STEP
+            case 'delay':
+                label = 'Delay Time in ms'
+                from_ = DELAY_MIN
+                to = DELAY_MAX
+                resolution = DELAY_STEP
+            case _:
+                raise ValueError(f"Unable to create a scale for attribute: '{attribute}'")
+
+        scale = tk.Scale(self, label=label, font=SECONDARY_FONT,
+                         from_=from_, to=to, resolution=resolution,
+                         bg=ITEM_BG, fg=TEXT_COLOR,
+                         activebackground=PRESSED_BG, troughcolor=PRESSED_BG,
+                         orient=tk.HORIZONTAL, bd=2, relief=tk.SUNKEN, highlightthickness=0,
+                         command=lambda value: self._change_value(value, attribute))
+        scale.set(getattr(AnimationProperties, attribute))
+        return scale
 
     @staticmethod
     def _change_value(value: str, attribute: str):

@@ -19,7 +19,8 @@ class CharacterButton(tk.Button):
     def __init__(self, master: tk.Frame, character: str, entry: tk.Entry):
         super().__init__(master, text=character, font=FONT, fg=TEXT_COLOR, bg=ITEM_BG,
                          activeforeground=LABEL_TEXT_COLOR, activebackground=PRESSED_BG,
-                         disabledforeground=DISABLED_TEXT_COLOR, height=BUTTON_HEIGHT, width=BUTTON_WIDTH,
+                         disabledforeground=DISABLED_TEXT_COLOR,
+                         height=BUTTON_HEIGHT, width=BUTTON_WIDTH,
                          command=lambda: entry.insert(tk.INSERT, character))
 
 
@@ -51,7 +52,8 @@ class LettersFrame(DefaultFrame):
             label.grid(row=i + 1, column=0, sticky=tk.NSEW)
 
         for j, typ in enumerate(types):
-            label = self._create_label(table, f'src/assets/images/types/{letter_type_str}/{typ}.png')
+            label = self._create_label(
+                table, f'src/assets/images/types/{letter_type_str}/{typ}.png')
             label.grid(row=0, column=j + 1, sticky=tk.NSEW)
 
         for i, row in enumerate(letters):

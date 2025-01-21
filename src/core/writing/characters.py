@@ -75,12 +75,10 @@ class Letter(Character):
     @abstractmethod
     def press(self, point: Point) -> bool:
         """Handle a press event at a given point."""
-        pass
 
     @abstractmethod
     def move(self, point: Point):
         """Handle a move event to a given point."""
-        pass
 
     def _update_properties_after_resizing(self, syllable):
         """Update letter properties after resizing based on the given syllable."""
@@ -90,12 +88,10 @@ class Letter(Character):
 
     def _update_properties_after_rotation(self):
         """Update letter properties after rotation."""
-        pass
 
     @abstractmethod
     def update_argument_dictionaries(self):
         """Update the argument dictionaries used for rendering."""
-        pass
 
     def update_direction(self, parent_direction: float):
         """Update the letter's direction based on the parent direction."""
@@ -124,4 +120,3 @@ class Letter(Character):
     @abstractmethod
     def draw(self, image: ImageDraw.Draw):
         """Draw the letter."""
-        pass

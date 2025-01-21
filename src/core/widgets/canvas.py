@@ -23,9 +23,10 @@ class CanvasFrame(DefaultFrame):
         label = DefaultLabel(self, text='Start Typing Your Transcription Here')
 
         # Entry widget with validation
-        self.entry = tk.Entry(self, font=FONT, fg=TEXT_COLOR, bg=ITEM_BG, insertbackground=TEXT_COLOR,
-                              bd=2, relief=tk.RAISED, validate='key',
-                              validatecommand=(self.register(self._attempt_action), '%d', '%i', '%S'))
+        self.entry = tk.Entry(
+            self, font=FONT, fg=TEXT_COLOR, bg=ITEM_BG, insertbackground=TEXT_COLOR,
+            bd=2, relief=tk.RAISED, validate='key',
+            validatecommand=(self.register(self._attempt_action), '%d', '%i', '%S'))
 
         # Canvas for drawing
         self.canvas = DefaultCanvas(self)
@@ -86,8 +87,8 @@ class CanvasFrame(DefaultFrame):
                         self.sentence.insert_characters(index, inserted)
                         self._redraw()
                         return True
-                    else:
-                        return False
+
+                    return False
 
                 case _:
                     return False

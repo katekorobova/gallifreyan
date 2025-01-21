@@ -581,14 +581,17 @@ class CircularConsonant(Consonant):
         outer_radius = syllable.outer_radius
         inner_radius = syllable.inner_radius
         border_offset = syllable.border_offset
+        inner_line_width = syllable.inner.line_widths[0]
         inner_half_line_width = syllable.inner.half_line_widths[0]
 
         self._line_width = min(self.line_widths)
         self._half_line_width = self._line_width / 2
-        self._radius = max((outer_radius - border_offset[0] - inner_radius - border_offset[1]
-                            - inner_half_line_width + self.half_line_widths[0]) / 4, MIN_RADIUS)
-        self._distance = inner_radius + border_offset[1] + self._radius \
-                         + inner_half_line_width - self.half_line_widths[0]
+        overlap = min(self._line_width, inner_line_width)
+        distance_adjustment = inner_half_line_width + self._half_line_width - overlap
+        distance_start = inner_radius + border_offset[1] + distance_adjustment
+
+        self._radius = max((outer_radius - border_offset[0] - distance_start) / 4, MIN_RADIUS)
+        self._distance = distance_start + self._radius
         self._calculate_center()
 
     def _update_properties_after_rotation(self):

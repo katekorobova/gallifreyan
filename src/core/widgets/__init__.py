@@ -14,6 +14,12 @@ class DefaultWindow(tk.Toplevel):
         self.resizable(False, False)
         self.transient(master)
 
+    def place(self, x: int, y: int) -> tuple[int, int]:
+        self.update()
+        self.geometry(f'+{x - self.winfo_width()}+{y}')
+        self.update()
+        return self.winfo_x(), self.winfo_y() + self.winfo_height()
+
 
 class DefaultFrame(tk.Frame):
     """A frame with a predefined style."""

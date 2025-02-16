@@ -44,7 +44,6 @@ class ColorSchemeWindow(tk.Toplevel):
         super().__init__(master, bg=WINDOW_BG)
         self.title("Color Scheme Selector")
         self.transient(master)
-        self.geometry("+200+200")
         self.resizable(False, False)
         self.color_scheme = copy.copy(color_scheme)
         self.previews: dict[ColorSchemeComponent, tk.Label] = {}

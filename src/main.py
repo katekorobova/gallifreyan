@@ -31,22 +31,22 @@ class App(tk.Tk):
     """The main application class"""
     def __init__(self):
         super().__init__()
-        self._initialize_character_repository()
+        repository.initialize()
         self._configure_window()
-        self._create_frames()
 
         self._animation_enabled = False
         self._animation_task_id: Optional[str] = None
 
         self._color_scheme = get_default_color_scheme()
         self._apply_color_scheme(self._color_scheme)
-        self._color_scheme_selector_window: Optional[tk.Toplevel] = None
 
-        self._consonants_window = ConsonantsWindow(self, self.canvas_frame.entry)
-        self._vowels_window = VowelsWindow(self, self.canvas_frame.entry)
-        self._numbers_window = NumbersWindow(self, self.canvas_frame.entry)
-        self._special_characters_window = SpecialCharactersWindow(self, self.canvas_frame.entry)
-        self._animation_window = AnimationWindow(self, self._set_animation_state)
+        self._color_scheme_selector_window: Optional[tk.Toplevel] = None
+        self._consonants_window: Optional[ConsonantsWindow] = None
+        self._vowels_window: Optional[VowelsWindow] = None
+        self._numbers_window: Optional[NumbersWindow] = None
+        self._special_characters_window: Optional[SpecialCharactersWindow] = None
+        self._animation_window: Optional[AnimationWindow] = None
+        self._initialize_tool_windows()
 
     def _configure_window(self):
         """Set up the main application window."""
@@ -64,10 +64,19 @@ class App(tk.Tk):
         tools_menu.add_command(label="Vowels", command=self._open_vowels_window)
         tools_menu.add_command(label="Numbers", command=self._open_numbers_window)
         tools_menu.add_command(label="Special Characters", command=self._open_special_characters_window)
+        tools_menu.add_separator()
+
         tools_menu.add_command(label="Animation", command=self._open_animation_window)
+        tools_menu.add_separator()
+
         tools_menu.add_command(label="Color Scheme Selector", command=self._open_color_scheme_selector_window)
         menu_bar.add_cascade(label="Tools", menu=tools_menu)
+
+        self.canvas_frame = CanvasFrame(self)
+        self.canvas_frame.pack(fill=tk.BOTH, expand=True)
+
         self.config(menu=menu_bar, bg=WINDOW_BG)
+        self.state('zoomed')
 
     def _open_color_scheme_selector_window(self):
         """Open the color scheme window."""
@@ -78,31 +87,31 @@ class App(tk.Tk):
                 self, self._color_scheme, self._apply_color_scheme)
 
     def _open_consonants_window(self):
-        if self._consonants_window.winfo_exists():
+        if self._consonants_window and self._consonants_window.winfo_exists():
             self._consonants_window.focus()
         else:
             self._consonants_window = ConsonantsWindow(self, self.canvas_frame.entry)
 
     def _open_vowels_window(self):
-        if self._vowels_window.winfo_exists():
+        if self._vowels_window and self._vowels_window.winfo_exists():
             self._vowels_window.focus()
         else:
             self._vowels_window = VowelsWindow(self, self.canvas_frame.entry)
 
     def _open_numbers_window(self):
-        if self._numbers_window.winfo_exists():
+        if self._numbers_window and self._numbers_window.winfo_exists():
             self._numbers_window.focus()
         else:
             self._numbers_window = NumbersWindow(self, self.canvas_frame.entry)
 
     def _open_special_characters_window(self):
-        if self._special_characters_window.winfo_exists():
+        if self._special_characters_window and self._special_characters_window.winfo_exists():
             self._special_characters_window.focus()
         else:
             self._special_characters_window = SpecialCharactersWindow(self, self.canvas_frame.entry)
 
     def _open_animation_window(self):
-        if self._animation_window.winfo_exists():
+        if self._animation_window and self._animation_window.winfo_exists():
             self._animation_window.focus()
         else:
             self._animation_window = AnimationWindow(self, self._set_animation_state)
@@ -141,15 +150,23 @@ class App(tk.Tk):
         self._color_scheme = copy.copy(color_scheme)
         self.canvas_frame.apply_color_changes()
 
-    @staticmethod
-    def _initialize_character_repository():
-        """Initialize the character repository from configuration files."""
-        repository.initialize()
+    def _initialize_tool_windows(self):
+        """Initialize the tool windows."""
+        self._consonants_window = ConsonantsWindow(self, self.canvas_frame.entry)
+        self._vowels_window = VowelsWindow(self, self.canvas_frame.entry)
+        self._numbers_window = NumbersWindow(self, self.canvas_frame.entry)
+        self._special_characters_window = SpecialCharactersWindow(self, self.canvas_frame.entry)
+        self._animation_window = AnimationWindow(self, self._set_animation_state)
 
-    def _create_frames(self):
-        """Create all the frames used in the main window."""
-        self.canvas_frame = CanvasFrame(self)
-        self.canvas_frame.pack(fill=tk.BOTH, expand=True)
+        self.update_idletasks()
+        start_x = self.winfo_screenwidth() - 8
+        start_y = 24
+        new_x, new_y = self._vowels_window.place(x=start_x, y=start_y)
+        self._consonants_window.place(x=new_x, y=start_y)
+        new_y += 32
+        new_x, _ = self._numbers_window.place(x=start_x, y=new_y)
+        new_x, _ = self._special_characters_window.place(x=new_x, y=new_y)
+        self._animation_window.place(x=new_x, y=new_y)
 
     def _animation_loop(self):
         """Recursively triggers the animation loop."""

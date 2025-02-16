@@ -84,12 +84,14 @@ class ConsonantsWindow(DefaultWindow):
         consonants_table = TableFrame(CharacterType.CONSONANT, self, entry)
         consonants_table.grid(row=0, column=0, padx=PADX, pady=PADY, sticky=tk.NSEW)
 
+
 class VowelsWindow(DefaultWindow):
     """A toplevel window containing buttons for letter input."""
     def __init__(self, win: tk.Tk, entry: tk.Entry):
         super().__init__(win, 'Vowels')
         vowels_table = TableFrame(CharacterType.VOWEL, self, entry)
         vowels_table.grid(row=0, column=0, padx=PADX, pady=PADY, sticky=tk.NSEW)
+
 
 class NumbersWindow(DefaultWindow):
     """A toplevel window containing buttons for letter input."""
@@ -101,6 +103,7 @@ class NumbersWindow(DefaultWindow):
 
         digits_table.grid(row=0, column=0, padx=PADX, pady=PADY, sticky=tk.NSEW)
         marks_column.grid(row=0, column=1, padx=padx, pady=PADY, sticky=tk.S)
+
 
 class ColumnFrame(DefaultFrame):
     """A frame containing buttons for letter input."""

@@ -51,7 +51,7 @@ class Vowel(Letter, ABC):
             point -= self._bias
             self.set_direction(point.direction())
 
-    def draw(self, image: ImageDraw.Draw):
+    def redraw(self, image: ImageDraw.ImageDraw):
         """Draw the vowel on the given image."""
         for args in self._ellipse_args:
             image.ellipse(**args)
@@ -61,8 +61,8 @@ class Vowel(Letter, ABC):
         self._ellipse_args = []
         for width, half_width, radius in zip(self.line_widths, self.half_line_widths, self._radii):
             adjusted_radius = radius + half_width
-            start = (self.IMAGE_CENTER + self._center).shift(-adjusted_radius)
-            end = (self.IMAGE_CENTER + self._center).shift(adjusted_radius)
+            start = (self.IMAGE_CENTER + self._center).shift(-adjusted_radius).tuple()
+            end = (self.IMAGE_CENTER + self._center).shift(adjusted_radius).tuple()
             self._ellipse_args.append({'xy': (start, end), 'outline': self.color,
                                        'fill': self.background, 'width': width})
 

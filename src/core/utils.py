@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import copy
 import math
 from enum import Enum, auto
 
-from ..config import (LINE_WIDTHS, MIN_LINE_WIDTH,
-                      DEFAULT_HALF_LINE_DISTANCE, MIN_HALF_LINE_DISTANCE)
+from ..config import (LINE_WIDTHS, MIN_LINE_WIDTH, DEFAULT_HALF_LINE_DISTANCE, MIN_HALF_LINE_DISTANCE,
+                      CANVAS_BG, WORD_BG, SYLLABLE_BG, WORD_COLOR, SYLLABLE_COLOR, VOWEL_COLOR, DOT_COLOR)
 
 
 # =============================================
@@ -21,37 +22,80 @@ class PressedType(Enum):
 # =============================================
 # Utility Class: Point
 # =============================================
-class Point(tuple):
+class Point:
     """A 2D point with basic vector operations."""
 
-    def __new__(cls, x: float = 0.0, y: float = 0.0):
+    def __init__(self, x: float = 0.0, y: float = 0.0):
         """Create a new Point instance."""
-        return super().__new__(cls, (x, y))
+        self.x = x
+        self.y = y
 
     def __add__(self, other: Point) -> Point:
         """Add two points component-wise."""
-        return Point(self[0] + other[0], self[1] + other[1])
+        return Point(self.x + other.x, self.y + other.y)
 
     def __sub__(self, other: Point) -> Point:
         """Subtract two points component-wise."""
-        return Point(self[0] - other[0], self[1] - other[1])
+        return Point(self.x - other.x, self.y - other.y)
 
     def __mul__(self, other: float) -> Point:
         """Scale the point by a scalar value."""
-        return Point(self[0] * other, self[1] * other)
+        return Point(self.x * other, self.y * other)
 
     def distance(self) -> float:
         """Calculate the Euclidean distance from the origin."""
-        return math.sqrt(self[0] ** 2 + self[1] ** 2)
+        return math.sqrt(self.x ** 2 + self.y ** 2)
 
     def direction(self) -> float:
         """Calculate the angle (radians) of the point relative to the x-axis."""
-        return math.atan2(self[1], self[0])
+        return math.atan2(self.y, self.x)
 
     def shift(self, x: float) -> Point:
         """Shift the point by given x and y offsets."""
-        return Point(self[0] + x, self[1] + x)
+        return Point(self.x + x, self.y + x)
 
+    def tuple(self) -> tuple[int, int]:
+        """Convert the point to a tuple."""
+        return round(self.x), round(self.y)
+
+
+# =============================================
+# Color Scheme
+# =============================================
+class ColorSchemeComponent(Enum):
+    """Enumeration of different components that can have customizable colors."""
+    CANVAS_BG = auto()
+    WORD_BG = auto()
+    SYLLABLE_BG = auto()
+
+    WORD_COLOR = auto()
+    SYLLABLE_COLOR = auto()
+    VOWEL_COLOR = auto()
+    DOT_COLOR = auto()
+
+
+ColorScheme = dict[ColorSchemeComponent, str]
+
+_default_color_scheme: ColorScheme = {
+        ColorSchemeComponent.CANVAS_BG: CANVAS_BG,
+        ColorSchemeComponent.WORD_BG: WORD_BG,
+        ColorSchemeComponent.SYLLABLE_BG: SYLLABLE_BG,
+        ColorSchemeComponent.WORD_COLOR: WORD_COLOR,
+        ColorSchemeComponent.SYLLABLE_COLOR: SYLLABLE_COLOR,
+        ColorSchemeComponent.VOWEL_COLOR: VOWEL_COLOR,
+        ColorSchemeComponent.DOT_COLOR: DOT_COLOR
+    }
+
+
+def get_default_color_scheme():
+    """Returns a copy of the default color scheme."""
+    return copy.copy(_default_color_scheme)
+
+
+def reset_color_scheme(color_scheme: ColorScheme):
+    """Resets the given color scheme to the default values."""
+    for key, value in _default_color_scheme.items():
+        color_scheme[key] = value
 
 # =============================================
 # Utility Functions

@@ -1,4 +1,5 @@
 import math
+import random
 import tkinter as tk
 from abc import ABC
 from dataclasses import dataclass
@@ -13,14 +14,13 @@ from .vowels import Vowel
 from ..utils import Point, PressedType, line_width, half_line_distance
 from ...config import (WORD_IMAGE_RADIUS, DEFAULT_WORD_RADIUS, MIN_RADIUS,
                        OUTER_CIRCLE_SCALE_MIN, OUTER_CIRCLE_SCALE_MAX,
-                       WORD_BG, WORD_COLOR)
+                       WORD_BG, WORD_COLOR, DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT)
 
 
 @dataclass
 class _RedistributionState:
     """Represents the state during syllable redistribution."""
     syllable: Optional[Syllable] = None
-    cons2: Optional[Consonant] = None
     completed = False
 
 
@@ -31,8 +31,8 @@ def unique_syllables(items: list[AbstractSyllable]) -> list[Syllable]:
             if not (item in seen or seen.add(item)) and isinstance(item, Syllable)]
 
 
-class AbstractWord(ABC):
-    """Abstract class representing a word composed of characters."""
+class Token(ABC):
+    """Abstract class representing a token composed of characters."""
 
     def __init__(self):
         """Initialize an abstract word object."""
@@ -59,8 +59,27 @@ class AbstractWord(ABC):
         """Update the word's text representation."""
         self.text = ''.join(character.text for character in self.characters)
 
+    def press(self, point: Point) -> bool:
+        """Handle press events."""
+        return False
 
-class SpaceWord(AbstractWord):
+    def move(self, point: Point):
+        """Handle move events."""
+
+    def paste_image(self, image: Image.Image, position: Point):
+        """Retrieve the generated image, creating it if necessary."""
+
+    def put_image(self, canvas: tk.Canvas, to_be_removed: list[int]):
+        """Create and display the word image on the canvas."""
+
+    def apply_color_changes(self):
+        """Apply color changes to the image and its syllables."""
+
+    def perform_animation(self, direction_sign: int):
+        """Perform an animation step."""
+
+
+class SpaceToken(Token):
     """Represents a word consisting only of space characters."""
 
     def __init__(self, characters: list[Character]):
@@ -77,20 +96,21 @@ class SpaceWord(AbstractWord):
         return super().insert_characters(index, characters)
 
 
-class Word(AbstractWord):
+class Word(Token):
     """Represents a structured word with characters, syllables, and image rendering."""
     IMAGE_CENTER = Point(WORD_IMAGE_RADIUS, WORD_IMAGE_RADIUS)
+    BORDERS = '21'
     background = WORD_BG
     color = WORD_COLOR
 
-    def __init__(self, center: Point, characters: list[Character]):
+    def __init__(self, characters: list[Character]):
         """Initialize a Word instance with a center point and characters."""
         super().__init__()
-        self.center = center
-        self.borders = '21'
         self.outer_radius = 0.0
+        self.center = Point(random.randint(DEFAULT_WORD_RADIUS, DEFAULT_CANVAS_WIDTH - DEFAULT_WORD_RADIUS),
+                            random.randint(DEFAULT_WORD_RADIUS, DEFAULT_CANVAS_HEIGHT - DEFAULT_WORD_RADIUS))
 
-        length = len(self.borders)
+        length = len(Word.BORDERS)
         self._line_widths = list(repeat(0, length))
         self._half_line_widths = list(repeat(0.0, length))
         self._half_line_distance = 0.0
@@ -121,16 +141,16 @@ class Word(AbstractWord):
     # Initialization
     # =============================================
     @classmethod
-    def _create_empty_image(cls, mode='RGBA') -> tuple[Image.Image, ImageDraw.Draw]:
+    def _create_empty_image(cls, mode='RGBA') -> tuple[Image.Image, ImageDraw.ImageDraw]:
         """Create an empty image and its drawing object."""
-        image = Image.new(mode, (cls.IMAGE_CENTER * 2))
+        image = Image.new(mode, (cls.IMAGE_CENTER * 2).tuple())
         return image, ImageDraw.Draw(image)
 
     def update_properties_after_resizing(self):
         """Update properties based on the head syllable scale."""
         head_scale = self.head.scale
         self.outer_radius = DEFAULT_WORD_RADIUS * self.outer_circle_scale * head_scale
-        self._line_widths = [line_width(border, head_scale) for border in self.borders]
+        self._line_widths = [line_width(border, head_scale) for border in Word.BORDERS]
         self._half_line_widths = [width / 2 for width in self._line_widths]
         self._half_line_distance = half_line_distance(head_scale)
         self._create_outer_circle()
@@ -254,7 +274,7 @@ class Word(AbstractWord):
     # =============================================
     def insert_characters(self, index: int, characters: list[Character]) -> bool:
         """Insert characters at the specified index and update syllables."""
-        if any(character.character_type == CharacterType.SPACE for character in characters):
+        if not all(character.character_type & CharacterType.WORD for character in characters):
             return False
 
         self._split_syllable(index)
@@ -297,7 +317,7 @@ class Word(AbstractWord):
         """Split the syllable at the specified index, updating syllables as needed."""
         if index > 0:
             syllable = self.syllables_by_indices[index - 1]
-            if index < len(self.characters) and syllable is self.syllables_by_indices[index]:
+            if index < len(self.characters) and syllable and syllable is self.syllables_by_indices[index]:
                 syllable.remove_starting_with(self.characters[index])
                 for i in range(index, len(self.characters)):
                     if syllable is self.syllables_by_indices[i]:
@@ -337,22 +357,20 @@ class Word(AbstractWord):
             self, index: int, consonant: Consonant, state: _RedistributionState) -> None:
         """Process consonant letter and update state."""
         if state.syllable:
-            if not state.cons2 and state.syllable.add(consonant):
-                state.cons2 = consonant
-                self.syllables_by_indices[index] = state.syllable
-            else:
+            if not state.syllable.add(consonant):
                 if self._check_syllable_start(index, consonant):
                     state.completed = True
-                else:
-                    state.syllable = Syllable(consonant)
-                    state.cons2 = None
-                    self.syllables_by_indices[index] = state.syllable
+                    return
+
+                state.syllable = Syllable(consonant)
+                state.cons2 = None
         else:
             if self._check_syllable_start(index, consonant):
                 state.completed = True
-            else:
-                state.syllable = Syllable(consonant)
-                self.syllables_by_indices[index] = state.syllable
+                return
+
+            state.syllable = Syllable(consonant)
+        self.syllables_by_indices[index] = state.syllable
 
     def _process_vowel(self, index: int, vowel: Vowel, state: _RedistributionState) -> None:
         """Process vowel letter and update state."""
@@ -360,7 +378,6 @@ class Word(AbstractWord):
             state.syllable.add(vowel)
             self.syllables_by_indices[index] = state.syllable
             state.syllable = None
-            state.cons2 = None
         else:
             if self.syllables_by_indices[index]:
                 state.completed = True
@@ -370,21 +387,16 @@ class Word(AbstractWord):
     def _process_separator(
             self, index: int, separator: Separator, state: _RedistributionState) -> None:
         """Process separator character and update state."""
-        if state.syllable and state.syllable.add(separator):
-            self.syllables_by_indices[index] = state.syllable
+        state.syllable = None
+        if self.syllables_by_indices[index]:
+            state.completed = True
         else:
-            state.syllable = None
-            state.cons2 = None
-
-            if self.syllables_by_indices[index]:
-                state.completed = True
-            else:
-                self.syllables_by_indices[index] = SeparatorSyllable(separator)
+            self.syllables_by_indices[index] = SeparatorSyllable(separator)
 
     def _check_syllable_start(self, index: int, consonant: Consonant) -> bool:
         """Check if the given consonant starts the syllable at the specified index."""
-        return self.syllables_by_indices[index] and \
-            self.syllables_by_indices[index].head is consonant
+        syllable = self.syllables_by_indices[index]
+        return isinstance(syllable, Syllable) and syllable.cons1 is consonant
 
     # =============================================
     # Helper Functions for Updating Image Arguments
@@ -393,54 +405,48 @@ class Word(AbstractWord):
         """Create the outer circle representation."""
         self._border_draw.rectangle(((0, 0), self._border_image.size), fill=0)
         self._mask_draw.rectangle(((0, 0), self._border_image.size), fill=1)
-        if len(self.borders) == 1:
+        if len(Word.BORDERS) == 1:
             adjusted_radius = self.outer_radius + self._half_line_widths[0]
-            start = self.IMAGE_CENTER.shift(-adjusted_radius)
-            end = self.IMAGE_CENTER.shift(adjusted_radius)
+            start = self.IMAGE_CENTER.shift(-adjusted_radius).tuple()
+            end = self.IMAGE_CENTER.shift(adjusted_radius).tuple()
             self._border_draw.ellipse((start, end), outline=self.color, width=self._line_widths[0])
             self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._line_widths[0])
         else:
             adjusted_radius = \
                 self.outer_radius + self._half_line_distance + self._half_line_widths[0]
-            start = self.IMAGE_CENTER.shift(-adjusted_radius)
-            end = self.IMAGE_CENTER.shift(adjusted_radius)
-            self._border_draw.ellipse((start, end), outline=self.color,
-                                      fill=self.background, width=self._line_widths[0])
+            start = self.IMAGE_CENTER.shift(-adjusted_radius).tuple()
+            end = self.IMAGE_CENTER.shift(adjusted_radius).tuple()
+            self._border_draw.ellipse((start, end), outline=self.color, fill=self.background,
+                                      width=self._line_widths[0])
 
-            adjusted_radius = max(
-                self.outer_radius - self._half_line_distance + self._half_line_widths[1],
-                MIN_RADIUS)
-            start = self.IMAGE_CENTER.shift(-adjusted_radius)
-            end = self.IMAGE_CENTER.shift(adjusted_radius)
+            adjusted_radius = max(self.outer_radius - self._half_line_distance + self._half_line_widths[1], MIN_RADIUS)
+            start = self.IMAGE_CENTER.shift(-adjusted_radius).tuple()
+            end = self.IMAGE_CENTER.shift(adjusted_radius).tuple()
             self._border_draw.ellipse((start, end), outline=self.color, width=self._line_widths[1])
             self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._line_widths[1])
 
     # =============================================
     # Drawing
     # =============================================
-    def get_image(self) -> Image:
+    def paste_image(self, image: Image.Image, position: Point):
         """Retrieve the generated image, creating it if necessary."""
         if not self._image_ready:
             self._create_image()
-        return self._image
+        image.paste(self._image, (self.center - self.IMAGE_CENTER - position).tuple(), self._image)
 
-    def put_image(self, canvas: tk.Canvas):
+    def put_image(self, canvas: tk.Canvas, to_be_removed: list[int]):
         """Create and display the word image on the canvas."""
         if self._image_ready:
-            if self.canvas_item_id is not None:
+            if self.canvas_item_id is None:
+                self._image_tk.paste(self._image)
+                self.canvas_item_id = canvas.create_image(self.center.tuple(), image=self._image_tk)
+            else:
                 canvas.tag_raise(self.canvas_item_id)
-            return
-
-        if self.canvas_item_id is not None:
-            canvas.delete(self.canvas_item_id)
-
-        if self.syllables:
+                to_be_removed.remove(self.canvas_item_id)
+        else:
             self._create_image()
             self._image_tk.paste(self._image)
-            self.canvas_item_id = canvas.create_image(self.center, image=self._image_tk)
-        else:
-            self._image_ready = True
-            self.canvas_item_id = None
+            self.canvas_item_id = canvas.create_image(self.center.tuple(), image=self._image_tk)
 
     def _create_image(self):
         """Generate the full word image by assembling syllables and outer elements."""
@@ -471,22 +477,21 @@ class Word(AbstractWord):
     def _paste_head(self):
         """Paste the head syllable's image onto the word image."""
         image = self.head.get_image()
-        self._image.paste(image, tuple(self.IMAGE_CENTER - Syllable.IMAGE_CENTER), image)
+        self._image.paste(image, (self.IMAGE_CENTER - Syllable.IMAGE_CENTER).tuple(), image)
 
     def _paste_tail(self, syllable: Syllable, radius: float):
         """Paste a non-head syllable's image at a position on the head syllable's orbit."""
         image = syllable.get_image()
-        self._image.paste(image, tuple(self.IMAGE_CENTER - Syllable.IMAGE_CENTER +
-                                       Point(round(math.cos(syllable.direction) * radius),
-                                             round(math.sin(syllable.direction) * radius))), image)
+        self._image.paste(image, (self.IMAGE_CENTER - Syllable.IMAGE_CENTER +
+                                  Point(math.cos(syllable.direction) * radius,
+                                        math.sin(syllable.direction) * radius)).tuple(), image)
 
     def apply_color_changes(self):
         """Apply color changes to the image and its syllables."""
         self._create_outer_circle()
-        if self.syllables:
-            for syllable in self.syllables:
-                syllable.apply_color_changes()
-            self._image_ready = False
+        for syllable in self.syllables:
+            syllable.apply_color_changes()
+        self._image_ready = False
 
     # =============================================
     # Animation

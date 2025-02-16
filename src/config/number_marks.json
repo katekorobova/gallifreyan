@@ -1,0 +1,6 @@
+{
+  "borders": ["1", "11", "2", "21", "12"],
+  "characters": ["—", ",", "-", "/", "."],
+  "descriptions": ["Dash (Phone Numbers)", "Thousands Separator", "Minus Sign", "Fraction / Slash", "Decimal Mark"],
+  "disabled": []
+}

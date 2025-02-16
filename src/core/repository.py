@@ -3,50 +3,52 @@ from __future__ import annotations
 import json
 from typing import Optional
 
-from .writing.characters import CharacterType
+from .writing.characters import CharacterType, CharacterInfo
 from ..config import SEPARATOR, SPACE
 
 _repository: Optional[_CharacterRepository] = None  # Global repository instance
 
 
 class _CharacterRepository:
-    CONSONANT_FILE_PATH = 'src/config/consonants.json'
-    VOWEL_FILE_PATH = 'src/config/vowels.json'
+    CONSONANTS_FILE = 'src/config/consonants.json'
+    VOWELS_FILE = 'src/config/vowels.json'
+    DIGITS_FILE = 'src/config/digits.json'
+    NUMBER_MARKS_FILE = 'src/config/number_marks.json'
 
     def __init__(self):
-        self.consonants: dict[str, tuple[str, str]] = {}
-        self.vowels: dict[str, tuple[str, str]] = {}
-        self.digits: dict[str, tuple[str, str]] = {}
-
-        self.disabled: dict[CharacterType, list[str]] = \
-            {CharacterType.CONSONANT: [], CharacterType.VOWEL: []}
+        self.columns: dict[CharacterType, list[str]] = {CharacterType.NUMBER_MARK: []}
         self.tables: dict[CharacterType, list[list[str]]] = \
             {CharacterType.CONSONANT: [], CharacterType.VOWEL: []}
         self.borders: dict[CharacterType, list[str]] = \
             {CharacterType.CONSONANT: [], CharacterType.VOWEL: []}
         self.types: dict[CharacterType, list[str]] = \
             {CharacterType.CONSONANT: [], CharacterType.VOWEL: []}
-        self.all: dict[str, tuple[CharacterType, Optional[tuple[str, str]]]] = {
-            SEPARATOR: (CharacterType.SEPARATOR, None),
-            SPACE: (CharacterType.SPACE, None)}
+        self.descriptions: dict[CharacterType, list[str]] = {CharacterType.NUMBER_MARK: []}
+
+        self.all: dict[str, CharacterInfo] = {SEPARATOR: CharacterInfo(CharacterType.SEPARATOR, []),
+                                              SPACE: CharacterInfo(CharacterType.SPACE, [])}
+        self.disabled = set()
 
         # Load data for consonants and vowels
-        self._load_characters(CharacterType.CONSONANT)
-        self._load_characters(CharacterType.VOWEL)
+        self._load_table(CharacterType.CONSONANT)
+        self._load_table(CharacterType.VOWEL)
+        self._load_table(CharacterType.DIGIT)
+        self._load_column(CharacterType.NUMBER_MARK)
 
-    def _load_characters(self, character_type: CharacterType) -> None:
+    def _load_table(self, character_type: CharacterType) -> None:
         """
         A helper method to load letters, borders, and types from a file.
         Updates corresponding tables and dictionaries.
         """
-        if character_type == CharacterType.CONSONANT:
-            file_path = self.CONSONANT_FILE_PATH
-            table_attr = 'consonant_table'
-            letters_attr = 'consonants'
-        else:
-            file_path = self.VOWEL_FILE_PATH
-            table_attr = 'vowel_table'
-            letters_attr = 'vowels'
+        match character_type:
+            case CharacterType.CONSONANT:
+                file_path = self.CONSONANTS_FILE
+            case CharacterType.VOWEL:
+                file_path = self.VOWELS_FILE
+            case CharacterType.DIGIT:
+                file_path = self.DIGITS_FILE
+            case _:
+                raise ValueError(f"Unable to load the characters with type: '{character_type}'")
 
         with open(file_path, 'r', encoding='utf-8') as file:
             data = json.load(file)
@@ -56,21 +58,47 @@ class _CharacterRepository:
         types = data['types']
         disabled = data['disabled']
 
-        # Populate dictionaries
-        letters: dict[str, tuple[str, str]] = {}
         for row, border in zip(table, borders):
-            for letter, typ in zip(row, types):
-                letters[letter] = (border, typ)
-                if letter not in disabled:
-                    self.all[letter] = character_type, (border, typ)
+            for character, typ in zip(row, types):
+                self._add_character_info(character, character_type, [border, typ])
 
-        setattr(self, letters_attr, letters)
-        setattr(self, table_attr, table)
-
-        self.disabled[character_type] = disabled
+        self.disabled |= set(disabled)
         self.tables[character_type] = table
         self.borders[character_type] = borders
         self.types[character_type] = types
+
+    def _load_column(self, character_type: CharacterType) -> None:
+        match character_type:
+            case CharacterType.NUMBER_MARK:
+                file_path = self.NUMBER_MARKS_FILE
+            case _:
+                raise ValueError(f"Unable to load the characters with type: '{character_type}'")
+
+        with open(file_path, 'r', encoding='utf-8') as file:
+            data = json.load(file)
+
+        column = data['characters']
+        borders = data['borders']
+        descriptions = data['descriptions']
+        disabled = data['disabled']
+
+        for character, border in zip(column, borders):
+            self._add_character_info(character, character_type, [border])
+
+        self.disabled |= set(disabled)
+        self.columns[character_type] = column
+        self.borders[character_type] = borders
+        self.descriptions[character_type] = descriptions
+
+    def _add_character_info(self, character, character_type, properties):
+        if character in self.all:
+            character_info = self.all[character]
+            if properties == character_info.properties:
+                self.all[character].character_type |= character_type
+            else:
+                raise ValueError(f"Character '{character}' defined twice with different properties")
+        else:
+            self.all[character] = CharacterInfo(character_type, properties)
 
 
 def initialize():

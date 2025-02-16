@@ -1,22 +1,43 @@
 import math
 import random
 from abc import ABC, abstractmethod
-from enum import auto, Enum
+from dataclasses import dataclass
+from enum import auto, IntFlag
 from itertools import repeat
 
 from PIL import ImageDraw
 
+from ..tools import AnimationProperties
 from ..utils import Point, line_width
 from ...config import SYLLABLE_IMAGE_RADIUS
 
 
-class CharacterType(Enum):
+class CharacterType(IntFlag):
     """Enumeration to represent types of characters."""
-    CONSONANT = auto()
-    VOWEL = auto()
-    # DIGIT = auto()
-    SEPARATOR = auto()
+    _CONSONANT = auto()
+    _VOWEL = auto()
+    _SEPARATOR = auto()
+    _DIGIT = auto()
+    _NUMBER_MARK = auto()
+
+    WORD = auto()
+    NUMBER = auto()
     SPACE = auto()
+
+    CONSONANT = WORD | _CONSONANT
+    VOWEL = WORD | _VOWEL
+    SEPARATOR = WORD | _SEPARATOR
+
+    DIGIT = NUMBER | _DIGIT
+    NUMBER_MARK = NUMBER | _NUMBER_MARK
+    # PUNCTUATION_MARK = auto()
+    # MULTIPURPOSE_MARK = NUMBER_MARK | PUNCTUATION_MARK
+
+
+@dataclass
+class CharacterInfo:
+    character_type: CharacterType
+    properties: list[str]
 
 
 class Character(ABC):
@@ -26,7 +47,6 @@ class Character(ABC):
         """Initialize a Character instance."""
         self.text = text
         self.character_type = character_type
-
 
 class Separator(Character):
     """Class representing a syllable separator character."""
@@ -44,7 +64,7 @@ class Space(Character):
         super().__init__(text, CharacterType.SPACE)
 
 
-class Letter(Character):
+class Letter(Character, ABC):
     """Abstract base class representing a generic letter."""
     IMAGE_CENTER = Point(SYLLABLE_IMAGE_RADIUS, SYLLABLE_IMAGE_RADIUS)
 
@@ -113,5 +133,9 @@ class Letter(Character):
         self.update_argument_dictionaries()
 
     @abstractmethod
-    def draw(self, image: ImageDraw.Draw):
-        """Draw the letter."""
+    def redraw(self, image: ImageDraw.ImageDraw):
+        """Redraw the letter."""
+
+    def perform_animation(self, direction_sign: int):
+        delta = direction_sign * 2 * math.pi / AnimationProperties.cycle
+        self.set_direction(self.direction + 2 * delta)

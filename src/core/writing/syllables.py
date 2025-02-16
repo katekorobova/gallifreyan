@@ -27,10 +27,9 @@ class AbstractSyllable(ABC):
     Provides an interface for managing characters within a syllable.
     """
 
-    def __init__(self, head: Character):
-        """Initialize a syllable with a head character."""
-        self.head = head
-        self.text = head.text
+    def __init__(self):
+        """Initialize the syllable."""
+        self.text = ''
 
     @abstractmethod
     def remove_starting_with(self, character: Character) -> None:
@@ -41,8 +40,9 @@ class AbstractSyllable(ABC):
         """Add a character to the syllable, if possible."""
 
     @abstractmethod
-    def insert(self, index: int, character: Character) -> bool:
-        """Insert a character into the syllable, if possible."""
+    def _update_text(self) -> None:
+        pass
+
 
 
 class SeparatorSyllable(AbstractSyllable):
@@ -50,38 +50,28 @@ class SeparatorSyllable(AbstractSyllable):
 
     def __init__(self, separator: Separator):
         """Initialize a separator syllable with a given separator character."""
-        super().__init__(separator)
-        self.characters = [separator]
+        super().__init__()
+        self.separators = [separator]
+        self._update_text()
+
+    def _update_text(self) -> None:
+        self.text = ''.join(separator.text for separator in self.separators)
 
     def remove_starting_with(self, character: Character) -> None:
         """Remove a character from the syllable, updating properties accordingly."""
-        if isinstance(character, Separator) and character in self.characters:
-            index = self.characters.index(character)
-            self.characters[index:] = []
+        if isinstance(character, Separator) and character in self.separators:
+            index = self.separators.index(character)
+            self.separators[index:] = []
             self._update_text()
 
     def add(self, character: Character) -> bool:
         """Add a character to the syllable, if possible."""
         if isinstance(character, Separator):
-            self.characters.append(character)
+            self.separators.append(character)
             self._update_text()
             return True
 
         return False
-
-    def insert(self, index: int, character: Character) -> bool:
-        """Insert a character into the syllable, if possible."""
-        if isinstance(character, Separator):
-            self.characters.insert(index, character)
-            self.head = self.characters[0]
-            self._update_text()
-            return True
-
-        return False
-
-    def _update_text(self):
-        """Update the syllable's text representation based on its characters."""
-        self.text = ''.join(char.text for char in self.characters)
 
 
 class Syllable(AbstractSyllable):
@@ -89,13 +79,14 @@ class Syllable(AbstractSyllable):
     Represents a structured syllable, which may consist of consonants and vowels.
     Manages visual representation and interactive behavior.
     """
+
     IMAGE_CENTER = Point(SYLLABLE_IMAGE_RADIUS, SYLLABLE_IMAGE_RADIUS)
     background = SYLLABLE_BG
     color = SYLLABLE_COLOR
 
     def __init__(self, cons1: Consonant = None, vowel: Vowel = None):
         """Initialize a syllable with an optional consonant and vowel."""
-        super().__init__(cons1 or vowel)
+        super().__init__()
 
         # Image-related attributes
         self._image, self._draw = self._create_empty_image()
@@ -109,7 +100,6 @@ class Syllable(AbstractSyllable):
         self.cons2: Optional[Consonant] = None
         self._following: Optional[Syllable] = None
         self.consonants: list[Consonant] = []
-        self.letters: list[Letter] = []
         self._update_key_properties()
 
         # Scale, radius, and positioning attributes
@@ -137,25 +127,25 @@ class Syllable(AbstractSyllable):
     # =============================================
     # Initialization
     # =============================================
+    @staticmethod
+    def _create_empty_image(mode: str = 'RGBA') -> tuple[Image.Image, ImageDraw.ImageDraw]:
+        """Create an empty image with the specified mode."""
+        image = Image.new(mode, (Syllable.IMAGE_CENTER * 2).tuple())
+        return image, ImageDraw.Draw(image)
+
     def set_following(self, following: Optional[Syllable]) -> None:
         """Set the following syllable."""
         self._following = following
 
-    @classmethod
-    def _create_empty_image(cls, mode: str = 'RGBA') -> tuple[Image.Image, ImageDraw.Draw]:
-        """Create an empty image with the specified mode."""
-        image = Image.new(mode, (cls.IMAGE_CENTER * 2))
-        return image, ImageDraw.Draw(image)
+    def _update_text(self):
+        self.text = [item.text for item in [self.cons1, self.cons2, self.vowel] if item]
 
     def _update_key_properties(self):
         """Update syllable properties such as consonants, letters, and text representation."""
-        self.head = self.cons1 or self.vowel
-        self.outer = self.cons1 or \
-                     Consonant.get_consonant(ALEPH, *repository.get().consonants[ALEPH])
+        self.outer = self.cons1 or Consonant.get_consonant(ALEPH, *repository.get().all[ALEPH].properties)
         self.inner = self.cons2 or self.outer
         self.consonants = sorted({self.outer, self.inner}, key=lambda l: l.consonant_type.group)
-        self.letters = [item for item in [self.cons1, self.cons2, self.vowel] if item]
-        self.text = ''.join(letter.text for letter in self.letters)
+        self._update_text()
 
     # =============================================
     # Insertion
@@ -175,53 +165,6 @@ class Syllable(AbstractSyllable):
         self._update_key_properties()
         self._image_ready = False
         return True
-
-    def insert(self, index: int, character: Character) -> bool:
-        """Insert a letter into the syllable, if possible."""
-        if isinstance(character, Consonant):
-            if not self._insert_consonant(index, character):
-                return False
-        elif isinstance(character, Vowel):
-            if not self._insert_vowel(index, character):
-                return False
-        else:
-            return False
-
-        character.initialize(self)
-        self._update_key_properties()
-        self._image_ready = False
-        return True
-
-    def _insert_consonant(self, index: int, consonant: Consonant) -> bool:
-        """Insert a consonant at the specified index if compatible."""
-        match index:
-            case 0:
-                if not self.cons1:
-                    self.cons1 = consonant
-                    return True
-                if not self.cons2 and Consonant.compatible(consonant, self.cons1):
-                    self.cons2 = self.cons1
-                    self.cons1 = consonant
-                    return True
-            case 1:
-                if self.cons1 and not self.cons2 and not self.vowel \
-                        and Consonant.compatible(self.cons1, consonant):
-                    self.cons2 = consonant
-                    return True
-        return False
-
-    def _insert_vowel(self, index: int, vowel: Vowel) -> bool:
-        """Inserts a vowel at the specified index if compatible."""
-        match index:
-            case 1:
-                if not self.cons2 and not self.vowel:
-                    self.vowel = vowel
-                    return True
-            case 2:
-                if self.cons2 and not self.vowel:
-                    self.vowel = vowel
-                    return True
-        return False
 
     # =============================================
     # Deletion
@@ -399,14 +342,13 @@ class Syllable(AbstractSyllable):
     # =============================================
     def set_direction(self, direction: float):
         """Set the direction of the object and update letters."""
-        self.direction = direction
-
         for consonant in self.consonants:
             consonant.update_direction(direction)
 
         if self.vowel:
             self.vowel.update_direction(direction)
 
+        self.direction = direction
         self._image_ready = False
 
     def _adjust_direction(self, point: Point):
@@ -435,10 +377,9 @@ class Syllable(AbstractSyllable):
 
     def _create_circle_args(self, adjusted_radius: float, line_width: float) -> dict:
         """Generate circle arguments for drawing."""
-        start, end = \
-            self.IMAGE_CENTER.shift(-adjusted_radius), self.IMAGE_CENTER.shift(adjusted_radius)
-        return {'xy': (start, end), 'outline': self.color,
-                'fill': self.background, 'width': line_width}
+        start = self.IMAGE_CENTER.shift(-adjusted_radius).tuple()
+        end = self.IMAGE_CENTER.shift(adjusted_radius).tuple()
+        return {'xy': (start, end), 'outline': self.color, 'fill': self.background, 'width': line_width}
 
     def _create_outer_circle(self):
         """Draw the outer circle for the syllable."""
@@ -446,31 +387,24 @@ class Syllable(AbstractSyllable):
         self._mask_draw.rectangle(((0, 0), self._mask_image.size), fill=1)
 
         if len(self.outer.borders) == 1:
-            adjusted_radius = self._calculate_adjusted_radius(
-                self.outer_radius, self.outer.half_line_widths[0])
-            start, end = \
-                self.IMAGE_CENTER.shift(-adjusted_radius), self.IMAGE_CENTER.shift(adjusted_radius)
-            self._border_draw.ellipse((start, end), outline=self.color,
-                                      width=self.outer.line_widths[0])
-            self._mask_draw.ellipse((start, end), outline=1, fill=0,
-                                    width=self.outer.line_widths[0])
+            adjusted_radius = self._calculate_adjusted_radius(self.outer_radius, self.outer.half_line_widths[0])
+            start = self.IMAGE_CENTER.shift(-adjusted_radius).tuple()
+            end = self.IMAGE_CENTER.shift(adjusted_radius).tuple()
+            self._border_draw.ellipse((start, end), outline=self.color, width=self.outer.line_widths[0])
+            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self.outer.line_widths[0])
         else:
-            adjusted_radius = \
-                self.outer_radius + self.half_line_distance + self.outer.half_line_widths[0]
-            start = self.IMAGE_CENTER.shift(-adjusted_radius)
-            end = self.IMAGE_CENTER.shift(adjusted_radius)
+            adjusted_radius = self.outer_radius + self.half_line_distance + self.outer.half_line_widths[0]
+            start = self.IMAGE_CENTER.shift(-adjusted_radius).tuple()
+            end = self.IMAGE_CENTER.shift(adjusted_radius).tuple()
             self._border_draw.ellipse((start, end), outline=self.color,
                                       fill=self.background, width=self.outer.line_widths[0])
 
-            adjusted_radius = max(
-                self.outer_radius - self.half_line_distance + self.outer.half_line_widths[1],
-                MIN_RADIUS)
-            start = self.IMAGE_CENTER.shift(-adjusted_radius)
-            end = self.IMAGE_CENTER.shift(adjusted_radius)
-            self._border_draw.ellipse((start, end), outline=self.color,
-                                      width=self.outer.line_widths[1])
-            self._mask_draw.ellipse((start, end), outline=1, fill=0,
-                                    width=self.outer.line_widths[1])
+            adjusted_radius = max(self.outer_radius - self.half_line_distance + self.outer.half_line_widths[1],
+                                  MIN_RADIUS)
+            start = self.IMAGE_CENTER.shift(-adjusted_radius).tuple()
+            end = self.IMAGE_CENTER.shift(adjusted_radius).tuple()
+            self._border_draw.ellipse((start, end), outline=self.color, width=self.outer.line_widths[1])
+            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self.outer.line_widths[1])
 
     @staticmethod
     def _calculate_adjusted_radius(
@@ -490,23 +424,23 @@ class Syllable(AbstractSyllable):
         self._draw.rectangle(((0, 0), self._image.size), fill=self.background)
 
         if self.vowel and self.vowel.vowel_type is VowelType.HIDDEN:
-            self.vowel.draw(self._draw)
-        self._draw_consonants()
-        self._draw_inner_circle()
+            self.vowel.redraw(self._draw)
+        self._redraw_consonants()
+        self._redraw_inner_circle()
         if self.vowel and self.vowel.vowel_type is not VowelType.HIDDEN:
-            self.vowel.draw(self._draw)
+            self.vowel.redraw(self._draw)
 
         # Paste the outer circle image
         self._image.paste(self._border_image, mask=self._mask_image)
         self._image_ready = True
         return self._image
 
-    def _draw_consonants(self):
+    def _redraw_consonants(self):
         """Draw all consonants."""
         for cons in self.consonants:
-            cons.draw(self._draw)
+            cons.redraw(self._draw)
 
-    def _draw_inner_circle(self):
+    def _redraw_inner_circle(self):
         """Draw the inner circle using predefined arguments."""
         for args in self._inner_circle_arg_dict:
             self._draw.ellipse(**args)
@@ -528,15 +462,14 @@ class Syllable(AbstractSyllable):
     # =============================================
     def perform_animation(self, direction_sign: int, is_tail: bool):
         """Perform an animation step by adjusting directions."""
-        delta = direction_sign * 2 * math.pi / AnimationProperties.cycle
-
         if self.vowel:
-            self.vowel.set_direction(self.vowel.direction - 2 * delta)
+            self.vowel.perform_animation(-direction_sign)
 
         for consonant in self.consonants:
-            consonant.set_direction(consonant.direction + 2 * delta)
+            consonant.perform_animation(direction_sign)
 
         if is_tail:
+            delta = direction_sign * 2 * math.pi / AnimationProperties.cycle
             self.set_direction(self.direction + delta)
         else:
             self._image_ready = False

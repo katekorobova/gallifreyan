@@ -1,8 +1,12 @@
 import logging
 import tkinter as tk
+from typing import Optional
+
+from PIL import Image
 
 from . import DefaultFrame, DefaultLabel, DefaultCanvas
-from ...config import ITEM_BG, TEXT_COLOR, PADX, PADY, FONT
+from ..utils import Point
+from ...config import ITEM_BG, TEXT_COLOR, PADX, PADY, PRIMARY_FONT
 from ...core import repository
 from ...core.writing.sentences import Sentence
 
@@ -20,23 +24,33 @@ class CanvasFrame(DefaultFrame):
         super().__init__(win)
         self.sentence = Sentence()
 
-        label = DefaultLabel(self, text='Start Typing Your Transcription Here')
 
         # Entry widget with validation
         self.entry = tk.Entry(
-            self, font=FONT, fg=TEXT_COLOR, bg=ITEM_BG, insertbackground=TEXT_COLOR,
-            bd=2, relief=tk.RAISED, validate='key',
-            validatecommand=(self.register(self._attempt_action), '%d', '%i', '%S'))
+            self, font=PRIMARY_FONT, fg=TEXT_COLOR, bg=ITEM_BG, insertbackground=TEXT_COLOR,
+            validate='key', validatecommand=(self.register(self._attempt_action), '%d', '%i', '%S'))
 
         # Canvas for drawing
         self.canvas = DefaultCanvas(self)
+        self.label = DefaultLabel(self.canvas, text='Start Typing Your Transcription Here')
+        self.label.place(x=0, y=0)
 
-        label.grid(row=0, column=0, padx=PADX, sticky=tk.W)
-        self.entry.grid(row=1, column=0, padx=PADX, sticky=tk.NSEW)
-        self.canvas.grid(row=2, column=0, padx=PADX, pady=pady, sticky=tk.NSEW)
+        self.entry.pack(fill=tk.X)
+        self.canvas.pack(fill=tk.BOTH, expand=True)
 
         # Canvas event bindings
         self._bind_canvas_events()
+        self._redraw()
+
+    def configure_background(self, bg: str):
+        self.canvas.configure(bg=bg)
+        self.label.configure(bg=bg)
+
+    def get_image(self) -> Optional[Image.Image]:
+        bbox = self.canvas.bbox('all')
+        if not bbox:
+            return None
+        return self.sentence.get_image(Point(*bbox[:2]), Point(*bbox[2:]))
 
     def perform_animation(self):
         """Trigger the animation process for the sentence and redraw the canvas."""

@@ -6,15 +6,15 @@ from dataclasses import dataclass
 from itertools import count, repeat
 from typing import Optional
 
-from PIL import ImageTk, Image, ImageDraw
+from PIL import ImageTk, Image
 
 from .characters import Character, Separator, CharacterType
+from .circles import HasOuterCircle
 from .syllables import Consonant, Syllable, SeparatorSyllable, AbstractSyllable
 from .vowels import Vowel
-from ..utils import Point, PressedType, line_width, half_line_distance
-from ...config import (WORD_IMAGE_RADIUS, DEFAULT_WORD_RADIUS, MIN_RADIUS,
-                       OUTER_CIRCLE_SCALE_MIN, OUTER_CIRCLE_SCALE_MAX,
-                       WORD_BG, WORD_COLOR, DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT)
+from ..utils import Point, PressedType, create_empty_image
+from ...config import (WORD_IMAGE_RADIUS, DEFAULT_WORD_RADIUS, OUTER_CIRCLE_SCALE_MIN, OUTER_CIRCLE_SCALE_MAX,
+                       WORD_BG, WORD_COLOR, DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT, WORD_BORDERS)
 
 
 @dataclass
@@ -45,17 +45,17 @@ class Token(ABC):
         self._update_text()
         return True
 
-    def remove_characters(self, index: int, end_index: int):
+    def remove_characters(self, index: int, end_index: int) -> None:
         """Remove characters from the word."""
         self.characters[index: end_index] = []
         self._update_text()
 
-    def remove_starting_with(self, index: int):
+    def remove_starting_with(self, index: int) -> None:
         """Remove characters from the word, updating properties accordingly."""
         self.characters[index:] = []
         self._update_text()
 
-    def _update_text(self):
+    def _update_text(self) -> None:
         """Update the word's text representation."""
         self.text = ''.join(character.text for character in self.characters)
 
@@ -63,19 +63,19 @@ class Token(ABC):
         """Handle press events."""
         return False
 
-    def move(self, point: Point):
+    def move(self, point: Point) -> None:
         """Handle move events."""
 
-    def paste_image(self, image: Image.Image, position: Point):
+    def paste_image(self, image: Image.Image, position: Point) -> None:
         """Retrieve the generated image, creating it if necessary."""
 
-    def put_image(self, canvas: tk.Canvas, to_be_removed: list[int]):
+    def put_image(self, canvas: tk.Canvas, to_be_removed: list[int]) -> None:
         """Create and display the word image on the canvas."""
 
-    def apply_color_changes(self):
+    def apply_color_changes(self) -> None:
         """Apply color changes to the image and its syllables."""
 
-    def perform_animation(self, direction_sign: int):
+    def perform_animation(self, direction_sign: int) -> None:
         """Perform an animation step."""
 
 
@@ -96,30 +96,22 @@ class SpaceToken(Token):
         return super().insert_characters(index, characters)
 
 
-class Word(Token):
+class Word(Token, HasOuterCircle):
     """Represents a structured word with characters, syllables, and image rendering."""
     IMAGE_CENTER = Point(WORD_IMAGE_RADIUS, WORD_IMAGE_RADIUS)
-    BORDERS = '21'
     background = WORD_BG
     color = WORD_COLOR
 
     def __init__(self, characters: list[Character]):
-        """Initialize a Word instance with a center point and characters."""
-        super().__init__()
-        self.outer_radius = 0.0
-        self.center = Point(random.randint(DEFAULT_WORD_RADIUS, DEFAULT_CANVAS_WIDTH - DEFAULT_WORD_RADIUS),
-                            random.randint(DEFAULT_WORD_RADIUS, DEFAULT_CANVAS_HEIGHT - DEFAULT_WORD_RADIUS))
-
-        length = len(Word.BORDERS)
-        self._line_widths = list(repeat(0, length))
-        self._half_line_widths = list(repeat(0.0, length))
-        self._half_line_distance = 0.0
+        """Initialize a Word instance with characters."""
+        HasOuterCircle.__init__(self, WORD_BORDERS, self.IMAGE_CENTER)
+        Token.__init__(self)
         self.outer_circle_scale = OUTER_CIRCLE_SCALE_MIN
+        self.center = Point(random.randint(DEFAULT_WORD_RADIUS, DEFAULT_CANVAS_WIDTH - DEFAULT_WORD_RADIUS),
+                       random.randint(DEFAULT_WORD_RADIUS, DEFAULT_CANVAS_HEIGHT - DEFAULT_WORD_RADIUS))
 
         # Image-related attributes
-        self._image, self._draw = self._create_empty_image()
-        self._border_image, self._border_draw = self._create_empty_image()
-        self._mask_image, self._mask_draw = self._create_empty_image('1')
+        self._image, self._draw = create_empty_image(self.IMAGE_CENTER)
         self._image_tk = ImageTk.PhotoImage(image=self._image)
         self._image_ready = False
         self.canvas_item_id: Optional[int] = None
@@ -140,20 +132,12 @@ class Word(Token):
     # =============================================
     # Initialization
     # =============================================
-    @classmethod
-    def _create_empty_image(cls, mode='RGBA') -> tuple[Image.Image, ImageDraw.ImageDraw]:
-        """Create an empty image and its drawing object."""
-        image = Image.new(mode, (cls.IMAGE_CENTER * 2).tuple())
-        return image, ImageDraw.Draw(image)
-
     def update_properties_after_resizing(self):
         """Update properties based on the head syllable scale."""
         head_scale = self.head.scale
-        self.outer_radius = DEFAULT_WORD_RADIUS * self.outer_circle_scale * head_scale
-        self._line_widths = [line_width(border, head_scale) for border in Word.BORDERS]
-        self._half_line_widths = [width / 2 for width in self._line_widths]
-        self._half_line_distance = half_line_distance(head_scale)
-        self._create_outer_circle()
+        self.scale_lines(head_scale)
+        self.scale_outer_radius(self.outer_circle_scale * head_scale)
+        self.create_outer_circle(self.color, self.background)
 
     def set_syllables(self):
         """Organize characters into syllables and update relationships."""
@@ -178,7 +162,7 @@ class Word(Token):
         word_point = point - self.center
         if self.tail:
             distance = word_point.distance()
-            if distance > self.outer_radius + self._half_line_distance:
+            if self.beyond_border(distance):
                 return False
 
             return (self._handle_outer_border_press(distance) or
@@ -193,7 +177,7 @@ class Word(Token):
 
     def _handle_outer_border_press(self, distance: float) -> bool:
         """Handle press events on the outer border."""
-        if distance > self.outer_radius - self._half_line_distance:
+        if self.on_border(distance):
             self.pressed_type = PressedType.BORDER
             self._distance_bias = distance - self.outer_radius
             return True
@@ -232,7 +216,7 @@ class Word(Token):
     # =============================================
     # Repositioning
     # =============================================
-    def move(self, point: Point):
+    def move(self, point: Point) -> None:
         """Handle move events."""
         word_point = point - self.center
         match self.pressed_type:
@@ -246,7 +230,7 @@ class Word(Token):
                 return
         self._image_ready = False
 
-    def _move_child(self, word_point: Point):
+    def _move_child(self, word_point: Point) -> None:
         """Move a pressed child syllable."""
         if self._pressed is self.head:
             self.head.move(word_point)
@@ -258,7 +242,7 @@ class Word(Token):
     # =============================================
     # Resizing
     # =============================================
-    def _resize(self, word_point: Point):
+    def _resize(self, word_point: Point) -> None:
         """Resize the word based on movement."""
         head_scale = self.head.scale
         new_radius = word_point.distance() - self._distance_bias
@@ -266,8 +250,8 @@ class Word(Token):
             max(new_radius / DEFAULT_WORD_RADIUS / head_scale, OUTER_CIRCLE_SCALE_MIN),
             OUTER_CIRCLE_SCALE_MAX)
 
-        self.outer_radius = DEFAULT_WORD_RADIUS * self.outer_circle_scale * head_scale
-        self._create_outer_circle()
+        self.scale_outer_radius(self.outer_circle_scale * head_scale)
+        self.create_outer_circle(self.color, self.background)
 
     # =============================================
     # Insertion and Deletion
@@ -396,34 +380,7 @@ class Word(Token):
     def _check_syllable_start(self, index: int, consonant: Consonant) -> bool:
         """Check if the given consonant starts the syllable at the specified index."""
         syllable = self.syllables_by_indices[index]
-        return isinstance(syllable, Syllable) and syllable.cons1 is consonant
-
-    # =============================================
-    # Helper Functions for Updating Image Arguments
-    # =============================================
-    def _create_outer_circle(self):
-        """Create the outer circle representation."""
-        self._border_draw.rectangle(((0, 0), self._border_image.size), fill=0)
-        self._mask_draw.rectangle(((0, 0), self._border_image.size), fill=1)
-        if len(Word.BORDERS) == 1:
-            adjusted_radius = self.outer_radius + self._half_line_widths[0]
-            start = self.IMAGE_CENTER.shift(-adjusted_radius).tuple()
-            end = self.IMAGE_CENTER.shift(adjusted_radius).tuple()
-            self._border_draw.ellipse((start, end), outline=self.color, width=self._line_widths[0])
-            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._line_widths[0])
-        else:
-            adjusted_radius = \
-                self.outer_radius + self._half_line_distance + self._half_line_widths[0]
-            start = self.IMAGE_CENTER.shift(-adjusted_radius).tuple()
-            end = self.IMAGE_CENTER.shift(adjusted_radius).tuple()
-            self._border_draw.ellipse((start, end), outline=self.color, fill=self.background,
-                                      width=self._line_widths[0])
-
-            adjusted_radius = max(self.outer_radius - self._half_line_distance + self._half_line_widths[1], MIN_RADIUS)
-            start = self.IMAGE_CENTER.shift(-adjusted_radius).tuple()
-            end = self.IMAGE_CENTER.shift(adjusted_radius).tuple()
-            self._border_draw.ellipse((start, end), outline=self.color, width=self._line_widths[1])
-            self._mask_draw.ellipse((start, end), outline=1, fill=0, width=self._line_widths[1])
+        return isinstance(syllable, Syllable) and syllable.first_consonant is consonant
 
     # =============================================
     # Drawing
@@ -464,7 +421,7 @@ class Word(Token):
                     self._paste_tail(s, head_radius)
 
                 # Paste the outer circle image
-                self._image.paste(self._border_image, mask=self._mask_image)
+                self.paste_outer_circle(self._image)
             else:
                 # Clear the image
                 self._draw.rectangle(((0, 0), self._image.size), fill=0)
@@ -488,7 +445,7 @@ class Word(Token):
 
     def apply_color_changes(self):
         """Apply color changes to the image and its syllables."""
-        self._create_outer_circle()
+        self.create_outer_circle(self.color, self.background)
         for syllable in self.syllables:
             syllable.apply_color_changes()
         self._image_ready = False

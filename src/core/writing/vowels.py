@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import math
 from abc import ABC
 from enum import Enum
@@ -6,7 +8,7 @@ from itertools import repeat
 from PIL import ImageDraw
 
 from .characters import Letter, CharacterType
-from ..utils import Point, PressedType, line_width, half_line_distance
+from ..utils import Point, PressedType, get_line_width, get_half_line_distance
 from ...config import VOWEL_COLOR, MIN_RADIUS, SYLLABLE_BG
 
 
@@ -45,18 +47,18 @@ class Vowel(Letter, ABC):
             return True
         return False
 
-    def move(self, point: Point):
+    def move(self, point: Point) -> None:
         """Move the vowel based on the pressed type."""
         if self.pressed_type == PressedType.PARENT:
             point -= self._bias
             self.set_direction(point.direction())
 
-    def redraw(self, image: ImageDraw.ImageDraw):
+    def redraw(self, image: ImageDraw.ImageDraw) -> None:
         """Draw the vowel on the given image."""
         for args in self._ellipse_args:
             image.ellipse(**args)
 
-    def update_argument_dictionaries(self):
+    def update_argument_dictionaries(self) -> None:
         """Update argument dictionaries for drawing ellipses."""
         self._ellipse_args = []
         for width, half_width, radius in zip(self.line_widths, self.half_line_widths, self._radii):
@@ -66,7 +68,7 @@ class Vowel(Letter, ABC):
             self._ellipse_args.append({'xy': (start, end), 'outline': self.color,
                                        'fill': self.background, 'width': width})
 
-    def _calculate_center_and_radii(self):
+    def _calculate_center_and_radii(self) -> None:
         """Calculate the vowel's center position and radii based on its properties."""
         self._center = Point(
             math.cos(self.direction) * self._distance, math.sin(self.direction) * self._distance)
@@ -74,7 +76,7 @@ class Vowel(Letter, ABC):
                        for i in range(len(self.borders))]
 
     @staticmethod
-    def get_vowel(text: str, border: str, vowel_type_code: str):
+    def get_vowel(text: str, border: str, vowel_type_code: str) -> Vowel:
         """Factory method to create a vowel instance based on the given type code."""
         vowel_type = VowelType(vowel_type_code)
         vowel_classes = {
@@ -98,12 +100,12 @@ class LargeVowel(Vowel):
         super().__init__(text, borders, VowelType.LARGE)
         self._set_personal_direction(0)
 
-    def _update_properties_after_resizing(self, syllable):
+    def _update_properties_after_resizing(self, syllable) -> None:
         """Update vowel properties after resizing."""
         scale = syllable.scale * self.DEFAULT_RATIO
-        self.line_widths = [line_width(x, scale) for x in self.borders]
+        self.line_widths = [get_line_width(x, scale) for x in self.borders]
         self.half_line_widths = [w / 2 for w in self.line_widths]
-        self._half_line_distance = half_line_distance(scale)
+        self._half_line_distance = get_half_line_distance(scale)
         self._radius = syllable.outer_radius * self.DEFAULT_RATIO
         self._distance = self._radius
         self._calculate_center_and_radii()
@@ -126,9 +128,8 @@ class WanderingVowel(Vowel):
 
         outer_radius, inner_radius, border_offset = \
             syllable.outer_radius, syllable.inner_radius, syllable.border_offset
-        self._distance = max(
-            (outer_radius - border_offset[0] + inner_radius + border_offset[1]) / 2, MIN_RADIUS)
-        self._radius = max((outer_radius - border_offset[0] - inner_radius - border_offset[1]) / 2
+        self._distance = max((outer_radius + inner_radius + border_offset) / 2, MIN_RADIUS)
+        self._radius = max((outer_radius - inner_radius - border_offset) / 2
                            - 3 * syllable.half_line_distance, MIN_RADIUS)
         self._calculate_center_and_radii()
 
@@ -149,7 +150,7 @@ class OrbitingVowel(Vowel):
         """Update vowel properties after resizing."""
         super()._update_properties_after_resizing(syllable)
         self._radius = syllable.inner_radius * self.RATIO
-        self._distance = syllable.inner_radius + syllable.border_offset[1]
+        self._distance = syllable.inner_radius + syllable.border_offset
         self._calculate_center_and_radii()
 
     def _update_properties_after_rotation(self):
@@ -168,9 +169,8 @@ class CenterVowel(Vowel):
     def _update_properties_after_resizing(self, syllable):
         """Update vowel properties after resizing."""
         super()._update_properties_after_resizing(syllable)
-        inner_radius = syllable.inner_radius - syllable.border_offset[1]
-        self._radius = max(
-            (inner_radius - 3 * syllable.half_line_distance) * self.RATIO, MIN_RADIUS)
+        inner_radius = syllable.inner_radius - syllable.border_offset
+        self._radius = max((inner_radius - 3 * syllable.half_line_distance) * self.RATIO, MIN_RADIUS)
         self._distance = self._radius
         self._calculate_center_and_radii()
 

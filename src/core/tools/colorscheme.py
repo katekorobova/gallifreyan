@@ -52,7 +52,7 @@ class ColorSchemeWindow(tk.Toplevel):
         self._initialize_word()
         self._draw()
 
-    def _setup_ui(self, command: Callable[[ColorScheme], None]):
+    def _setup_ui(self, command: Callable[[ColorScheme], None]) -> None:
         button_frame = DefaultFrame(self)
         row = self._place_preview(button_frame, 0, ColorSchemeSection.CANVAS)
         row = self._place_previews(button_frame, row, ColorSchemeSection.WORDS)
@@ -133,12 +133,12 @@ class ColorSchemeWindow(tk.Toplevel):
         self.previews[background_component] = background_preview
         return start_row + 3
 
-    def _create_preview(self, master: tk.Misc, color: str):
+    def _create_preview(self, master: tk.Misc, color: str) -> tk.Label:
         """Create a label with a predefined style."""
         return tk.Label(master, bg=color, font=SECONDARY_FONT, relief=tk.RAISED,
                         width=self.BUTTON_WIDTH, height=BUTTON_HEIGHT)
 
-    def _create_button(self, master: tk.Misc, text: str, command: Callable[[], None]):
+    def _create_button(self, master: tk.Misc, text: str, command: Callable[[], None]) -> tk.Button:
         """Create a button with a predefined style."""
         return tk.Button(master, text=text, command=command,
                          bg=ITEM_BG, fg=TEXT_COLOR, font=SECONDARY_FONT,

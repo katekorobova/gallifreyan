@@ -7,11 +7,11 @@ from enum import Enum
 from itertools import repeat
 from typing import Optional
 
-from PIL import ImageDraw, Image
+from PIL import Image
 
 from .characters import Character, CharacterType
 from ..tools import AnimationProperties
-from ..utils import Point, line_width, half_line_distance, PressedType
+from ..utils import Point, get_line_width, get_half_line_distance, PressedType, create_empty_image, ensure_min_radius
 from ...config import SYLLABLE_COLOR, SYLLABLE_BG, MIN_RADIUS, WORD_IMAGE_RADIUS, DIGIT_SCALE_MIN, DIGIT_SCALE_MAX
 
 
@@ -35,30 +35,23 @@ class Digit(Character, ABC):
         self.line_widths = list(repeat(0, length))
         self.half_line_widths = list(repeat(0.0, length))
         self._half_line_distance = 0.0
-        self.scale = 1
+        self.scale = 1.0
 
         self.outer_radius = 0.0
         self.inner_radius = 0.0
-        self._border_offset = 0.0
-        self.previous_inner_radius = 0.0
-        self.default_stripe_width = 0.0
+        self.base_inner_radius = 0.0
+        self.base_stripe_width = 0.0
 
         # Image-related attributes
-        self._image, self._draw = self._create_empty_image()
-        self._border_image, self._border_draw = self._create_empty_image()
-        self._mask_image, self._mask_draw = self._create_empty_image('1')
+        self._image, self._draw = create_empty_image(self.IMAGE_CENTER)
+        self._border_image, self._border_draw = create_empty_image(self.IMAGE_CENTER)
+        self._mask_image, self._mask_draw = create_empty_image(self.IMAGE_CENTER, '1')
 
         self._pressed_type: Optional[PressedType] = None
         self._distance_bias = 0.0
 
-    @classmethod
-    def _create_empty_image(cls, mode: str = 'RGBA') -> tuple[Image.Image, ImageDraw.ImageDraw]:
-        """Create an empty image with the specified mode."""
-        image = Image.new(mode, (cls.IMAGE_CENTER * 2).tuple())
-        return image, ImageDraw.Draw(image)
-
     @staticmethod
-    def get_digit(text: str, border: str, digit_type_code: str):
+    def get_digit(text: str, border: str, digit_type_code: str) -> Digit:
         """Factory method to create a vowel instance based on the given type code."""
         digit_type = DigitType(digit_type_code)
         digit_classes = {
@@ -73,50 +66,58 @@ class Digit(Character, ABC):
     def press(self, point: Point) -> bool:
         """Handle a press event at a given point."""
         distance = point.distance()
-        if self.inner_radius < distance < self.inner_radius + 2 * self._half_line_distance:
-            self._distance_bias = distance - self.inner_radius
-            self._pressed_type = PressedType.INNER
-            return True
+        if len(self.borders) > 1:
+            if self.inner_radius - 2 * self._half_line_distance < distance < self.inner_radius:
+                self._distance_bias = distance - self.inner_radius
+                self._pressed_type = PressedType.INNER
+                return True
+        else:
+            if self.inner_radius - self._half_line_distance < distance < self.inner_radius + self._half_line_distance:
+                self._distance_bias = distance - self.inner_radius
+                self._pressed_type = PressedType.INNER
+                return True
         return False
 
     @abstractmethod
-    def move(self, point: Point):
+    def move(self, point: Point) -> None:
         """Handle a move event to a given point."""
         if self._pressed_type == PressedType.INNER:
             self._adjust_scale(point)
 
-    def update_scale(self, number_scale: float):
-        self.line_widths = [line_width(border, number_scale) for border in self.borders]
+    def scale_lines(self, number_scale: float) -> None:
+        self.line_widths = [get_line_width(border, number_scale) for border in self.borders]
         self.half_line_widths = [width / 2 for width in self.line_widths]
-        self._half_line_distance = half_line_distance(number_scale)
-        self._border_offset = (len(self.borders) - 1) * 2 * self._half_line_distance
+        self._half_line_distance = get_half_line_distance(number_scale)
 
-    def update_inner_radius(self, previous_inner_radius: float, default_stripe_width: float):
+    def update_inner_radius(self, base_inner_radius: float, base_stripe_width: float) -> None:
         """Resize the inner circle based on the number's scale."""
-        self.previous_inner_radius = previous_inner_radius
-        self.default_stripe_width = default_stripe_width
-        self.inner_radius = previous_inner_radius + default_stripe_width * self.scale
+        self.base_inner_radius = base_inner_radius
+        self.base_stripe_width = base_stripe_width
+        inner_radius = base_inner_radius + base_stripe_width * self.scale
+        if len(self.borders) > 1:
+            inner_radius += 2 * self._half_line_distance
+        self.inner_radius = inner_radius
         self._create_inner_circle()
 
-    def update_outer_radius(self, outer_radius: float):
+    def update_outer_radius(self, outer_radius: float) -> None:
         self.outer_radius = outer_radius
         self._create_mask()
 
     @abstractmethod
-    def redraw(self):
+    def redraw(self) -> None:
         """Draw the digit."""
         self._draw.rectangle(((0, 0), self._image.size), fill=self.background)
 
-    def paste_decorations(self, image: Image.Image):
+    def paste_decorations(self, image: Image.Image) -> None:
         image.paste(self._image, mask=self._mask_image)
 
-    def paste_inner_circle(self, image: Image.Image):
+    def paste_inner_circle(self, image: Image.Image) -> None:
         image.paste(self._border_image, mask=self._border_image)
 
-    def _create_mask(self):
+    def _create_mask(self) -> None:
         self._mask_draw.rectangle(((0, 0), self._mask_image.size), fill=0)
-        start = self.IMAGE_CENTER.shift(-self.outer_radius - 1).tuple()
-        end = self.IMAGE_CENTER.shift(self.outer_radius + 1).tuple()
+        start = self.IMAGE_CENTER.shift(-self.outer_radius).tuple()
+        end = self.IMAGE_CENTER.shift(self.outer_radius).tuple()
         self._mask_draw.ellipse((start, end), fill=1)
 
     def _create_inner_circle(self):
@@ -124,29 +125,22 @@ class Digit(Character, ABC):
         self._border_draw.rectangle(((0, 0), self._border_image.size), fill=0)
 
         if len(self.borders) == 1:
-            adjusted_radius = self._calculate_adjusted_radius(
-                self.inner_radius, self.half_line_widths[0])
+            adjusted_radius = ensure_min_radius(self.inner_radius + self.half_line_widths[0])
             start = self.IMAGE_CENTER.shift(-adjusted_radius).tuple()
             end = self.IMAGE_CENTER.shift(adjusted_radius).tuple()
             self._border_draw.ellipse((start, end), outline=self.color, width=self.line_widths[0])
         else:
-            adjusted_radius = self._calculate_adjusted_radius(
-                self.inner_radius, 2 * self._half_line_distance + self.half_line_widths[0])
+            adjusted_radius = ensure_min_radius(self.inner_radius + self.half_line_widths[0])
             start = self.IMAGE_CENTER.shift(-adjusted_radius).tuple()
             end = self.IMAGE_CENTER.shift(adjusted_radius).tuple()
             self._border_draw.ellipse((start, end), outline=self.color,
                                       fill=self.background, width=self.line_widths[0])
 
-            adjusted_radius = self._calculate_adjusted_radius(self.inner_radius, self.half_line_widths[0])
+            adjusted_radius = ensure_min_radius(
+                self.inner_radius - 2 * self._half_line_distance + self.half_line_widths[1])
             start = self.IMAGE_CENTER.shift(-adjusted_radius).tuple()
             end = self.IMAGE_CENTER.shift(adjusted_radius).tuple()
             self._border_draw.ellipse((start, end), outline=self.color, fill=0, width=self.line_widths[1])
-
-    @staticmethod
-    def _calculate_adjusted_radius(
-            base_radius: float, adjustment: float, min_radius: float = MIN_RADIUS):
-        """Calculate an adjusted radius with constraints."""
-        return max(base_radius + adjustment, min_radius)
 
     def _create_circle_args(self, adjusted_radius: float, width: float) -> dict:
         """Generate circle arguments for drawing."""
@@ -161,8 +155,10 @@ class Digit(Character, ABC):
     def _adjust_scale(self, point: Point):
         """Adjust the inner scale based on the moved distance."""
         distance = point.distance()
-        new_stripe_width = distance - self._distance_bias - self.previous_inner_radius
-        self.set_scale(min(max(new_stripe_width / self.default_stripe_width, DIGIT_SCALE_MIN), DIGIT_SCALE_MAX))
+        new_stripe_width = distance - self._distance_bias - self.base_inner_radius
+        if len(self.borders) > 1:
+            new_stripe_width -= 2 * self._half_line_distance
+        self.set_scale(min(max(new_stripe_width / self.base_stripe_width, DIGIT_SCALE_MIN), DIGIT_SCALE_MAX))
 
     def apply_color_changes(self):
         self._create_inner_circle()
@@ -177,8 +173,7 @@ class CircularDigit(Digit):
         super().__init__(text, borders, DigitType.CIRCULAR)
 
         seen = []
-        self.unique_borders = ''.join(border for border in borders
-                                      if not (border in seen or seen.append(border)))
+        self.unique_borders = ''.join(border for border in borders if not (border in seen or seen.append(border)))
         self._pressed_id = 0
         self._bias = Point()
         self._radius = 0.0
@@ -215,8 +210,8 @@ class CircularDigit(Digit):
 
     def update_outer_radius(self, outer_radius: float):
         super().update_outer_radius(outer_radius)
-        self._radius = max((self.outer_radius - self.inner_radius - self._border_offset) / 2, MIN_RADIUS)
-        self._distance = self.inner_radius + self._border_offset + self._radius
+        self._radius = max((self.outer_radius - self.inner_radius) / 2, MIN_RADIUS)
+        self._distance = self.inner_radius + self._radius
         self._calculate_centers()
         self._radii = [self._radius]
         if self.borders == '11':
@@ -264,7 +259,7 @@ class LineDigit(Digit):
         distance = point.distance()
         angle = point.direction() - base_angle
         rotated = Point(math.cos(angle) * distance, math.sin(angle) * distance)
-        return (self.inner_radius + self._border_offset < rotated.x < self.outer_radius and
+        return (self.inner_radius < rotated.x < self.outer_radius and
                 -self._half_line_distance < rotated.y < self._half_line_distance)
 
     def press(self, point: Point) -> bool:

@@ -4,8 +4,10 @@ import copy
 import math
 from enum import Enum, auto
 
+from PIL import Image, ImageDraw
+
 from ..config import (LINE_WIDTHS, MIN_LINE_WIDTH, DEFAULT_HALF_LINE_DISTANCE, MIN_HALF_LINE_DISTANCE,
-                      CANVAS_BG, WORD_BG, SYLLABLE_BG, WORD_COLOR, SYLLABLE_COLOR, VOWEL_COLOR, DOT_COLOR)
+                      CANVAS_BG, WORD_BG, SYLLABLE_BG, WORD_COLOR, SYLLABLE_COLOR, VOWEL_COLOR, DOT_COLOR, MIN_RADIUS)
 
 
 # =============================================
@@ -87,10 +89,9 @@ _default_color_scheme: ColorScheme = {
     }
 
 
-def get_default_color_scheme():
+def get_default_color_scheme() -> ColorScheme:
     """Returns a copy of the default color scheme."""
     return copy.copy(_default_color_scheme)
-
 
 def reset_color_scheme(color_scheme: ColorScheme):
     """Resets the given color scheme to the default values."""
@@ -100,11 +101,19 @@ def reset_color_scheme(color_scheme: ColorScheme):
 # =============================================
 # Utility Functions
 # =============================================
-def line_width(typ: str, scale: float) -> int:
+def get_line_width(typ: str, scale: float) -> int:
     """Calculate the line width based on type and scale, ensuring a minimum value."""
     return max(math.ceil(LINE_WIDTHS[typ] * scale), MIN_LINE_WIDTH[typ])
 
-
-def half_line_distance(scale: float) -> float:
+def get_half_line_distance(scale: float) -> float:
     """Calculate the scaled half-line distance, ensuring a minimum value."""
     return max(DEFAULT_HALF_LINE_DISTANCE * scale, MIN_HALF_LINE_DISTANCE)
+
+def create_empty_image(image_center: Point, mode: str = 'RGBA') -> tuple[Image.Image, ImageDraw.ImageDraw]:
+    """Create an empty image with the specified mode."""
+    image = Image.new(mode, (image_center * 2).tuple())
+    return image, ImageDraw.Draw(image)
+
+def ensure_min_radius(radius: float):
+    """Calculate a  radius with constraints."""
+    return max(radius, MIN_RADIUS)

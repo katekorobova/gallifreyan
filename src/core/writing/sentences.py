@@ -76,7 +76,7 @@ class Sentence:
     # =============================================
     # Mouse events
     # =============================================
-    def press(self, event: Event):
+    def press(self, event: Event) -> None:
         """Handle mouse button press on canvas."""
         for token in reversed(self.visible_tokens):
             if token and token.press(Point(event.x, event.y)):
@@ -90,14 +90,14 @@ class Sentence:
             return True
         return False
 
-    def release(self):
+    def release(self) -> None:
         """Handle mouse button release."""
         self.pressed_token = None
 
     # =============================================
     # Deletion
     # =============================================
-    def remove_characters(self, index: int, deleted: str):
+    def remove_characters(self, index: int, deleted: str) -> None:
         """Remove letters from the sentence."""
         end_index = index + len(deleted)
         removed_tokens = unique_tokens(self.tokens_by_indices[index:end_index])
@@ -119,7 +119,7 @@ class Sentence:
         self._clean_up_removed(index, end_index)
         self._absorb_following_token(index)
 
-    def _absorb_following_token(self, index: int):
+    def _absorb_following_token(self, index: int) -> None:
         """Merge the token at the given index with the preceding token if possible."""
         if not 0 < index < len(self.characters):
             return
@@ -138,7 +138,7 @@ class Sentence:
             if following_token in self.visible_tokens:
                 self.visible_tokens.remove(following_token)
 
-    def _clean_up_removed(self, index: int, end_index: int):
+    def _clean_up_removed(self, index: int, end_index: int) -> None:
         """Remove characters and words in the given range and update the word list."""
         self.characters[index:end_index] = []
         self.tokens_by_indices[index:end_index] = []

@@ -9,7 +9,7 @@ from enum import Enum
 from PIL import ImageDraw
 
 from .characters import Letter, CharacterType
-from ..utils import Point, line_width
+from ..utils import Point, get_line_width
 from ...config import (SYLLABLE_BG, SYLLABLE_COLOR, DOT_COLOR,
                        DEFAULT_DOT_RADIUS, MIN_RADIUS)
 
@@ -34,7 +34,7 @@ class ConsonantType(Enum):
         self.group = group
 
     @classmethod
-    def get_by_code(cls, code: str):
+    def get_by_code(cls, code: str) -> ConsonantType:
         """Retrieve a ConsonantType by its code."""
         for consonant_type in cls:
             if consonant_type.code == code:
@@ -116,7 +116,7 @@ class LineBasedConsonant(Consonant, ABC):
         self._half_line_width = 0.0
         self._line_args: list[dict] = []
 
-    def _calculate_endpoints(self):
+    def _calculate_endpoints(self) -> None:
         """Calculate the endpoints for the line."""
         self._ends = [
             self._calculate_endpoint(self.direction - self.ANGLE),
@@ -309,8 +309,7 @@ class AngleBasedConsonant(LineBasedConsonant, ABC):
     def _update_properties_after_resizing(self, syllable):
         """Update consonant properties after resizing."""
         super()._update_properties_after_resizing(syllable)
-        self._radius = syllable.inner_radius + syllable.border_offset[
-            1] + 2 * self._half_line_distance
+        self._radius = syllable.inner_radius + syllable.border_offset + 2 * self._half_line_distance
 
     def update_argument_dictionaries(self):
         """Update the argument dictionary for arc drawing."""
@@ -377,9 +376,8 @@ class DotConsonant(Consonant, ABC):
         outer_radius, inner_radius, border_offset = \
             syllable.outer_radius, syllable.inner_radius, syllable.border_offset
 
-        self._line_width = line_width('1', syllable.scale)
-        self._distance = max(
-            (outer_radius - border_offset[0] + inner_radius + border_offset[1]) / 2, MIN_RADIUS)
+        self._line_width = get_line_width('1', syllable.scale)
+        self._distance = max((outer_radius + inner_radius + border_offset) / 2, MIN_RADIUS)
         self._radius = max(syllable.scale * DEFAULT_DOT_RADIUS, MIN_RADIUS)
 
     def _get_bounds(self, center: Point) -> tuple[tuple[int, int], tuple[int, int]]:
@@ -577,16 +575,16 @@ class CircularConsonant(Consonant):
         outer_radius = syllable.outer_radius
         inner_radius = syllable.inner_radius
         border_offset = syllable.border_offset
-        inner_line_width = syllable.inner.line_widths[0]
-        inner_half_line_width = syllable.inner.half_line_widths[0]
+        inner_line_width = syllable.inner_consonant.line_widths[0]
+        inner_half_line_width = syllable.inner_consonant.half_line_widths[0]
 
         self._line_width = min(self.line_widths)
         self._half_line_width = self._line_width / 2
         overlap = min(self._line_width, inner_line_width)
         distance_adjustment = inner_half_line_width + self._half_line_width - overlap
-        distance_start = inner_radius + border_offset[1] + distance_adjustment
+        distance_start = inner_radius + border_offset + distance_adjustment
 
-        self._radius = max((outer_radius - border_offset[0] - distance_start) / 4, MIN_RADIUS)
+        self._radius = max((outer_radius - distance_start) / 4, MIN_RADIUS)
         self._distance = distance_start + self._radius
         self._calculate_center()
 

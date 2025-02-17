@@ -50,7 +50,7 @@ INNER_CIRCLE_SCALE_MIN = 0.2
 INNER_CIRCLE_SCALE_MAX = 0.7
 
 DIGIT_SCALE_MIN = 0.6
-DIGIT_SCALE_MAX = 1.2
+DIGIT_SCALE_MAX = 1.5
 
 OUTER_CIRCLE_SCALE_MIN = 1.2
 OUTER_CIRCLE_SCALE_MAX = 2
@@ -58,7 +58,7 @@ OUTER_CIRCLE_SCALE_MAX = 2
 # =============================================
 # Radius and Distance Constants
 # =============================================
-DEFAULT_WORD_RADIUS = 200
+DEFAULT_WORD_RADIUS = 240
 DEFAULT_DOT_RADIUS = DEFAULT_WORD_RADIUS / 20
 MIN_RADIUS = 1
 
@@ -73,6 +73,7 @@ SYLLABLE_IMAGE_RADIUS = math.ceil((DEFAULT_WORD_RADIUS
 # =============================================
 # Line Width Constants
 # =============================================
+WORD_BORDERS = '21'
 LINE_WIDTHS = {'1': 3, '2': 8}
 MIN_LINE_WIDTH = {'1': 1, '2': 2}
 

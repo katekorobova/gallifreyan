@@ -35,7 +35,7 @@ class TableFrame(DefaultFrame):
         self.images = []
         self._create_table(typ, entry)
 
-    def _create_table(self, character_type: CharacterType, entry: tk.Entry):
+    def _create_table(self, character_type: CharacterType, entry: tk.Entry) -> None:
         """Adds letter buttons and image labels to the frame."""
         self._create_label().grid(row=0, column=0, sticky=tk.NSEW)
         rep = repository.get()

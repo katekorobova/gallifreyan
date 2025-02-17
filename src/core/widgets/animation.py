@@ -49,7 +49,7 @@ class AnimationWindow(DefaultWindow):
         scale.set(getattr(AnimationProperties, attribute))
         return scale
 
-    def _destroy(self, command: Callable[[bool], None]):
+    def _destroy(self, command: Callable[[bool], None]) -> None:
         command(False)
         self.destroy()
 

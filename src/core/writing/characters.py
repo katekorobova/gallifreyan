@@ -8,7 +8,7 @@ from itertools import repeat
 from PIL import ImageDraw
 
 from ..tools import AnimationProperties
-from ..utils import Point, line_width
+from ..utils import Point, get_line_width
 from ...config import SYLLABLE_IMAGE_RADIUS
 
 
@@ -97,7 +97,7 @@ class Letter(Character, ABC):
 
     def _update_properties_after_resizing(self, syllable):
         """Update letter properties after resizing based on the given syllable."""
-        self.line_widths = [line_width(border, syllable.scale) for border in self.borders]
+        self.line_widths = [get_line_width(border, syllable.scale) for border in self.borders]
         self.half_line_widths = [width / 2 for width in self.line_widths]
         self._half_line_distance = syllable.half_line_distance
 

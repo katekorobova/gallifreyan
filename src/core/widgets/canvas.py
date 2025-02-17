@@ -42,7 +42,7 @@ class CanvasFrame(DefaultFrame):
         self._bind_canvas_events()
         self._redraw()
 
-    def configure_background(self, bg: str):
+    def configure_background(self, bg: str) -> None:
         self.canvas.configure(bg=bg)
         self.label.configure(bg=bg)
 
@@ -52,35 +52,35 @@ class CanvasFrame(DefaultFrame):
             return None
         return self.sentence.get_image(Point(*bbox[:2]), Point(*bbox[2:]))
 
-    def perform_animation(self):
+    def perform_animation(self) -> None:
         """Trigger the animation process for the sentence and redraw the canvas."""
         self.sentence.perform_animation()
         self._redraw()
 
-    def _bind_canvas_events(self):
+    def _bind_canvas_events(self) -> None:
         """Bind mouse events to canvas actions."""
         self.canvas.bind('<Button-1>', self._press)
         self.canvas.bind('<B1-Motion>', self._move)
         self.canvas.bind('<ButtonRelease-1>', self._release)
 
-    def _press(self, event: tk.Event):
+    def _press(self, event: tk.Event) -> None:
         """Handle mouse button press on canvas."""
         self.sentence.press(event)
 
-    def _move(self, event: tk.Event):
+    def _move(self, event: tk.Event) -> None:
         """Handle mouse drag movement."""
         if self.sentence.move(event):
             self._redraw()
 
-    def _release(self, _):
+    def _release(self, _) -> None:
         """Handle mouse button release."""
         self.sentence.release()
 
-    def _redraw(self):
+    def _redraw(self) -> None:
         """Update the displayed image."""
         self.sentence.put_image(self.canvas)
 
-    def apply_color_changes(self):
+    def apply_color_changes(self) -> None:
         """Apply color changes to the sentence and update the displayed image."""
         self.sentence.apply_color_changes()
         self.sentence.put_image(self.canvas)

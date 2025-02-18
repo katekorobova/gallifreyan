@@ -8,12 +8,12 @@ from typing import Optional
 from PIL import Image
 
 from .characters import Letter, Separator, Character
-from .circles import HasOuterCircle
+from .circles import OuterCircle, InnerCircle, DistanceInfo
 from .consonants import Consonant
 from .vowels import Vowel, VowelType
 from .. import repository
 from ..tools import AnimationProperties
-from ..utils import Point, PressedType, create_empty_image, ensure_min_radius
+from ..utils import Point, PressedType, create_empty_image
 from ...config import (SYLLABLE_IMAGE_RADIUS, DEFAULT_WORD_RADIUS, SYLLABLE_INITIAL_SCALE_MIN,
                        SYLLABLE_INITIAL_SCALE_MAX,
                        SYLLABLE_SCALE_MIN, SYLLABLE_SCALE_MAX,
@@ -75,7 +75,7 @@ class SeparatorSyllable(AbstractSyllable):
         return False
 
 
-class Syllable(AbstractSyllable, HasOuterCircle):
+class Syllable(AbstractSyllable):
     """
     Represents a structured syllable, which may consist of consonants and vowels.
     Manages visual representation and interactive behavior.
@@ -87,13 +87,14 @@ class Syllable(AbstractSyllable, HasOuterCircle):
 
     def __init__(self, consonant: Consonant = None, vowel: Vowel = None):
         """Initialize a syllable with an optional consonant and vowel."""
-        outer_consonant: Consonant = consonant or Consonant.get_consonant(ALEPH, *repository.get().all[ALEPH].properties)
-        HasOuterCircle.__init__(self, outer_consonant.borders, self.IMAGE_CENTER)
-        AbstractSyllable.__init__(self)
+        super().__init__()
+        distance_info = DistanceInfo()
+        self.distance_info = distance_info
+        self.outer_circle = OuterCircle(self.IMAGE_CENTER, distance_info)
+        self.inner_circle = InnerCircle(self.IMAGE_CENTER, distance_info)
 
         # Image-related attributes
         self._image, self._draw = create_empty_image(self.IMAGE_CENTER)
-        self._inner_circle_arg_dict: list[dict] = []
         self._image_ready = False
 
         # Core attributes
@@ -101,17 +102,11 @@ class Syllable(AbstractSyllable, HasOuterCircle):
         self.second_consonant: Optional[Consonant] = None
         self._following: Optional[Syllable] = None
         self.consonants: list[Consonant] = []
-
-        self.outer_consonant = outer_consonant
-        self.inner_consonant = outer_consonant
-        self.consonants = [outer_consonant]
-        self._update_text()
+        self._update_key_properties()
 
         # Scale, radius, and positioning attributes
         self.scale = 0.0
         self._parent_scale = 1.0
-        self.inner_radius = 0.0
-        self.border_offset = 0.0
         self._personal_scale = random.uniform(SYLLABLE_INITIAL_SCALE_MIN, SYLLABLE_INITIAL_SCALE_MAX)
         self.inner_scale = random.uniform(INNER_CIRCLE_INITIAL_SCALE_MIN, INNER_CIRCLE_INITIAL_SCALE_MAX)
         self._update_properties_after_resizing()
@@ -137,9 +132,14 @@ class Syllable(AbstractSyllable, HasOuterCircle):
 
     def _update_key_properties(self) -> None:
         """Update syllable properties such as consonants, letters, and text representation."""
-        self.inner_consonant = self.second_consonant or self.outer_consonant
-        self.consonants = sorted({self.outer_consonant, self.inner_consonant}, key=lambda l: l.consonant_type.group)
+        outer_consonant = (
+                self.first_consonant or Consonant.get_consonant(ALEPH, *repository.get().all[ALEPH].properties))
+        inner_consonant = self.second_consonant or outer_consonant
+        self.consonants = sorted({outer_consonant, inner_consonant}, key=lambda l: l.consonant_type.group)
         self._update_text()
+
+        self.outer_circle.initialize(outer_consonant.borders)
+        self.inner_circle.initialize(inner_consonant.borders)
 
     # =============================================
     # Insertion
@@ -155,7 +155,7 @@ class Syllable(AbstractSyllable, HasOuterCircle):
         else:
             return False
 
-        character.initialize(self)
+        character.initialize(self.direction, self.scale, self.outer_circle, self.inner_circle)
         self._update_key_properties()
         self._image_ready = False
         return True
@@ -180,7 +180,7 @@ class Syllable(AbstractSyllable, HasOuterCircle):
     def press(self, point: Point) -> bool:
         """Handle press events at a given point."""
         distance = point.distance()
-        if self.beyond_border(distance):
+        if self.outer_circle.outside_circle(distance):
             return False
 
         return (self._handle_outer_border_press(distance) or
@@ -193,23 +193,23 @@ class Syllable(AbstractSyllable, HasOuterCircle):
 
     def _handle_outer_border_press(self, distance: float) -> bool:
         """Handle press events on the outer border."""
-        if self.on_border(distance):
+        if self.outer_circle.on_circle(distance):
             self.pressed_type = PressedType.BORDER
-            self._distance_bias = distance - self.outer_radius
+            self._distance_bias = distance - self.outer_circle.radius
             return True
         return False
 
     def _handle_inner_space_press(self, point: Point, distance: float) -> bool:
         """Handle press events inside the inner circle."""
-        if distance < self.inner_radius - self.half_line_distance:
+        if self.inner_circle.inside_circle(distance):
             return self._handle_parent_press(point)
         return False
 
     def _handle_inner_border_press(self, distance: float) -> bool:
         """Handle press events on the inner border."""
-        if distance < self.inner_radius + self.half_line_distance:
+        if self.inner_circle.on_circle(distance):
             self.pressed_type = PressedType.INNER
-            self._distance_bias = distance - self.inner_radius
+            self._distance_bias = distance - self.inner_circle.radius
             return True
         return False
 
@@ -289,40 +289,40 @@ class Syllable(AbstractSyllable, HasOuterCircle):
 
     def set_inner_scale(self, scale: float):
         """Set the inner circle scale and update related properties."""
+        self._image_ready = False
         self.inner_scale = scale
-        self.inner_radius = self.outer_radius * self.inner_scale
+        self.inner_circle.set_radius(self.scale * self.inner_scale * DEFAULT_WORD_RADIUS)
+        self.inner_circle.create_circle(self.color, self.background)
 
         for consonant in self.consonants:
-            consonant.resize(self)
+            consonant.resize(self.scale, self.outer_circle, self.inner_circle)
 
         if self.vowel:
-            self.vowel.resize(self)
-
-        self._update_inner_circle_args()
-        self._image_ready = False
+            self.vowel.resize(self.scale, self.outer_circle, self.inner_circle)
 
     def _adjust_inner_scale(self, distance: float):
         """Adjust the inner scale based on the moved distance."""
         new_radius = distance - self._distance_bias
-        self.set_inner_scale(min(max(new_radius / self.outer_radius, INNER_CIRCLE_SCALE_MIN), INNER_CIRCLE_SCALE_MAX))
+        self.set_inner_scale(min(max(new_radius / self.outer_circle.radius, INNER_CIRCLE_SCALE_MIN), INNER_CIRCLE_SCALE_MAX))
 
     def _update_properties_after_resizing(self):
         """Update scaling and circle radii, and calculate image properties."""
+        self._image_ready = False
         self.scale = self._parent_scale * self._personal_scale
-        self.scale_lines(self.scale)
-        self.scale_outer_radius(self.scale)
-        self.create_outer_circle(self.color, self.background)
-        self.inner_radius = self.outer_radius * self.inner_scale
-        self.border_offset = (len(self.inner_consonant.borders) - 1) * self.half_line_distance
+        self.distance_info.scale_distance(self.scale)
+        self.outer_circle.scale_borders(self.scale)
+        self.outer_circle.set_radius(self.scale * DEFAULT_WORD_RADIUS)
+        self.outer_circle.create_circle(self.color, self.background)
+
+        self.inner_circle.scale_borders(self.scale)
+        self.inner_circle.set_radius(self.scale * self.inner_scale * DEFAULT_WORD_RADIUS)
+        self.inner_circle.create_circle(self.color, self.background)
 
         for consonant in self.consonants:
-            consonant.resize(self)
+            consonant.resize(self.scale, self.outer_circle, self.inner_circle)
 
         if self.vowel:
-            self.vowel.resize(self)
-
-        self._update_inner_circle_args()
-        self._image_ready = False
+            self.vowel.resize(self.scale, self.outer_circle, self.inner_circle)
 
         if self._following:
             self._following.update_scale(self.scale)
@@ -332,42 +332,19 @@ class Syllable(AbstractSyllable, HasOuterCircle):
     # =============================================
     def set_direction(self, direction: float):
         """Set the direction of the object and update letters."""
+        self._image_ready = False
+        self.direction = direction
+
         for consonant in self.consonants:
             consonant.update_direction(direction)
 
         if self.vowel:
             self.vowel.update_direction(direction)
 
-        self.direction = direction
-        self._image_ready = False
-
     def _adjust_direction(self, point: Point):
         """Adjust the direction of the syllable when moved."""
         adjusted_point = point - self._point_bias
         self.set_direction(adjusted_point.direction())
-
-    # =============================================
-    # Helper Functions for Updating Image Arguments
-    # =============================================
-    def _update_inner_circle_args(self):
-        """Prepare arguments for drawing inner circles."""
-        self._inner_circle_arg_dict = []
-        if len(self.inner_consonant.borders) == 1:
-            adjusted_radius = ensure_min_radius(self.inner_radius + self.inner_consonant.half_line_widths[0])
-            self._inner_circle_arg_dict.append(
-                self._create_circle_args(adjusted_radius, self.inner_consonant.line_widths[0]))
-        else:
-            for i in range(2):
-                adjusted_radius = ensure_min_radius(
-                    self.inner_radius + (-1) ** i * self.half_line_distance + self.inner_consonant.half_line_widths[i])
-                self._inner_circle_arg_dict.append(
-                    self._create_circle_args(adjusted_radius, self.inner_consonant.line_widths[i]))
-
-    def _create_circle_args(self, adjusted_radius: float, line_width: float) -> dict:
-        """Generate circle arguments for drawing."""
-        start = self.IMAGE_CENTER.shift(-adjusted_radius).tuple()
-        end = self.IMAGE_CENTER.shift(adjusted_radius).tuple()
-        return {'xy': (start, end), 'outline': self.color, 'fill': self.background, 'width': line_width}
 
     # =============================================
     # Drawing
@@ -383,12 +360,12 @@ class Syllable(AbstractSyllable, HasOuterCircle):
         if self.vowel and self.vowel.vowel_type is VowelType.HIDDEN:
             self.vowel.redraw(self._draw)
         self._redraw_consonants()
-        self._redraw_inner_circle()
+        self.inner_circle.redraw_circle(self._draw)
         if self.vowel and self.vowel.vowel_type is not VowelType.HIDDEN:
             self.vowel.redraw(self._draw)
 
         # Paste the outer circle image
-        self.paste_outer_circle(self._image)
+        self.outer_circle.paste_circle(self._image)
         self._image_ready = True
         return self._image
 
@@ -397,22 +374,17 @@ class Syllable(AbstractSyllable, HasOuterCircle):
         for cons in self.consonants:
             cons.redraw(self._draw)
 
-    def _redraw_inner_circle(self):
-        """Draw the inner circle using predefined arguments."""
-        for args in self._inner_circle_arg_dict:
-            self._draw.ellipse(**args)
-
     def apply_color_changes(self):
         """Update color-dependent arguments."""
+        self._image_ready = False
+        self.outer_circle.create_circle(self.color, self.background)
+        self.inner_circle.create_circle(self.color, self.background)
+
         for consonant in self.consonants:
             consonant.update_argument_dictionaries()
 
         if self.vowel:
             self.vowel.update_argument_dictionaries()
-
-        self.create_outer_circle(self.color, self.background)
-        self._update_inner_circle_args()
-        self._image_ready = False
 
     # =============================================
     # Animation

@@ -10,7 +10,7 @@ from typing import Optional
 from PIL import Image, ImageTk
 
 from .characters import Character, CharacterType
-from .circles import HasOuterCircle
+from .circles import OuterCircle, DistanceInfo, InnerCircle
 from .digits import Digit
 from .words import Token
 from ..tools import AnimationProperties
@@ -20,7 +20,7 @@ from ...config import (SYLLABLE_COLOR, SYLLABLE_BG, DEFAULT_CANVAS_WIDTH, DEFAUL
                        SYLLABLE_INITIAL_SCALE_MIN, SYLLABLE_INITIAL_SCALE_MAX,
                        SYLLABLE_SCALE_MAX, SYLLABLE_SCALE_MIN,
                        INNER_CIRCLE_INITIAL_SCALE_MIN, INNER_CIRCLE_INITIAL_SCALE_MAX,
-                       INNER_CIRCLE_SCALE_MIN, INNER_CIRCLE_SCALE_MAX)
+                       INNER_CIRCLE_SCALE_MIN, INNER_CIRCLE_SCALE_MAX, NUMBER_BORDERS)
 
 
 @dataclass
@@ -36,25 +36,24 @@ def unique_groups(items: list[NumberGroup]) -> list[NumberGroup]:
     return [item for item in items if not (item in seen or seen.add(item))]
 
 
-class NumberMark(Character, HasOuterCircle):
+class NumberMark(Character):
     IMAGE_CENTER = Point(WORD_IMAGE_RADIUS, WORD_IMAGE_RADIUS)
     color = SYLLABLE_COLOR
     background = SYLLABLE_BG
 
     def __init__(self, text: str, borders: str):
-        HasOuterCircle.__init__(self, borders, self.IMAGE_CENTER)
-        Character.__init__(self, text, CharacterType.NUMBER_MARK)
-
-        # Image-related attributes
+        super().__init__(text, CharacterType.NUMBER_MARK)
+        distance_info = DistanceInfo()
+        self.distance_info = distance_info
+        self.outer_circle = OuterCircle(self.IMAGE_CENTER, distance_info)
+        self.inner_circle = InnerCircle(self.IMAGE_CENTER, distance_info)
+        self.outer_circle.initialize(borders)
+        self.inner_circle.initialize(borders)
         self._image, self._draw = create_empty_image(self.IMAGE_CENTER)
-        self._outer_circle_args_list: list[dict] = []
-        self._inner_circle_args_list: list[dict] = []
 
         # Scale, radius, and positioning attributes
         self.scale = 0.0
         self._parent_scale = 1.0
-        self.inner_radius = 0.0
-
         self._personal_scale = random.uniform(SYLLABLE_INITIAL_SCALE_MIN, SYLLABLE_INITIAL_SCALE_MAX)
         self._inner_scale = random.uniform(INNER_CIRCLE_INITIAL_SCALE_MIN, INNER_CIRCLE_INITIAL_SCALE_MAX)
         self._update_after_resizing()
@@ -72,35 +71,35 @@ class NumberMark(Character, HasOuterCircle):
     # =============================================
     def press(self, point: Point) -> bool:
         """Handle press events at a given point."""
-        if point.distance() > self.outer_radius + self.half_line_distance:
+        distance = point.distance()
+        if self.outer_circle.outside_circle(distance):
             return False
 
-        return (self._handle_outer_border_press(point) or
+        return (self._handle_outer_border_press(distance) or
                 self._handle_inner_space_press(point) or
                 self._handle_inner_border_press(point) or
                 self._handle_parent_press(point))
 
-    def _handle_outer_border_press(self, point: Point) -> bool:
+    def _handle_outer_border_press(self, distance: float) -> bool:
         """Handle press events on the outer border."""
-        distance = point.distance()
-        if distance > self.outer_radius - self.half_line_distance:
+        if self.outer_circle.on_circle(distance):
             self.pressed_type = PressedType.BORDER
-            self._distance_bias = distance - self.outer_radius
+            self._distance_bias = distance - self.outer_circle.radius
             return True
         return False
 
     def _handle_inner_space_press(self, point: Point) -> bool:
         """Handle press events inside the inner circle."""
-        if point.distance() < self.inner_radius - self.half_line_distance:
+        if self.inner_circle.inside_circle(point.distance()):
             return self._handle_parent_press(point)
         return False
 
     def _handle_inner_border_press(self, point: Point) -> bool:
         """Handle press events on the inner border."""
         distance = point.distance()
-        if distance < self.inner_radius + self.half_line_distance:
+        if self.inner_circle.on_circle(distance):
             self.pressed_type = PressedType.INNER
-            self._distance_bias = distance - self.inner_radius
+            self._distance_bias = distance - self.inner_circle.radius
             return True
         return False
 
@@ -149,45 +148,24 @@ class NumberMark(Character, HasOuterCircle):
     def _adjust_inner_scale(self, distance: float) -> None:
         """Adjust the inner scale based on the moved distance."""
         new_radius = distance - self._distance_bias
-        self._inner_scale = min(max(new_radius / self.outer_radius, INNER_CIRCLE_SCALE_MIN), INNER_CIRCLE_SCALE_MAX)
+        self._inner_scale = min(max(new_radius / self.outer_circle.radius, INNER_CIRCLE_SCALE_MIN), INNER_CIRCLE_SCALE_MAX)
         self._update_after_changing_inner_circle()
 
     def _update_after_resizing(self):
         """Update properties after resizing."""
         self.scale = self._parent_scale * self._personal_scale
-        self.scale_lines(self.scale)
-        self.scale_outer_radius(self.scale)
-        self.create_outer_circle(self.color, self.background)
+        self.distance_info.scale_distance(self.scale)
+        self.outer_circle.scale_borders(self.scale)
+        self.outer_circle.set_radius(self.scale * DEFAULT_WORD_RADIUS)
+        self.outer_circle.create_circle(self.color, self.background)
         self._update_after_changing_inner_circle()
 
     def _update_after_changing_inner_circle(self):
         """Update properties after changing inner circle."""
-        self.inner_radius = self.outer_radius * self._inner_scale
-        self._update_inner_circle_args()
+        self.inner_circle.scale_borders(self.scale)
+        self.inner_circle.set_radius(self.scale * self._inner_scale * DEFAULT_WORD_RADIUS)
+        self.inner_circle.create_circle(self.color, self.background)
         self._redraw()
-
-    # =============================================
-    # Helper Functions for Updating Image Arguments
-    # =============================================
-    def _update_inner_circle_args(self):
-        """Prepare arguments for drawing inner circles."""
-        self._inner_circle_args_list = []
-        if len(self.borders) == 1:
-            adjusted_radius = ensure_min_radius(self.inner_radius + self.half_line_widths[0])
-            self._inner_circle_args_list.append(
-                self._create_circle_args(adjusted_radius, self.line_widths[0]))
-        else:
-            for i in range(2):
-                adjusted_radius = ensure_min_radius(
-                    self.inner_radius + (-1) ** i * self.half_line_distance + self.half_line_widths[i])
-                self._inner_circle_args_list.append(
-                    self._create_circle_args(adjusted_radius, self.line_widths[i]))
-
-    def _create_circle_args(self, adjusted_radius: float, width: float) -> dict:
-        """Generate circle arguments for drawing."""
-        start = self.IMAGE_CENTER.shift(-adjusted_radius).tuple()
-        end = self.IMAGE_CENTER.shift(adjusted_radius).tuple()
-        return {'xy': (start, end), 'outline': self.color, 'fill': self.background, 'width': width}
 
     # =============================================
     # Rotation
@@ -210,13 +188,12 @@ class NumberMark(Character, HasOuterCircle):
     def _redraw(self):
         """Draw the mark."""
         self._draw.rectangle(((0, 0), self._image.size), fill=self.background)
-        self.paste_outer_circle(self._image)
-        for args in self._inner_circle_args_list:
-            self._draw.ellipse(**args)
+        self.outer_circle.paste_circle(self._image)
+        self.inner_circle.redraw_circle(self._draw)
 
     def apply_color_changes(self):
-        self.create_outer_circle(self.color, self.background)
-        self._update_inner_circle_args()
+        self.outer_circle.create_circle(self.color, self.background)
+        self.inner_circle.create_circle(self.color, self.background)
         self._redraw()
 
     def perform_animation(self, direction_sign: int):
@@ -224,13 +201,17 @@ class NumberMark(Character, HasOuterCircle):
         self._set_direction(self.direction + delta)
 
 
-class NumberGroup(HasOuterCircle):
+class NumberGroup:
     IMAGE_CENTER = Point(WORD_IMAGE_RADIUS, WORD_IMAGE_RADIUS)
     background = SYLLABLE_BG
     color = SYLLABLE_COLOR
 
     def __init__(self, digits: list[Digit]):
-        super().__init__('2', self.IMAGE_CENTER)
+        distance_info = DistanceInfo()
+        self.distance_info = distance_info
+        self.outer_circle = OuterCircle(self.IMAGE_CENTER, distance_info)
+        self.outer_circle.initialize(NUMBER_BORDERS)
+
         self.center = Point(random.randint(DEFAULT_WORD_RADIUS, DEFAULT_CANVAS_WIDTH - DEFAULT_WORD_RADIUS),
                             random.randint(DEFAULT_WORD_RADIUS, DEFAULT_CANVAS_HEIGHT - DEFAULT_WORD_RADIUS))
         self.digits = digits
@@ -240,7 +221,6 @@ class NumberGroup(HasOuterCircle):
 
         # Image-related attributes
         self._image, self._draw = create_empty_image(self.IMAGE_CENTER)
-        self._inner_space_image, self._inner_space_draw = create_empty_image(self.IMAGE_CENTER)
         self._image_tk = ImageTk.PhotoImage(image=self._image)
         self.canvas_item_id = None
         self._image_ready = False
@@ -268,7 +248,7 @@ class NumberGroup(HasOuterCircle):
                 return False
 
             self.digits.append(character)
-            character.scale_lines(self.scale)
+            character.scale_borders(self.scale)
             self._update_digits()
 
         elif isinstance(character, NumberMark):
@@ -323,9 +303,10 @@ class NumberGroup(HasOuterCircle):
 
     def _update_after_resizing(self):
         """Update properties after resizing."""
-        self.scale_lines(self.scale)
-        self.scale_outer_radius(self.scale)
-        self.create_outer_circle(self.color, self.background)
+        self.distance_info.scale_distance(self.scale)
+        self.outer_circle.scale_borders(self.scale)
+        self.outer_circle.set_radius(self.scale * DEFAULT_WORD_RADIUS)
+        self.outer_circle.create_circle(self.color, self.background)
 
         if self._minus_sign:
             self._minus_sign.update_scale(self.scale)
@@ -334,37 +315,38 @@ class NumberGroup(HasOuterCircle):
             self._number_mark.update_scale(self.scale)
 
         for digit in self.digits:
-            digit.scale_lines(self.scale)
+            digit.scale_borders(self.scale)
         self._update_digits()
 
     def _update_digits(self) -> None:
         if not self.digits:
             return
 
-        double_border_digits = [digit for digit in self.digits if len(digit.borders) > 1]
-        border_space_width = len(double_border_digits) * 2 * self.half_line_distance
+        line_distance = 2 * self.distance_info.half_distance
+        double_border_digits = [digit for digit in self.digits if digit.inner_circle.num_borders() > 1]
+        border_space_width = len(double_border_digits) * line_distance
         base_inner_radius = 0.0
         for i, digit in enumerate(reversed(self.digits)):
-            base_stripe_width = ensure_min_radius(self.outer_radius - base_inner_radius - border_space_width) / (len(self.digits) - i + 1)
+            base_stripe_width = ensure_min_radius(self.outer_circle.radius - base_inner_radius - border_space_width) / (len(self.digits) - i + 1)
             digit.update_inner_radius(base_inner_radius, base_stripe_width)
-            base_inner_radius = digit.inner_radius
+            base_inner_radius = digit.inner_circle.radius
             if digit in double_border_digits:
-                border_space_width -= 2 * self.half_line_distance
+                border_space_width -= line_distance
 
-        outer_radius = self.outer_radius
+        outer_radius = self.outer_circle.radius
+        border_info = self.outer_circle.border_info
         for digit in self.digits:
-            digit.update_outer_radius(outer_radius)
-            digit.redraw()
-            outer_radius = digit.inner_radius
+            digit.update_outer_radius(outer_radius, border_info)
+            outer_radius = digit.inner_circle.radius
+            border_info = digit.inner_circle.border_info
             if digit in double_border_digits:
-                outer_radius = ensure_min_radius(outer_radius - 2 * self.half_line_distance)
+                outer_radius = ensure_min_radius(outer_radius - line_distance)
 
-        self._create_inner_space()
         self._image_ready = False
 
     def press(self, point: Point) -> bool:
         syllable_point = point - self.center
-        if syllable_point.distance() > self.outer_radius + self.half_line_distance:
+        if self.outer_circle.outside_circle(syllable_point.distance()):
             return False
 
         return (self._handle_outer_border_press(syllable_point) or
@@ -376,9 +358,9 @@ class NumberGroup(HasOuterCircle):
     def _handle_outer_border_press(self, point: Point) -> bool:
         """Handle press events on the outer border."""
         distance = point.distance()
-        if distance > self.outer_radius - self.half_line_distance:
+        if self.outer_circle.on_circle(distance):
             self.pressed_type = PressedType.BORDER
-            self._distance_bias = distance - self.outer_radius
+            self._distance_bias = distance - self.outer_circle.radius
             return True
         return False
 
@@ -396,8 +378,8 @@ class NumberGroup(HasOuterCircle):
 
     def _handle_mark_press(self, word_point: Point, mark: NumberMark) -> bool:
         """Attempt to press the number mark."""
-        offset_point = word_point - Point(math.cos(mark.direction) * self.outer_radius,
-                                          math.sin(mark.direction) * self.outer_radius)
+        offset_point = word_point - Point(math.cos(mark.direction) * self.outer_circle.radius,
+                                          math.sin(mark.direction) * self.outer_circle.radius)
         if mark.press(offset_point):
             self._pressed = mark
             self.pressed_type = PressedType.CHILD
@@ -440,7 +422,7 @@ class NumberGroup(HasOuterCircle):
     def _move_child(self, word_point: Point):
         """Move a pressed child syllable."""
         if isinstance(self._pressed, NumberMark):
-            self._pressed.move(word_point, self.outer_radius)
+            self._pressed.move(word_point, self.outer_circle.radius)
         else:
             self._pressed.move(word_point)
             self._update_digits()
@@ -454,15 +436,6 @@ class NumberGroup(HasOuterCircle):
         end = self.IMAGE_CENTER.shift(adjusted_radius).tuple()
         return {'xy': (start, end), 'outline': self.color, 'fill': self.background, 'width': width}
 
-    def _create_inner_space(self):
-        """Draw the inner space for the number group."""
-        self._inner_space_draw.rectangle(((0, 0), self._inner_space_image.size), fill=0)
-        if self.digits:
-            radius = self.digits[-1].inner_radius
-            start = self.IMAGE_CENTER.shift(-radius - 1).tuple()
-            end = self.IMAGE_CENTER.shift(radius + 1).tuple()
-            self._inner_space_draw.ellipse((start, end), fill=self.background)
-
     # =============================================
     # Drawing
     # =============================================
@@ -471,12 +444,8 @@ class NumberGroup(HasOuterCircle):
         # Clear the image
         self._draw.rectangle(((0, 0), self._image.size), fill=self.background)
 
-        for digit in self.digits:
-            digit.paste_decorations(self._image)
-        self._image.paste(self._inner_space_image, mask=self._inner_space_image)
-
-        for digit in self.digits:
-            digit.paste_inner_circle(self._image)
+        for digit in reversed(self.digits):
+            digit.paste_image(self._image)
 
         if self._minus_sign:
             self._paste_mark(self._minus_sign)
@@ -485,14 +454,14 @@ class NumberGroup(HasOuterCircle):
             self._paste_mark(self._number_mark)
 
         # Paste the outer circle image
-        self.paste_outer_circle(self._image)
+        self.outer_circle.paste_circle(self._image)
         self._image_ready = True
 
     def _paste_mark(self, mark: NumberMark):
         mark_image = mark.get_image()
         xy = (self.IMAGE_CENTER - mark.IMAGE_CENTER +
-              Point(math.cos(mark.direction) * self.outer_radius,
-                    math.sin(mark.direction) * self.outer_radius)).tuple()
+              Point(math.cos(mark.direction) * self.outer_circle.radius,
+                    math.sin(mark.direction) * self.outer_circle.radius)).tuple()
         self._image.paste(mark_image, xy, mark_image)
 
     def paste_image(self, image: Image.Image, position: Point):
@@ -517,8 +486,7 @@ class NumberGroup(HasOuterCircle):
 
     def apply_color_changes(self):
         """Apply color changes to the number group."""
-        self.create_outer_circle(self.color, self.background)
-        self._create_inner_space()
+        self.outer_circle.create_circle(self.color, self.background)
         for digit in self.digits:
             digit.apply_color_changes()
         if self._minus_sign:

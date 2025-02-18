@@ -154,7 +154,6 @@ class ColorSchemeWindow(tk.Toplevel):
         self.dots = []
         self.vowels = []
         self.consonants = []
-        self.word.outer_circle_scale = 1.4
         for syllable in self.word.syllables:
             syllable.set_scale(0.5)
             syllable.set_inner_scale(0.5)

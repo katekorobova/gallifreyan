@@ -7,8 +7,9 @@ from itertools import repeat
 
 from PIL import ImageDraw
 
+from .circles import OuterCircle, InnerCircle
 from ..tools import AnimationProperties
-from ..utils import Point, get_line_width
+from ..utils import Point, get_line_width, get_half_line_distance
 from ...config import SYLLABLE_IMAGE_RADIUS
 
 
@@ -82,10 +83,10 @@ class Letter(Character, ABC):
         self.half_line_widths = list(repeat(0.0, length))
         self._half_line_distance = 0.0
 
-    def initialize(self, syllable):
+    def initialize(self, direction: float, scale: float, outer_circle: OuterCircle, inner_circle: InnerCircle):
         """Initialize the letter's properties based on a given syllable."""
-        self.update_direction(syllable.direction)
-        self.resize(syllable)
+        self.update_direction(direction)
+        self.resize(scale, outer_circle, inner_circle)
 
     @abstractmethod
     def press(self, point: Point) -> bool:
@@ -95,11 +96,11 @@ class Letter(Character, ABC):
     def move(self, point: Point):
         """Handle a move event to a given point."""
 
-    def _update_properties_after_resizing(self, syllable):
+    def _update_properties_after_resizing(self, scale: float, outer_circle: OuterCircle, inner_circle: InnerCircle):
         """Update letter properties after resizing based on the given syllable."""
-        self.line_widths = [get_line_width(border, syllable.scale) for border in self.borders]
+        self.line_widths = [get_line_width(border, scale) for border in self.borders]
         self.half_line_widths = [width / 2 for width in self.line_widths]
-        self._half_line_distance = syllable.half_line_distance
+        self._half_line_distance = get_half_line_distance(scale)
 
     def _update_properties_after_rotation(self):
         """Update letter properties after rotation."""
@@ -127,9 +128,9 @@ class Letter(Character, ABC):
         self.personal_direction = personal_direction
         self.direction = self.parent_direction + self.personal_direction
 
-    def resize(self, syllable):
+    def resize(self, scale: float, outer_circle: OuterCircle, inner_circle: InnerCircle):
         """Resize the letter based on the given syllable."""
-        self._update_properties_after_resizing(syllable)
+        self._update_properties_after_resizing(scale, outer_circle, inner_circle)
         self.update_argument_dictionaries()
 
     @abstractmethod

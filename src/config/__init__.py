@@ -74,6 +74,7 @@ SYLLABLE_IMAGE_RADIUS = math.ceil((DEFAULT_WORD_RADIUS
 # Line Width Constants
 # =============================================
 WORD_BORDERS = '21'
+NUMBER_BORDERS = '2'
 LINE_WIDTHS = {'1': 3, '2': 8}
 MIN_LINE_WIDTH = {'1': 1, '2': 2}
 

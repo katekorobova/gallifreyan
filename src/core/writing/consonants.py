@@ -9,6 +9,7 @@ from enum import Enum
 from PIL import ImageDraw
 
 from .characters import Letter, CharacterType
+from .circles import OuterCircle, InnerCircle
 from ..utils import Point, get_line_width
 from ...config import (SYLLABLE_BG, SYLLABLE_COLOR, DOT_COLOR,
                        DEFAULT_DOT_RADIUS, MIN_RADIUS)
@@ -152,13 +153,12 @@ class LineBasedConsonant(Consonant, ABC):
         point -= self._bias
         self.set_direction(point.direction() + (-self.ANGLE if self._pressed_id else self.ANGLE))
 
-    def _update_properties_after_resizing(self, syllable):
+    def _update_properties_after_resizing(self, scale: float, outer_circle: OuterCircle, inner_circle: InnerCircle):
         """Update properties after resizing the syllable."""
-        super()._update_properties_after_resizing(syllable)
-
+        super()._update_properties_after_resizing(scale, outer_circle, inner_circle)
         self._line_width = min(self.line_widths)
         self._half_line_width = self._line_width / 2
-        self._distance = syllable.outer_radius
+        self._distance = outer_circle.radius
         self._calculate_endpoints()
 
     def _update_properties_after_rotation(self):
@@ -211,9 +211,9 @@ class RadialLineConsonant(LineBasedConsonant):
         point -= self._bias
         self.set_direction(point.direction())
 
-    def _update_properties_after_resizing(self, syllable):
+    def _update_properties_after_resizing(self, scale: float, outer_circle: OuterCircle, inner_circle: InnerCircle):
         """Update properties after resizing the syllable."""
-        super()._update_properties_after_resizing(syllable)
+        super()._update_properties_after_resizing(scale, outer_circle, inner_circle)
         self._end = self._calculate_endpoint(self.direction)
 
     def _update_properties_after_rotation(self):
@@ -256,9 +256,9 @@ class DiametricalLineConsonant(LineBasedConsonant):
         self._set_personal_direction(0)
         self._polygon_args = {}
 
-    def _update_properties_after_resizing(self, syllable):
+    def _update_properties_after_resizing(self, scale: float, outer_circle: OuterCircle, inner_circle: InnerCircle):
         """Update consonant properties after resizing."""
-        super()._update_properties_after_resizing(syllable)
+        super()._update_properties_after_resizing(scale, outer_circle, inner_circle)
         self._calculate_endpoints()
 
     def _update_properties_after_rotation(self):
@@ -306,10 +306,10 @@ class AngleBasedConsonant(LineBasedConsonant, ABC):
         self._radius = 0.0
         self._arc_args = {}
 
-    def _update_properties_after_resizing(self, syllable):
+    def _update_properties_after_resizing(self, scale: float, outer_circle: OuterCircle, inner_circle: InnerCircle):
         """Update consonant properties after resizing."""
-        super()._update_properties_after_resizing(syllable)
-        self._radius = syllable.inner_radius + syllable.border_offset + 2 * self._half_line_distance
+        super()._update_properties_after_resizing(scale, outer_circle, inner_circle)
+        self._radius = inner_circle.radius + 2 * self._half_line_distance
 
     def update_argument_dictionaries(self):
         """Update the argument dictionary for arc drawing."""
@@ -370,15 +370,14 @@ class DotConsonant(Consonant, ABC):
         self._radius = 0.0
         self._line_width = 0.0
 
-    def _update_properties_after_resizing(self, syllable):
+    def _update_properties_after_resizing(self, scale: float, outer_circle: OuterCircle, inner_circle: InnerCircle):
         """Update consonant properties after resizing."""
-        super()._update_properties_after_resizing(syllable)
-        outer_radius, inner_radius, border_offset = \
-            syllable.outer_radius, syllable.inner_radius, syllable.border_offset
+        super()._update_properties_after_resizing(scale, outer_circle, inner_circle)
+        outer_radius, inner_radius = outer_circle.radius, inner_circle.radius
 
-        self._line_width = get_line_width('1', syllable.scale)
-        self._distance = max((outer_radius + inner_radius + border_offset) / 2, MIN_RADIUS)
-        self._radius = max(syllable.scale * DEFAULT_DOT_RADIUS, MIN_RADIUS)
+        self._line_width = get_line_width('1', scale)
+        self._distance = max((outer_radius + inner_radius) / 2, MIN_RADIUS)
+        self._radius = max(scale * DEFAULT_DOT_RADIUS, MIN_RADIUS)
 
     def _get_bounds(self, center: Point) -> tuple[tuple[int, int], tuple[int, int]]:
         """Calculate bounding box for an ellipse."""
@@ -420,9 +419,9 @@ class DoubleDotConsonant(DotConsonant, ABC):
         else:
             self.set_direction(direction + self.ANGLE)
 
-    def _update_properties_after_resizing(self, syllable):
+    def _update_properties_after_resizing(self, scale: float, outer_circle: OuterCircle, inner_circle: InnerCircle):
         """Update consonant properties after resizing the syllable."""
-        super()._update_properties_after_resizing(syllable)
+        super()._update_properties_after_resizing(scale, outer_circle, inner_circle)
         self._calculate_centers()
 
     def _update_properties_after_rotation(self):
@@ -495,9 +494,9 @@ class SingleDotConsonant(DotConsonant, ABC):
         point -= self._bias
         self.set_direction(point.direction())
 
-    def _update_properties_after_resizing(self, syllable):
+    def _update_properties_after_resizing(self, scale: float, outer_circle: OuterCircle, inner_circle: InnerCircle):
         """Update the properties of the consonant after resizing."""
-        super()._update_properties_after_resizing(syllable)
+        super()._update_properties_after_resizing(scale, outer_circle, inner_circle)
         self._calculate_center()
 
     def _update_properties_after_rotation(self):
@@ -568,45 +567,41 @@ class CircularConsonant(Consonant):
         point -= self._bias
         self.set_direction(point.direction())
 
-    def _update_properties_after_resizing(self, syllable):
+    def _update_properties_after_resizing(self, scale: float, outer_circle: OuterCircle, inner_circle: InnerCircle) -> None:
         """Update the properties of the consonant after resizing."""
-        super()._update_properties_after_resizing(syllable)
-
-        outer_radius = syllable.outer_radius
-        inner_radius = syllable.inner_radius
-        border_offset = syllable.border_offset
-        inner_line_width = syllable.inner_consonant.line_widths[0]
-        inner_half_line_width = syllable.inner_consonant.half_line_widths[0]
-
+        super()._update_properties_after_resizing(scale, outer_circle, inner_circle)
         self._line_width = min(self.line_widths)
         self._half_line_width = self._line_width / 2
-        overlap = min(self._line_width, inner_line_width)
-        distance_adjustment = inner_half_line_width + self._half_line_width - overlap
-        distance_start = inner_radius + border_offset + distance_adjustment
+
+        outer_radius = outer_circle.radius
+        inner_radius = inner_circle.radius
+        inner_half_line_width = inner_circle.border_info.half_line_widths[0]
+        distance_adjustment = abs(inner_half_line_width - self._half_line_width)
+        distance_start = inner_radius + distance_adjustment
 
         self._radius = max((outer_radius - distance_start) / 4, MIN_RADIUS)
         self._distance = distance_start + self._radius
         self._calculate_center()
 
-    def _update_properties_after_rotation(self):
+    def _update_properties_after_rotation(self) -> None:
         """Update the properties of the consonant after rotation."""
         super()._update_properties_after_rotation()
         self._calculate_center()
 
-    def _calculate_center(self):
+    def _calculate_center(self) -> None:
         """Calculate the center position of the circle based on its direction and distance."""
         self._center = Point(math.cos(self.direction) * self._distance,
                              math.sin(self.direction) * self._distance)
 
-    def update_argument_dictionaries(self):
+    def update_argument_dictionaries(self) -> None:
         """Update the drawing arguments for rendering the circle."""
         adjusted_radius = self._radius + self._half_line_width
         start = (self.IMAGE_CENTER + self._center).shift(-adjusted_radius).tuple()
         end = (self.IMAGE_CENTER + self._center).shift(adjusted_radius).tuple()
-        self._ellipse_args = {'xy': (start, end), 'outline': self.color, 'fill': self.background,
-                              'width': self._line_width}
+        self._ellipse_args = {'xy': (start, end), 'outline': self.color,
+                              'fill': self.background, 'width': self._line_width}
 
-    def redraw(self, image: ImageDraw.ImageDraw):
+    def redraw(self, image: ImageDraw.ImageDraw) -> None:
         """Draw the consonant as a circle on the given image."""
         if self._ellipse_args:
             image.ellipse(**self._ellipse_args)

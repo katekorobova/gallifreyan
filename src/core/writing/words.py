@@ -9,12 +9,13 @@ from typing import Optional
 from PIL import ImageTk, Image
 
 from .characters import Character, Separator, CharacterType
-from .circles import HasOuterCircle
+from .circles import OuterCircle, DistanceInfo
 from .syllables import Consonant, Syllable, SeparatorSyllable, AbstractSyllable
 from .vowels import Vowel
 from ..utils import Point, PressedType, create_empty_image
-from ...config import (WORD_IMAGE_RADIUS, DEFAULT_WORD_RADIUS, OUTER_CIRCLE_SCALE_MIN, OUTER_CIRCLE_SCALE_MAX,
-                       WORD_BG, WORD_COLOR, DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT, WORD_BORDERS)
+from ...config import (WORD_BG, WORD_COLOR, DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT,
+                       WORD_IMAGE_RADIUS, DEFAULT_WORD_RADIUS,
+                       OUTER_CIRCLE_SCALE_MIN, OUTER_CIRCLE_SCALE_MAX, WORD_BORDERS)
 
 
 @dataclass
@@ -96,7 +97,7 @@ class SpaceToken(Token):
         return super().insert_characters(index, characters)
 
 
-class Word(Token, HasOuterCircle):
+class Word(Token):
     """Represents a structured word with characters, syllables, and image rendering."""
     IMAGE_CENTER = Point(WORD_IMAGE_RADIUS, WORD_IMAGE_RADIUS)
     background = WORD_BG
@@ -104,11 +105,16 @@ class Word(Token, HasOuterCircle):
 
     def __init__(self, characters: list[Character]):
         """Initialize a Word instance with characters."""
-        HasOuterCircle.__init__(self, WORD_BORDERS, self.IMAGE_CENTER)
-        Token.__init__(self)
+        super().__init__()
+
+        distance_info = DistanceInfo()
+        self.distance_info = distance_info
+        self.outer_circle = OuterCircle(self.IMAGE_CENTER, distance_info)
+        self.outer_circle.initialize(WORD_BORDERS)
+
         self.outer_circle_scale = OUTER_CIRCLE_SCALE_MIN
         self.center = Point(random.randint(DEFAULT_WORD_RADIUS, DEFAULT_CANVAS_WIDTH - DEFAULT_WORD_RADIUS),
-                       random.randint(DEFAULT_WORD_RADIUS, DEFAULT_CANVAS_HEIGHT - DEFAULT_WORD_RADIUS))
+                            random.randint(DEFAULT_WORD_RADIUS, DEFAULT_CANVAS_HEIGHT - DEFAULT_WORD_RADIUS))
 
         # Image-related attributes
         self._image, self._draw = create_empty_image(self.IMAGE_CENTER)
@@ -135,9 +141,10 @@ class Word(Token, HasOuterCircle):
     def update_properties_after_resizing(self):
         """Update properties based on the head syllable scale."""
         head_scale = self.head.scale
-        self.scale_lines(head_scale)
-        self.scale_outer_radius(self.outer_circle_scale * head_scale)
-        self.create_outer_circle(self.color, self.background)
+        self.distance_info.scale_distance(head_scale)
+        self.outer_circle.scale_borders(head_scale)
+        self.outer_circle.set_radius(self.outer_circle_scale * head_scale * DEFAULT_WORD_RADIUS)
+        self.outer_circle.create_circle(self.color, self.background)
 
     def set_syllables(self):
         """Organize characters into syllables and update relationships."""
@@ -162,7 +169,7 @@ class Word(Token, HasOuterCircle):
         word_point = point - self.center
         if self.tail:
             distance = word_point.distance()
-            if self.beyond_border(distance):
+            if self.outer_circle.outside_circle(distance):
                 return False
 
             return (self._handle_outer_border_press(distance) or
@@ -177,16 +184,16 @@ class Word(Token, HasOuterCircle):
 
     def _handle_outer_border_press(self, distance: float) -> bool:
         """Handle press events on the outer border."""
-        if self.on_border(distance):
+        if self.outer_circle.on_circle(distance):
             self.pressed_type = PressedType.BORDER
-            self._distance_bias = distance - self.outer_radius
+            self._distance_bias = distance - self.outer_circle.radius
             return True
         return False
 
     def _handle_tail_press(self, word_point: Point) -> bool:
         """Attempt to press a non-head syllable."""
         for syllable in reversed(self.tail):
-            head_radius = self.head.outer_radius
+            head_radius = self.head.outer_circle.radius
             offset_point = word_point - Point(math.cos(syllable.direction) * head_radius,
                                               math.sin(syllable.direction) * head_radius)
             if syllable.press(offset_point):
@@ -236,7 +243,7 @@ class Word(Token, HasOuterCircle):
             self.head.move(word_point)
             self.update_properties_after_resizing()
         else:
-            head_radius = self.head.outer_radius
+            head_radius = self.head.outer_circle.radius
             self._pressed.move(word_point, head_radius)
 
     # =============================================
@@ -250,8 +257,8 @@ class Word(Token, HasOuterCircle):
             max(new_radius / DEFAULT_WORD_RADIUS / head_scale, OUTER_CIRCLE_SCALE_MIN),
             OUTER_CIRCLE_SCALE_MAX)
 
-        self.scale_outer_radius(self.outer_circle_scale * head_scale)
-        self.create_outer_circle(self.color, self.background)
+        self.outer_circle.set_radius(self.outer_circle_scale * head_scale * DEFAULT_WORD_RADIUS)
+        self.outer_circle.create_circle(self.color, self.background)
 
     # =============================================
     # Insertion and Deletion
@@ -421,7 +428,7 @@ class Word(Token, HasOuterCircle):
                     self._paste_tail(s, head_radius)
 
                 # Paste the outer circle image
-                self.paste_outer_circle(self._image)
+                self.outer_circle.paste_circle(self._image)
             else:
                 # Clear the image
                 self._draw.rectangle(((0, 0), self._image.size), fill=0)
@@ -445,7 +452,7 @@ class Word(Token, HasOuterCircle):
 
     def apply_color_changes(self):
         """Apply color changes to the image and its syllables."""
-        self.create_outer_circle(self.color, self.background)
+        self.outer_circle.create_circle(self.color, self.background)
         for syllable in self.syllables:
             syllable.apply_color_changes()
         self._image_ready = False

@@ -9,13 +9,13 @@ from typing import Optional
 from PIL import ImageTk, Image
 
 from .characters import Character, Separator, CharacterType
-from .circles import OuterCircle, DistanceInfo
-from .syllables import Consonant, Syllable, SeparatorSyllable, AbstractSyllable
-from .vowels import Vowel
 from ..utils import Point, PressedType, create_empty_image
 from ...config import (WORD_BG, WORD_COLOR, DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT,
                        WORD_IMAGE_RADIUS, DEFAULT_WORD_RADIUS,
                        OUTER_CIRCLE_SCALE_MIN, OUTER_CIRCLE_SCALE_MAX, WORD_BORDERS)
+from ...core.writing.characters.vowels import Vowel
+from ...core.writing.common.circles import OuterCircle, DistanceInfo
+from ...core.writing.syllables import Consonant, Syllable, SeparatorSyllable, AbstractSyllable
 
 
 @dataclass

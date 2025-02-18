@@ -5,10 +5,10 @@ from typing import Optional
 from PIL import Image
 
 from .characters import CharacterType, Character, Separator, Space, CharacterInfo
-from .consonants import Consonant
-from .digits import Digit
+from .characters.consonants import Consonant
+from .characters.digits import Digit
+from .characters.vowels import Vowel
 from .numbers import Number, NumberMark
-from .vowels import Vowel
 from .words import Word, SpaceToken, Token
 from .. import repository
 from ..utils import Point

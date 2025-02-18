@@ -10,7 +10,7 @@ from typing import Callable
 from .. import repository
 from ..utils import Point, ColorScheme, ColorSchemeComponent, reset_color_scheme
 from ..widgets import DefaultCanvas, SecondaryLabel, DefaultFrame
-from ..writing.consonants import DotConsonant
+from ..writing.characters.consonants import DotConsonant
 from ..writing.sentences import get_character
 from ..writing.words import Word
 from ...config import (WINDOW_BG, ITEM_BG, TEXT_COLOR, SECONDARY_FONT, BUTTON_HEIGHT, PADX, PADY)

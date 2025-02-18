@@ -7,10 +7,10 @@ from itertools import repeat
 
 from PIL import ImageDraw
 
-from .characters import Letter, CharacterType
-from .circles import OuterCircle, InnerCircle
-from ..utils import Point, PressedType, get_line_width, get_half_line_distance
-from ...config import VOWEL_COLOR, MIN_RADIUS, SYLLABLE_BG
+from ....config import VOWEL_COLOR, MIN_RADIUS, SYLLABLE_BG
+from ....core.utils import Point, PressedType, get_line_width, get_half_line_distance
+from ....core.writing.characters import Letter, CharacterType
+from ....core.writing.common.circles import OuterCircle, InnerCircle
 
 
 class VowelType(str, Enum):

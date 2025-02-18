@@ -8,11 +8,11 @@ from typing import Optional
 
 from PIL import Image
 
-from .characters import Character, CharacterType
-from .circles import DistanceInfo, InnerCircle, BorderInfo
-from ..tools import AnimationProperties
-from ..utils import Point, PressedType, create_empty_image, ensure_min_radius
-from ...config import SYLLABLE_COLOR, SYLLABLE_BG, WORD_IMAGE_RADIUS, DIGIT_SCALE_MIN, DIGIT_SCALE_MAX
+from ....config import SYLLABLE_COLOR, SYLLABLE_BG, WORD_IMAGE_RADIUS, DIGIT_SCALE_MIN, DIGIT_SCALE_MAX
+from ....core.tools import AnimationProperties
+from ....core.utils import Point, PressedType, create_empty_image, ensure_min_radius
+from ....core.writing.characters import Character, CharacterType
+from ....core.writing.common.circles import DistanceInfo, InnerCircle, BorderInfo
 
 
 class DigitType(str, Enum):

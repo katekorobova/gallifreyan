@@ -7,19 +7,19 @@ from typing import Optional
 
 from PIL import Image
 
-from .characters import Letter, Separator, Character
-from .circles import OuterCircle, InnerCircle, DistanceInfo
-from .consonants import Consonant
-from .vowels import Vowel, VowelType
-from .. import repository
-from ..tools import AnimationProperties
-from ..utils import Point, PressedType, create_empty_image
 from ...config import (SYLLABLE_IMAGE_RADIUS, DEFAULT_WORD_RADIUS, SYLLABLE_INITIAL_SCALE_MIN,
                        SYLLABLE_INITIAL_SCALE_MAX,
                        SYLLABLE_SCALE_MIN, SYLLABLE_SCALE_MAX,
                        INNER_CIRCLE_INITIAL_SCALE_MIN, INNER_CIRCLE_INITIAL_SCALE_MAX,
                        INNER_CIRCLE_SCALE_MIN, INNER_CIRCLE_SCALE_MAX,
                        SYLLABLE_BG, SYLLABLE_COLOR, ALEPH)
+from ...core import repository
+from ...core.tools import AnimationProperties
+from ...core.utils import Point, PressedType, create_empty_image
+from ...core.writing.characters import Letter, Separator, Character
+from ...core.writing.characters.consonants import Consonant
+from ...core.writing.characters.vowels import Vowel, VowelType
+from ...core.writing.common.circles import OuterCircle, InnerCircle, DistanceInfo
 
 
 class AbstractSyllable(ABC):

@@ -9,18 +9,15 @@ from typing import Optional
 
 from PIL import Image, ImageTk
 
-from .characters import Character, CharacterType
-from .circles import OuterCircle, DistanceInfo, InnerCircle
-from .digits import Digit
+from .characters import Character, CharacterType, NumberMark
+from .characters.digits import Digit
+from .common.circles import OuterCircle, DistanceInfo
 from .words import Token
-from ..tools import AnimationProperties
 from ..utils import Point, PressedType, create_empty_image, ensure_min_radius
 from ...config import (SYLLABLE_COLOR, SYLLABLE_BG, DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT,
                        WORD_IMAGE_RADIUS, DEFAULT_WORD_RADIUS, MINUS_SIGN,
                        SYLLABLE_INITIAL_SCALE_MIN, SYLLABLE_INITIAL_SCALE_MAX,
-                       SYLLABLE_SCALE_MAX, SYLLABLE_SCALE_MIN,
-                       INNER_CIRCLE_INITIAL_SCALE_MIN, INNER_CIRCLE_INITIAL_SCALE_MAX,
-                       INNER_CIRCLE_SCALE_MIN, INNER_CIRCLE_SCALE_MAX, NUMBER_BORDERS)
+                       SYLLABLE_SCALE_MAX, SYLLABLE_SCALE_MIN, NUMBER_BORDERS)
 
 
 @dataclass
@@ -34,171 +31,6 @@ def unique_groups(items: list[NumberGroup]) -> list[NumberGroup]:
     """Return a list of unique number groups while preserving order."""
     seen = set()
     return [item for item in items if not (item in seen or seen.add(item))]
-
-
-class NumberMark(Character):
-    IMAGE_CENTER = Point(WORD_IMAGE_RADIUS, WORD_IMAGE_RADIUS)
-    color = SYLLABLE_COLOR
-    background = SYLLABLE_BG
-
-    def __init__(self, text: str, borders: str):
-        super().__init__(text, CharacterType.NUMBER_MARK)
-        distance_info = DistanceInfo()
-        self.distance_info = distance_info
-        self.outer_circle = OuterCircle(self.IMAGE_CENTER, distance_info)
-        self.inner_circle = InnerCircle(self.IMAGE_CENTER, distance_info)
-        self.outer_circle.initialize(borders)
-        self.inner_circle.initialize(borders)
-        self._image, self._draw = create_empty_image(self.IMAGE_CENTER)
-
-        # Scale, radius, and positioning attributes
-        self.scale = 0.0
-        self._parent_scale = 1.0
-        self._personal_scale = random.uniform(SYLLABLE_INITIAL_SCALE_MIN, SYLLABLE_INITIAL_SCALE_MAX)
-        self._inner_scale = random.uniform(INNER_CIRCLE_INITIAL_SCALE_MIN, INNER_CIRCLE_INITIAL_SCALE_MAX)
-        self._update_after_resizing()
-
-        self.direction = 0
-        self._set_direction(random.uniform(-math.pi, math.pi))
-
-        # Interaction properties
-        self.pressed_type: Optional[PressedType] = None
-        self._distance_bias = 0.0
-        self._point_bias = Point()
-
-    # =============================================
-    # Pressing
-    # =============================================
-    def press(self, point: Point) -> bool:
-        """Handle press events at a given point."""
-        distance = point.distance()
-        if self.outer_circle.outside_circle(distance):
-            return False
-
-        return (self._handle_outer_border_press(distance) or
-                self._handle_inner_space_press(point) or
-                self._handle_inner_border_press(point) or
-                self._handle_parent_press(point))
-
-    def _handle_outer_border_press(self, distance: float) -> bool:
-        """Handle press events on the outer border."""
-        if self.outer_circle.on_circle(distance):
-            self.pressed_type = PressedType.BORDER
-            self._distance_bias = distance - self.outer_circle.radius
-            return True
-        return False
-
-    def _handle_inner_space_press(self, point: Point) -> bool:
-        """Handle press events inside the inner circle."""
-        if self.inner_circle.inside_circle(point.distance()):
-            return self._handle_parent_press(point)
-        return False
-
-    def _handle_inner_border_press(self, point: Point) -> bool:
-        """Handle press events on the inner border."""
-        distance = point.distance()
-        if self.inner_circle.on_circle(distance):
-            self.pressed_type = PressedType.INNER
-            self._distance_bias = distance - self.inner_circle.radius
-            return True
-        return False
-
-    def _handle_parent_press(self, point: Point) -> bool:
-        """Handle press events for the parent."""
-        self.pressed_type = PressedType.PARENT
-        self._point_bias = point
-        return True
-
-    # =============================================
-    # Repositioning
-    # =============================================
-    def move(self, point: Point, radius=0.0) -> None:
-        """Move the object based on the provided point and number's radius."""
-        shifted = point - Point(math.cos(self.direction) * radius, math.sin(self.direction) * radius)
-        distance = shifted.distance()
-
-        match self.pressed_type:
-            case PressedType.INNER:
-                self._adjust_inner_scale(distance)
-            case PressedType.BORDER:
-                self._adjust_scale(distance)
-            case PressedType.PARENT:
-                if radius:
-                    self._adjust_direction(point)
-
-    # =============================================
-    # Resizing
-    # =============================================
-    def set_scale(self, scale: float) -> None:
-        """Set the personal scale of the object and update properties accordingly."""
-        self._personal_scale = scale
-        self._update_after_resizing()
-
-    def update_scale(self, parent_scale=1.0) -> None:
-        """Update the scale based on the parent scale."""
-        self._parent_scale = parent_scale
-        self._update_after_resizing()
-
-    def _adjust_scale(self, distance: float) -> None:
-        """Adjust the outer scale based on the moved distance."""
-        new_radius = distance - self._distance_bias
-        self.set_scale(min(max(new_radius / DEFAULT_WORD_RADIUS / self._parent_scale,
-                               SYLLABLE_SCALE_MIN), SYLLABLE_SCALE_MAX))
-
-    def _adjust_inner_scale(self, distance: float) -> None:
-        """Adjust the inner scale based on the moved distance."""
-        new_radius = distance - self._distance_bias
-        self._inner_scale = min(max(new_radius / self.outer_circle.radius, INNER_CIRCLE_SCALE_MIN), INNER_CIRCLE_SCALE_MAX)
-        self._update_after_changing_inner_circle()
-
-    def _update_after_resizing(self):
-        """Update properties after resizing."""
-        self.scale = self._parent_scale * self._personal_scale
-        self.distance_info.scale_distance(self.scale)
-        self.outer_circle.scale_borders(self.scale)
-        self.outer_circle.set_radius(self.scale * DEFAULT_WORD_RADIUS)
-        self.outer_circle.create_circle(self.color, self.background)
-        self._update_after_changing_inner_circle()
-
-    def _update_after_changing_inner_circle(self):
-        """Update properties after changing inner circle."""
-        self.inner_circle.scale_borders(self.scale)
-        self.inner_circle.set_radius(self.scale * self._inner_scale * DEFAULT_WORD_RADIUS)
-        self.inner_circle.create_circle(self.color, self.background)
-        self._redraw()
-
-    # =============================================
-    # Rotation
-    # =============================================
-    def _set_direction(self, direction: float):
-        """Set the direction of the number mark."""
-        self.direction = direction
-
-    def _adjust_direction(self, point: Point):
-        """Adjust the direction of the number mark."""
-        adjusted_point = point - self._point_bias
-        self._set_direction(adjusted_point.direction())
-
-    # =============================================
-    # Drawing
-    # =============================================
-    def get_image(self) -> Image.Image:
-        return self._image
-
-    def _redraw(self):
-        """Draw the mark."""
-        self._draw.rectangle(((0, 0), self._image.size), fill=self.background)
-        self.outer_circle.paste_circle(self._image)
-        self.inner_circle.redraw_circle(self._draw)
-
-    def apply_color_changes(self):
-        self.outer_circle.create_circle(self.color, self.background)
-        self.inner_circle.create_circle(self.color, self.background)
-        self._redraw()
-
-    def perform_animation(self, direction_sign: int):
-        delta = direction_sign * 2 * math.pi / AnimationProperties.cycle
-        self._set_direction(self.direction + delta)
 
 
 class NumberGroup:

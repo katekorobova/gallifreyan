@@ -8,11 +8,10 @@ from enum import Enum
 
 from PIL import ImageDraw
 
-from .characters import Letter, CharacterType
-from .circles import OuterCircle, InnerCircle
-from ..utils import Point, get_line_width
-from ...config import (SYLLABLE_BG, SYLLABLE_COLOR, DOT_COLOR,
-                       DEFAULT_DOT_RADIUS, MIN_RADIUS)
+from ....config import SYLLABLE_BG, SYLLABLE_COLOR, DOT_COLOR, DEFAULT_DOT_RADIUS, MIN_RADIUS
+from ....core.utils import Point, get_line_width
+from ....core.writing.characters import Letter, CharacterType
+from ....core.writing.common.circles import OuterCircle, InnerCircle
 
 
 class ConsonantType(Enum):

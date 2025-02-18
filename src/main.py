@@ -15,11 +15,11 @@ from .core.utils import get_default_color_scheme, Point
 from .core.widgets.animation import AnimationWindow
 from .core.widgets.canvas import CanvasFrame
 from .core.widgets.keyboard import SpecialCharactersWindow, ConsonantsWindow, NumbersWindow, VowelsWindow
-from .core.writing.consonants import Consonant, DotConsonant
-from .core.writing.digits import Digit
+from .core.writing.characters.consonants import Consonant, DotConsonant
+from .core.writing.characters.digits import Digit
+from .core.writing.characters.vowels import Vowel
 from .core.writing.numbers import NumberGroup, NumberMark
 from .core.writing.syllables import Syllable
-from .core.writing.vowels import Vowel
 from .core.writing.words import Word
 
 # Padding settings for UI layout

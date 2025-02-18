@@ -6,12 +6,12 @@ from typing import Optional
 
 from PIL import Image
 
-from .config import WINDOW_BG, PADX, PADY
+from .config import WINDOW_BG, PADX, PADY, SCREEN_OFFSET_X, SCREEN_OFFSET_Y
 from .core import repository
 from .core.tools import AnimationProperties
 from .core.tools.colorscheme import (ColorSchemeWindow, ColorScheme, ColorSchemeComponent)
 from .core.tools.export import ProgressWindow, save_image
-from .core.utils import get_default_color_scheme
+from .core.utils import get_default_color_scheme, Point
 from .core.widgets.animation import AnimationWindow
 from .core.widgets.canvas import CanvasFrame
 from .core.widgets.keyboard import SpecialCharactersWindow, ConsonantsWindow, NumbersWindow, VowelsWindow
@@ -46,7 +46,7 @@ class App(tk.Tk):
         self._numbers_window: Optional[NumbersWindow] = None
         self._special_characters_window: Optional[SpecialCharactersWindow] = None
         self._animation_window: Optional[AnimationWindow] = None
-        self._initialize_tool_windows()
+        self._place_tool_windows()
 
     def _configure_window(self):
         """Set up the main application window."""
@@ -150,23 +150,26 @@ class App(tk.Tk):
         self._color_scheme = copy.copy(color_scheme)
         self.canvas_frame.apply_color_changes()
 
-    def _initialize_tool_windows(self):
+    def _place_tool_windows(self):
         """Initialize the tool windows."""
-        self._consonants_window = ConsonantsWindow(self, self.canvas_frame.entry)
-        self._vowels_window = VowelsWindow(self, self.canvas_frame.entry)
-        self._numbers_window = NumbersWindow(self, self.canvas_frame.entry)
-        self._special_characters_window = SpecialCharactersWindow(self, self.canvas_frame.entry)
-        self._animation_window = AnimationWindow(self, self._set_animation_state)
-
         self.update_idletasks()
-        start_x = self.winfo_screenwidth() - 8
-        start_y = 24
-        new_x, new_y = self._vowels_window.place(x=start_x, y=start_y)
-        self._consonants_window.place(x=new_x, y=start_y)
-        new_y += 32
-        new_x, _ = self._numbers_window.place(x=start_x, y=new_y)
-        new_x, _ = self._special_characters_window.place(x=new_x, y=new_y)
-        self._animation_window.place(x=new_x, y=new_y)
+        start_x, start_y = self.winfo_screenwidth() - SCREEN_OFFSET_X, SCREEN_OFFSET_Y
+
+        position = Point(start_x, start_y)
+        self._vowels_window = VowelsWindow(self, self.canvas_frame.entry, position=position)
+
+        position.y = start_y
+        self._consonants_window = ConsonantsWindow(self, self.canvas_frame.entry, position=position)
+
+        start_y = position.y
+        position.x = start_x
+        self._numbers_window = NumbersWindow(self, self.canvas_frame.entry, position=position)
+
+        position.y = start_y
+        self._special_characters_window = SpecialCharactersWindow(self, self.canvas_frame.entry, position=position)
+
+        position.y = start_y
+        self._animation_window = AnimationWindow(self, self._set_animation_state, position=position)
 
     def _animation_loop(self):
         """Recursively triggers the animation loop."""

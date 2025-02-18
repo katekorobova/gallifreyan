@@ -98,3 +98,7 @@ ALEPH = 'א'  # Hebrew Aleph letter
 SEPARATOR = '|'
 SPACE = ' '
 MINUS_SIGN = '-'
+
+SCREEN_OFFSET_X = 8
+SCREEN_OFFSET_Y = 24
+TITLE_BAR_HEIGHT = 32

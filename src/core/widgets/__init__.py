@@ -1,9 +1,10 @@
 import tkinter as tk
 from typing import Callable
 
+from ..utils import Point
 from ...config import (ITEM_BG, PRESSED_BG, CANVAS_BG,
                        DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT, BUTTON_HEIGHT,
-                       TEXT_COLOR, LABEL_TEXT_COLOR, PRIMARY_FONT, SECONDARY_FONT, WINDOW_BG)
+                       TEXT_COLOR, LABEL_TEXT_COLOR, PRIMARY_FONT, SECONDARY_FONT, WINDOW_BG, TITLE_BAR_HEIGHT)
 
 
 class DefaultWindow(tk.Toplevel):
@@ -14,11 +15,13 @@ class DefaultWindow(tk.Toplevel):
         self.resizable(False, False)
         self.transient(master)
 
-    def place(self, x: int, y: int) -> tuple[int, int]:
-        self.update()
-        self.geometry(f'+{x - self.winfo_width()}+{y}')
-        self.update()
-        return self.winfo_x(), self.winfo_y() + self.winfo_height()
+    def place(self, position: Point) -> None:
+        self.update_idletasks()
+        width, height = self.winfo_width(), self.winfo_height()
+        self.geometry(f'+{position.x - width}+{position.y}')
+
+        position.x -= width
+        position.y += height + TITLE_BAR_HEIGHT
 
 
 class DefaultFrame(tk.Frame):

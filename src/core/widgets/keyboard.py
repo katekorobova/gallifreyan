@@ -1,8 +1,10 @@
 import tkinter as tk
+from typing import Optional
 
 from PIL import Image, ImageTk
 
 from . import DefaultLabel, DefaultWindow, DefaultFrame
+from ..utils import Point
 from ..writing.characters import CharacterType
 from ...config import (PRESSED_BG, ITEM_BG, PRIMARY_FONT, PADX, PADY,
                        BUTTON_WIDTH, BUTTON_HEIGHT, BUTTON_IMAGE_SIZE,
@@ -77,34 +79,6 @@ class TableFrame(DefaultFrame):
         return label
 
 
-class ConsonantsWindow(DefaultWindow):
-    """A toplevel window containing buttons for letter input."""
-    def __init__(self, win: tk.Tk, entry: tk.Entry):
-        super().__init__(win, 'Consonants')
-        consonants_table = TableFrame(CharacterType.CONSONANT, self, entry)
-        consonants_table.grid(row=0, column=0, padx=PADX, pady=PADY, sticky=tk.NSEW)
-
-
-class VowelsWindow(DefaultWindow):
-    """A toplevel window containing buttons for letter input."""
-    def __init__(self, win: tk.Tk, entry: tk.Entry):
-        super().__init__(win, 'Vowels')
-        vowels_table = TableFrame(CharacterType.VOWEL, self, entry)
-        vowels_table.grid(row=0, column=0, padx=PADX, pady=PADY, sticky=tk.NSEW)
-
-
-class NumbersWindow(DefaultWindow):
-    """A toplevel window containing buttons for letter input."""
-    def __init__(self, win: tk.Tk, entry: tk.Entry):
-        super().__init__(win, 'Numbers')
-
-        digits_table = TableFrame(CharacterType.DIGIT, self, entry)
-        marks_column = ColumnFrame(CharacterType.NUMBER_MARK, self, entry)
-
-        digits_table.grid(row=0, column=0, padx=PADX, pady=PADY, sticky=tk.NSEW)
-        marks_column.grid(row=0, column=1, padx=padx, pady=PADY, sticky=tk.S)
-
-
 class ColumnFrame(DefaultFrame):
     """A frame containing buttons for letter input."""
 
@@ -145,13 +119,53 @@ class ColumnFrame(DefaultFrame):
         return label
 
 
+class ConsonantsWindow(DefaultWindow):
+    """A toplevel window containing buttons for letter input."""
+    def __init__(self, win: tk.Tk, entry: tk.Entry, position: Point = None):
+        super().__init__(win, 'Consonants')
+        consonants_table = TableFrame(CharacterType.CONSONANT, self, entry)
+        consonants_table.grid(row=0, column=0, padx=PADX, pady=PADY, sticky=tk.NSEW)
+
+        if position:
+            self.place(position)
+
+
+class VowelsWindow(DefaultWindow):
+    """A toplevel window containing buttons for letter input."""
+    def __init__(self, win: tk.Tk, entry: tk.Entry, position: Point = None):
+        super().__init__(win, 'Vowels')
+        vowels_table = TableFrame(CharacterType.VOWEL, self, entry)
+        vowels_table.grid(row=0, column=0, padx=PADX, pady=PADY, sticky=tk.NSEW)
+
+        if position:
+            self.place(position)
+
+
+class NumbersWindow(DefaultWindow):
+    """A toplevel window containing buttons for letter input."""
+    def __init__(self, win: tk.Tk, entry: tk.Entry, position: Point = None):
+        super().__init__(win, 'Numbers')
+
+        digits_table = TableFrame(CharacterType.DIGIT, self, entry)
+        marks_column = ColumnFrame(CharacterType.NUMBER_MARK, self, entry)
+
+        digits_table.grid(row=0, column=0, padx=PADX, pady=PADY, sticky=tk.NSEW)
+        marks_column.grid(row=0, column=1, padx=padx, pady=PADY, sticky=tk.S)
+
+        if position:
+            self.place(position)
+
+
 class SpecialCharactersWindow(DefaultWindow):
     """A frame containing buttons for special characters."""
 
-    def __init__(self, win: tk.Tk, entry: tk.Entry):
+    def __init__(self, win: tk.Tk, entry: tk.Entry, position: Point = None):
         super().__init__(win, 'Special Characters')
         table = self._create_table([(SPACE, 'Space'), (SEPARATOR, 'Syllable Separator')], entry)
         table.grid(row=0, column=0, padx=PADX, pady=PADY, sticky=tk.W)
+
+        if position:
+            self.place(position)
 
     def _create_table(self, characters: list[tuple[str, str]], entry: tk.Entry) -> tk.Frame:
         """Creates and places buttons for special characters."""

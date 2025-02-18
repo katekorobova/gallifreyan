@@ -3,6 +3,7 @@ from typing import Callable
 
 from . import ToolButton, DefaultWindow
 from ..tools import AnimationProperties
+from ..utils import Point
 from ...config import (CYCLE_MIN, CYCLE_MAX, CYCLE_STEP, DELAY_MIN, DELAY_MAX, DELAY_STEP,
                        ITEM_BG, PRESSED_BG, TEXT_COLOR, PADX, PADY, SECONDARY_FONT)
 
@@ -13,7 +14,7 @@ pady = (0, PADY)
 class AnimationWindow(DefaultWindow):
     """A frame that controls animation."""
 
-    def __init__(self, win: tk.Tk, command: Callable[[bool], None]):
+    def __init__(self, win: tk.Tk, command: Callable[[bool], None], position: Point = None):
         super().__init__(win, 'Animation')
         self.protocol('WM_DELETE_WINDOW', lambda: self._destroy(command))
 
@@ -24,6 +25,9 @@ class AnimationWindow(DefaultWindow):
         button.grid(row=0, column=0, padx=PADX, pady=PADY)
         cycle_scale.grid(row=1, column=0, sticky=tk.NSEW, padx=PADX, pady=pady)
         delay_scale.grid(row=2, column=0, sticky=tk.NSEW, padx=PADX, pady=pady)
+
+        if position:
+            self.place(position)
 
     def _create_scale(self, attribute: str) -> tk.Scale:
         match attribute:

@@ -1,8 +1,12 @@
 import logging
 import tkinter as tk
+from typing import Optional
+
+from PIL import Image
 
 from . import DefaultFrame, DefaultLabel, DefaultCanvas
-from ...config import ITEM_BG, TEXT_COLOR, PADX, PADY, FONT
+from ..utils import Point
+from ...config import ITEM_BG, TEXT_COLOR, PADX, PADY, PRIMARY_FONT
 from ...core import repository
 from ...core.writing.sentences import Sentence
 
@@ -20,53 +24,63 @@ class CanvasFrame(DefaultFrame):
         super().__init__(win)
         self.sentence = Sentence()
 
-        label = DefaultLabel(self, text='Start Typing Your Transcription Here')
 
         # Entry widget with validation
         self.entry = tk.Entry(
-            self, font=FONT, fg=TEXT_COLOR, bg=ITEM_BG, insertbackground=TEXT_COLOR,
-            bd=2, relief=tk.RAISED, validate='key',
-            validatecommand=(self.register(self._attempt_action), '%d', '%i', '%S'))
+            self, font=PRIMARY_FONT, fg=TEXT_COLOR, bg=ITEM_BG, insertbackground=TEXT_COLOR,
+            validate='key', validatecommand=(self.register(self._attempt_action), '%d', '%i', '%S'))
 
         # Canvas for drawing
         self.canvas = DefaultCanvas(self)
+        self.label = DefaultLabel(self.canvas, text='Start Typing Your Transcription Here')
+        self.label.place(x=0, y=0)
 
-        label.grid(row=0, column=0, padx=PADX, sticky=tk.W)
-        self.entry.grid(row=1, column=0, padx=PADX, sticky=tk.NSEW)
-        self.canvas.grid(row=2, column=0, padx=PADX, pady=pady, sticky=tk.NSEW)
+        self.entry.pack(fill=tk.X)
+        self.canvas.pack(fill=tk.BOTH, expand=True)
 
         # Canvas event bindings
         self._bind_canvas_events()
+        self._redraw()
 
-    def perform_animation(self):
+    def configure_background(self, bg: str) -> None:
+        self.canvas.configure(bg=bg)
+        self.label.configure(bg=bg)
+
+    def get_image(self) -> Optional[Image.Image]:
+        bbox = self.canvas.bbox('all')
+        if not bbox:
+            return None
+        return self.sentence.get_image(Point(*bbox[:2]), Point(*bbox[2:]))
+
+    def perform_animation(self) -> None:
         """Trigger the animation process for the sentence and redraw the canvas."""
         self.sentence.perform_animation()
         self._redraw()
 
-    def _bind_canvas_events(self):
+    def _bind_canvas_events(self) -> None:
         """Bind mouse events to canvas actions."""
         self.canvas.bind('<Button-1>', self._press)
         self.canvas.bind('<B1-Motion>', self._move)
         self.canvas.bind('<ButtonRelease-1>', self._release)
 
-    def _press(self, event: tk.Event):
+    def _press(self, event: tk.Event) -> None:
         """Handle mouse button press on canvas."""
         self.sentence.press(event)
 
-    def _move(self, event: tk.Event):
+    def _move(self, event: tk.Event) -> None:
         """Handle mouse drag movement."""
         if self.sentence.move(event):
             self._redraw()
 
-    def _release(self, _):
+    def _release(self, _) -> None:
         """Handle mouse button release."""
         self.sentence.release()
 
-    def _redraw(self):
+    def _redraw(self) -> None:
         """Update the displayed image."""
         self.sentence.put_image(self.canvas)
 
-    def apply_color_changes(self):
+    def apply_color_changes(self) -> None:
         """Apply color changes to the sentence and update the displayed image."""
         self.sentence.apply_color_changes()
         self.sentence.put_image(self.canvas)

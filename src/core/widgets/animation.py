@@ -1,8 +1,9 @@
 import tkinter as tk
 from typing import Callable
 
-from . import DefaultFrame, ToolButton
+from . import ToolButton, DefaultWindow
 from ..tools import AnimationProperties
+from ..utils import Point
 from ...config import (CYCLE_MIN, CYCLE_MAX, CYCLE_STEP, DELAY_MIN, DELAY_MAX, DELAY_STEP,
                        ITEM_BG, PRESSED_BG, TEXT_COLOR, PADX, PADY, SECONDARY_FONT)
 
@@ -10,11 +11,12 @@ padx = (0, PADX)
 pady = (0, PADY)
 
 
-class AnimationFrame(DefaultFrame):
+class AnimationWindow(DefaultWindow):
     """A frame that controls animation."""
 
-    def __init__(self, win: tk.Misc, command: Callable[[bool], None]):
-        super().__init__(win)
+    def __init__(self, win: tk.Tk, command: Callable[[bool], None], position: Point = None):
+        super().__init__(win, 'Animation')
+        self.protocol('WM_DELETE_WINDOW', lambda: self._destroy(command))
 
         button = ToolButton(self, 'Animation', command)
         cycle_scale = self._create_scale('cycle')
@@ -23,6 +25,9 @@ class AnimationFrame(DefaultFrame):
         button.grid(row=0, column=0, padx=PADX, pady=PADY)
         cycle_scale.grid(row=1, column=0, sticky=tk.NSEW, padx=PADX, pady=pady)
         delay_scale.grid(row=2, column=0, sticky=tk.NSEW, padx=PADX, pady=pady)
+
+        if position:
+            self.place(position)
 
     def _create_scale(self, attribute: str) -> tk.Scale:
         match attribute:
@@ -47,6 +52,11 @@ class AnimationFrame(DefaultFrame):
                          command=lambda value: self._change_value(value, attribute))
         scale.set(getattr(AnimationProperties, attribute))
         return scale
+
+    def _destroy(self, command: Callable[[bool], None]) -> None:
+        command(False)
+        self.destroy()
+
 
     @staticmethod
     def _change_value(value: str, attribute: str):

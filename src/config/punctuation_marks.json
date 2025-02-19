@@ -1,0 +1,6 @@
+{
+  "borders": ["1", "11", "2", "22", "21", "12"],
+  "characters": ["'", ",", "?", "!", "^", "."],
+  "descriptions": ["Apostrophe", "Comma", "Question Mark", "Exclamation Point", "Start Indicator", "Period"],
+  "disabled": []
+}

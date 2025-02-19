@@ -45,7 +45,7 @@ class Vowel(Letter, ABC):
             self._position_bias = delta
             self._pressed_type = PressedType.SELF
             return self._pressed_type
-        return self._pressed_type
+        return None
 
     def move(self, point: Point, radius=0.0) -> None:
         """Move the vowel based on the pressed type."""

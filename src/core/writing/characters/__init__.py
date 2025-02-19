@@ -74,6 +74,11 @@ class Separator(Character):
 class InteractiveCharacter(Character, Interactive, ABC):
     """Abstract base class representing an interactive character."""
 
+    def __init__(self, text: str, character_type: CharacterType):
+        """Initialize an InteractiveCharacter instance."""
+        Character.__init__(self, text, character_type)
+        Interactive.__init__(self)
+
 
 class Letter(InteractiveCharacter, ABC):
     """Abstract base class representing a generic letter."""

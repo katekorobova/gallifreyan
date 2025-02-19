@@ -93,6 +93,10 @@ class SpaceToken(Token):
 class InteractiveToken(Token, Interactive, ABC):
     """Abstract class representing a token with interactive properties."""
 
+    def __init__(self):
+        Token.__init__(self)
+        Interactive.__init__(self)
+
 
 class Word(InteractiveToken):
     """Represents a structured word with characters, syllables, and image rendering."""

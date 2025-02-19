@@ -9,7 +9,7 @@ from .characters.consonants import Consonant
 from .characters.digits import Digit
 from .characters.vowels import Vowel
 from .numbers import Number, NumberMark
-from .words import Word, SpaceToken, Token
+from .words import Word, SpaceToken, Token, InteractiveToken
 from .. import repository
 from ..utils import Point
 
@@ -69,8 +69,8 @@ class Sentence:
     def __init__(self):
         """Initialize an empty Sentence object."""
         self.tokens_by_indices: list[Optional[Token]] = []
-        self.visible_tokens: list[Token] = []
-        self.pressed_token: Optional[Token] = None
+        self.visible_tokens: list[InteractiveToken] = []
+        self.pressed_token: Optional[InteractiveToken] = None
         self.characters: list[Character] = []
 
     # =============================================
@@ -78,15 +78,17 @@ class Sentence:
     # =============================================
     def press(self, event: Event) -> None:
         """Handle mouse button press on canvas."""
+        point = Point(event.x, event.y)
         for token in reversed(self.visible_tokens):
-            if token and token.press(Point(event.x, event.y)):
+            if token and token.press(point):
                 self.pressed_token = token
                 return
 
     def move(self, event: Event) -> bool:
         """Handle mouse drag movement."""
         if self.pressed_token:
-            self.pressed_token.move(Point(event.x, event.y))
+            point = Point(event.x, event.y)
+            self.pressed_token.move(point)
             return True
         return False
 
@@ -136,6 +138,7 @@ class Sentence:
                 index - self.tokens_by_indices.index(preceding_token), following_characters):
             self.tokens_by_indices[index: index + following_len] = repeat(preceding_token, following_len)
             if following_token in self.visible_tokens:
+                # noinspection PyTypeChecker
                 self.visible_tokens.remove(following_token)
 
     def _clean_up_removed(self, index: int, end_index: int) -> None:

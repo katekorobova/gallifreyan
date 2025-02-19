@@ -7,6 +7,7 @@ from typing import Optional
 
 from PIL import Image
 
+from .common import Interactive
 from ...config import (SYLLABLE_IMAGE_RADIUS, DEFAULT_WORD_RADIUS, SYLLABLE_INITIAL_SCALE_MIN,
                        SYLLABLE_INITIAL_SCALE_MAX,
                        SYLLABLE_SCALE_MIN, SYLLABLE_SCALE_MAX,
@@ -75,7 +76,7 @@ class SeparatorSyllable(AbstractSyllable):
         return False
 
 
-class Syllable(AbstractSyllable):
+class Syllable(AbstractSyllable, Interactive):
     """
     Represents a structured syllable, which may consist of consonants and vowels.
     Manages visual representation and interactive behavior.
@@ -115,10 +116,7 @@ class Syllable(AbstractSyllable):
         self.set_direction(random.uniform(-math.pi, math.pi))
 
         # Interaction properties
-        self.pressed_type: Optional[PressedType] = None
-        self._pressed: Optional[Letter] = None
-        self._distance_bias = 0.0
-        self._point_bias = Point()
+        self._pressed_letter: Optional[Letter] = None
 
     # =============================================
     # Initialization
@@ -148,9 +146,8 @@ class Syllable(AbstractSyllable):
         """Add a letter to the syllable, if possible."""
         if isinstance(character, Vowel) and not self.vowel:
             self.vowel = character
-        elif isinstance(character, Consonant) and \
-                not self.second_consonant and not self.vowel and \
-                Consonant.compatible(self.first_consonant, character):
+        elif (isinstance(character, Consonant) and not self.second_consonant and not self.vowel and
+              Consonant.compatible(self.first_consonant, character)):
             self.second_consonant = character
         else:
             return False
@@ -177,11 +174,11 @@ class Syllable(AbstractSyllable):
     # =============================================
     # Pressing
     # =============================================
-    def press(self, point: Point) -> bool:
+    def press(self, point: Point) -> Optional[PressedType]:
         """Handle press events at a given point."""
         distance = point.distance()
         if self.outer_circle.outside_circle(distance):
-            return False
+            return None
 
         return (self._handle_outer_border_press(distance) or
                 self._handle_visible_vowel_press(point) or
@@ -191,81 +188,83 @@ class Syllable(AbstractSyllable):
                 self._handle_hidden_vowel_press(point) or
                 self._handle_parent_press(point))
 
-    def _handle_outer_border_press(self, distance: float) -> bool:
+    def _handle_outer_border_press(self, distance: float) -> Optional[PressedType]:
         """Handle press events on the outer border."""
         if self.outer_circle.on_circle(distance):
-            self.pressed_type = PressedType.BORDER
             self._distance_bias = distance - self.outer_circle.radius
-            return True
-        return False
+            self._pressed_type = PressedType.OUTER_CIRCLE
+            return self._pressed_type
+        return None
 
-    def _handle_inner_space_press(self, point: Point, distance: float) -> bool:
+    def _handle_inner_space_press(self, point: Point, distance: float) -> Optional[PressedType]:
         """Handle press events inside the inner circle."""
         if self.inner_circle.inside_circle(distance):
             return self._handle_parent_press(point)
-        return False
+        return None
 
-    def _handle_inner_border_press(self, distance: float) -> bool:
+    def _handle_inner_border_press(self, distance: float) -> Optional[PressedType]:
         """Handle press events on the inner border."""
         if self.inner_circle.on_circle(distance):
-            self.pressed_type = PressedType.INNER
             self._distance_bias = distance - self.inner_circle.radius
-            return True
-        return False
+            self._pressed_type = PressedType.INNER_CIRCLE
+            return self._pressed_type
+        return None
 
-    def _handle_parent_press(self, point: Point) -> bool:
+    def _handle_parent_press(self, point: Point) -> Optional[PressedType]:
         """Handle press events for the parent."""
-        self.pressed_type = PressedType.PARENT
         self._point_bias = point
-        return True
+        self._pressed_type = PressedType.SELF
+        return self._pressed_type
 
-    def _handle_visible_vowel_press(self, point: Point) -> bool:
+    def _handle_visible_vowel_press(self, point: Point) -> Optional[PressedType]:
         """Handle press events for visible vowels."""
         if self.vowel and self.vowel.vowel_type is not VowelType.HIDDEN and self.vowel.press(point):
-            self.pressed_type = PressedType.CHILD
-            self._pressed = self.vowel
-            return True
-        return False
+            self._pressed_letter = self.vowel
+            self._pressed_type = PressedType.CHILD
+            return self._pressed_type
+        return None
 
-    def _handle_hidden_vowel_press(self, point: Point) -> bool:
+    def _handle_hidden_vowel_press(self, point: Point) -> Optional[PressedType]:
         """Handle press events for hidden vowels."""
         if self.vowel and self.vowel.vowel_type is VowelType.HIDDEN and self.vowel.press(point):
-            self.pressed_type = PressedType.CHILD
-            self._pressed = self.vowel
-            return True
-        return False
-
-    def _handle_consonant_press(self, point: Point) -> bool:
+            self._pressed_letter = self.vowel
+            self._pressed_type = PressedType.CHILD
+            return self._pressed_type
+        return None
+    def _handle_consonant_press(self, point: Point) -> Optional[PressedType]:
         """Handle press events for consonants."""
         for cons in reversed(self.consonants):
             if cons.press(point):
-                self.pressed_type = PressedType.CHILD
-                self._pressed = cons
-                return True
-        return False
+                self._pressed_letter = cons
+                self._pressed_type = PressedType.CHILD
+                return self._pressed_type
+        return None
 
     # =============================================
     # Repositioning
     # =============================================
     def move(self, point: Point, radius=0.0):
         """Move the object based on the provided point and head syllable's radius."""
-        shifted = point - Point(math.cos(self.direction) * radius, math.sin(self.direction) * radius)
-        distance = shifted.distance()
+        if radius:
+            shifted = point - Point(math.cos(self.direction) * radius, math.sin(self.direction) * radius)
+            distance = shifted.distance()
+        else:
+            shifted = point
+            distance = point.distance()
 
-        match self.pressed_type:
-            case PressedType.INNER:
+        match self._pressed_type:
+            case PressedType.INNER_CIRCLE:
                 self._adjust_inner_scale(distance)
-            case PressedType.BORDER:
+            case PressedType.OUTER_CIRCLE:
                 self._adjust_scale(distance)
-            case PressedType.PARENT:
-                if radius:
-                    self._adjust_direction(point)
+            case PressedType.SELF:
+                self._adjust_direction(point)
             case PressedType.CHILD:
                 self._move_child(shifted)
 
     def _move_child(self, shifted: Point):
         """Move the pressed child element."""
-        self._pressed.move(shifted)
+        self._pressed_letter.move(shifted)
         self._image_ready = False
 
     # =============================================

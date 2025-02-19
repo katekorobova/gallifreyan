@@ -9,6 +9,7 @@ from typing import Optional
 from PIL import ImageTk, Image
 
 from .characters import Character, Separator, CharacterType
+from .common import Interactive
 from ..utils import Point, PressedType, create_empty_image
 from ...config import (WORD_BG, WORD_COLOR, DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT,
                        WORD_IMAGE_RADIUS, DEFAULT_WORD_RADIUS,
@@ -28,8 +29,7 @@ class _RedistributionState:
 def unique_syllables(items: list[AbstractSyllable]) -> list[Syllable]:
     """Return a list of unique syllables while preserving order."""
     seen = set()
-    return [item for item in items
-            if not (item in seen or seen.add(item)) and isinstance(item, Syllable)]
+    return [item for item in items if not (item in seen or seen.add(item)) and isinstance(item, Syllable)]
 
 
 class Token(ABC):
@@ -59,13 +59,6 @@ class Token(ABC):
     def _update_text(self) -> None:
         """Update the word's text representation."""
         self.text = ''.join(character.text for character in self.characters)
-
-    def press(self, point: Point) -> bool:
-        """Handle press events."""
-        return False
-
-    def move(self, point: Point) -> None:
-        """Handle move events."""
 
     def paste_image(self, image: Image.Image, position: Point) -> None:
         """Retrieve the generated image, creating it if necessary."""
@@ -97,7 +90,11 @@ class SpaceToken(Token):
         return super().insert_characters(index, characters)
 
 
-class Word(Token):
+class InteractiveToken(Token, Interactive, ABC):
+    """Abstract class representing a token with interactive properties."""
+
+
+class Word(InteractiveToken):
     """Represents a structured word with characters, syllables, and image rendering."""
     IMAGE_CENTER = Point(WORD_IMAGE_RADIUS, WORD_IMAGE_RADIUS)
     background = WORD_BG
@@ -130,10 +127,7 @@ class Word(Token):
         self.insert_characters(0, characters)
 
         # Interaction properties
-        self.pressed_type: Optional[PressedType] = None
-        self._pressed: Optional[Syllable] = None
-        self._distance_bias = 0.0
-        self._point_bias = Point()
+        self._pressed_syllable: Optional[Syllable] = None
 
     # =============================================
     # Initialization
@@ -164,13 +158,13 @@ class Word(Token):
     # =============================================
     # Pressing
     # =============================================
-    def press(self, point: Point) -> bool:
+    def press(self, point: Point) -> Optional[PressedType]:
         """Handle press events."""
         word_point = point - self.center
         if self.tail:
             distance = word_point.distance()
             if self.outer_circle.outside_circle(distance):
-                return False
+                return None
 
             return (self._handle_outer_border_press(distance) or
                     self._handle_tail_press(word_point) or
@@ -180,58 +174,59 @@ class Word(Token):
         if self.head:
             return self._handle_head_press(word_point)
 
-        return False
+        return None
 
-    def _handle_outer_border_press(self, distance: float) -> bool:
+    def _handle_outer_border_press(self, distance: float) -> Optional[PressedType]:
         """Handle press events on the outer border."""
         if self.outer_circle.on_circle(distance):
-            self.pressed_type = PressedType.BORDER
             self._distance_bias = distance - self.outer_circle.radius
-            return True
-        return False
+            self._pressed_type = PressedType.OUTER_CIRCLE
+            return self._pressed_type
+        return None
 
-    def _handle_tail_press(self, word_point: Point) -> bool:
+    def _handle_tail_press(self, word_point: Point) -> Optional[PressedType]:
         """Attempt to press a non-head syllable."""
         for syllable in reversed(self.tail):
             head_radius = self.head.outer_circle.radius
             offset_point = word_point - Point(math.cos(syllable.direction) * head_radius,
                                               math.sin(syllable.direction) * head_radius)
             if syllable.press(offset_point):
-                self.pressed_type = PressedType.CHILD
-                self._pressed = syllable
-                return True
-        return False
+                self._pressed_syllable = syllable
+                self._pressed_type = PressedType.CHILD
+                return self._pressed_type
+        return None
 
-    def _handle_head_press(self, word_point: Point) -> bool:
+    def _handle_head_press(self, word_point: Point) -> Optional[PressedType]:
         """Attempt to press the head syllable."""
-        if self.head.press(word_point):
-            if self.head.pressed_type == PressedType.PARENT:
-                self.pressed_type = PressedType.PARENT
+        head_pressed_type = self.head.press(word_point)
+        if head_pressed_type:
+            if head_pressed_type == PressedType.SELF:
+                self._pressed_type = PressedType.SELF
                 self._point_bias = word_point
             else:
-                self.pressed_type = PressedType.CHILD
-                self._pressed = self.head
-            return True
-        return False
+                self._pressed_syllable = self.head
+                self._pressed_type = PressedType.CHILD
+            return self._pressed_type
+        return None
 
     def _handle_parent_press(self, word_point: Point) -> bool:
         """Handle press events for the parent."""
-        self.pressed_type = PressedType.PARENT
         self._point_bias = word_point
+        self._pressed_type = PressedType.SELF
         return True
 
     # =============================================
     # Repositioning
     # =============================================
-    def move(self, point: Point) -> None:
+    def move(self, point: Point, radius=0.0) -> None:
         """Handle move events."""
         word_point = point - self.center
-        match self.pressed_type:
+        match self._pressed_type:
             case PressedType.CHILD:
                 self._move_child(word_point)
-            case PressedType.BORDER:
+            case PressedType.OUTER_CIRCLE:
                 self._resize(word_point)
-            case PressedType.PARENT:
+            case PressedType.SELF:
                 self.center = point - self._point_bias
             case _:
                 return
@@ -239,12 +234,12 @@ class Word(Token):
 
     def _move_child(self, word_point: Point) -> None:
         """Move a pressed child syllable."""
-        if self._pressed is self.head:
+        if self._pressed_syllable is self.head:
             self.head.move(word_point)
             self.update_properties_after_resizing()
         else:
             head_radius = self.head.outer_circle.radius
-            self._pressed.move(word_point, head_radius)
+            self._pressed_syllable.move(word_point, head_radius)
 
     # =============================================
     # Resizing

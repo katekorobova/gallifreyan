@@ -5,11 +5,12 @@ import random
 from abc import ABC
 from collections import Counter
 from enum import Enum
+from typing import Optional
 
 from PIL import ImageDraw
 
 from ....config import SYLLABLE_BG, SYLLABLE_COLOR, DOT_COLOR, DEFAULT_DOT_RADIUS, MIN_RADIUS
-from ....core.utils import Point, get_line_width
+from ....core.utils import Point, get_line_width, PressedType
 from ....core.writing.characters import Letter, CharacterType
 from ....core.writing.common.circles import OuterCircle, InnerCircle
 
@@ -52,7 +53,6 @@ class Consonant(Letter, ABC):
         super().__init__(text, CharacterType.CONSONANT, borders)
         self.consonant_type = consonant_type
         self._distance = 0.0
-        self._bias = Point()
 
     @staticmethod
     def get_consonant(text: str, border: str, consonant_type_code: str) -> Consonant:
@@ -128,17 +128,17 @@ class LineBasedConsonant(Consonant, ABC):
             math.cos(angle) * self._distance,
             math.sin(angle) * self._distance)
 
-    def press(self, point: Point) -> bool:
+    def press(self, point: Point) -> Optional[PressedType]:
         """Check if a point interacts with the line."""
         if self._is_within_bounds(point, self.direction - self.ANGLE):
             self._pressed_id = 0
-            self._bias = point - self._ends[0]
-            return True
+            self._position_bias = point - self._ends[0]
+            return self._pressed_type
         if self._is_within_bounds(point, self.direction + self.ANGLE):
             self._pressed_id = 1
-            self._bias = point - self._ends[1]
-            return True
-        return False
+            self._position_bias = point - self._ends[1]
+            return self._pressed_type
+        return None
 
     def _is_within_bounds(self, point: Point, base_angle: float) -> bool:
         """Check if a point is within the interaction bounds."""
@@ -147,9 +147,9 @@ class LineBasedConsonant(Consonant, ABC):
         rotated = Point(math.cos(angle) * distance, math.sin(angle) * distance)
         return 0 < rotated.x < self._distance and -self._half_line_distance < rotated.y < self._half_line_distance
 
-    def move(self, point: Point):
+    def move(self, point: Point, radius=0.0):
         """Move the line based on interaction."""
-        point -= self._bias
+        point -= self._position_bias
         self.set_direction(point.direction() + (-self.ANGLE if self._pressed_id else self.ANGLE))
 
     def _update_properties_after_resizing(self, scale: float, outer_circle: OuterCircle, inner_circle: InnerCircle):
@@ -198,16 +198,16 @@ class RadialLineConsonant(LineBasedConsonant):
         self._polygon_args = {}
         self._set_personal_direction(random.uniform(0.7 * math.pi, 1.3 * math.pi))
 
-    def press(self, point: Point) -> bool:
+    def press(self, point: Point) -> Optional[PressedType]:
         """Check if a point interacts with this consonant."""
         if self._is_within_bounds(point, self.direction):
-            self._bias = point - self._end
-            return True
-        return False
+            self._position_bias = point - self._end
+            return self._pressed_type
+        return None
 
-    def move(self, point: Point):
+    def move(self, point: Point, radius=0.0):
         """Update direction based on moved point."""
-        point -= self._bias
+        point -= self._position_bias
         self.set_direction(point.direction())
 
     def _update_properties_after_resizing(self, scale: float, outer_circle: OuterCircle, inner_circle: InnerCircle):
@@ -396,7 +396,7 @@ class DoubleDotConsonant(DotConsonant, ABC):
         self._pressed_id = 0
         self._ellipse_args: list[dict] = []
 
-    def press(self, point: Point) -> bool:
+    def press(self, point: Point) -> Optional[PressedType]:
         """
         Check if the given point is within the radius of any dot.
         Return True if a dot is pressed, otherwise False.
@@ -404,14 +404,14 @@ class DoubleDotConsonant(DotConsonant, ABC):
         for i, center in enumerate(self._centers):
             delta = point - center
             if delta.distance() < self._radius:
-                self._bias = delta
+                self._position_bias = delta
                 self._pressed_id = i
-                return True
-        return False
+                return self._pressed_type
+        return None
 
-    def move(self, point: Point):
+    def move(self, point: Point, radius=0.0):
         """Move the consonant based on the given point, updating its direction."""
-        point -= self._bias
+        point -= self._position_bias
         direction = point.direction()
         if self._pressed_id:
             self.set_direction(direction - self.ANGLE)
@@ -480,17 +480,17 @@ class SingleDotConsonant(DotConsonant, ABC):
         self._center = Point()
         self._ellipse_args = {}
 
-    def press(self, point: Point) -> bool:
+    def press(self, point: Point) -> Optional[PressedType]:
         """Handle pressing interaction by checking if the point is within the dot's radius."""
         delta = point - self._center
         if delta.distance() < self._radius:
-            self._bias = delta
-            return True
-        return False
+            self._position_bias = delta
+            return self._pressed_type
+        return None
 
-    def move(self, point: Point):
+    def move(self, point: Point, radius=0.0):
         """Update the direction of the consonant when moved."""
-        point -= self._bias
+        point -= self._position_bias
         self.set_direction(point.direction())
 
     def _update_properties_after_resizing(self, scale: float, outer_circle: OuterCircle, inner_circle: InnerCircle):
@@ -553,17 +553,17 @@ class CircularConsonant(Consonant):
         self._ellipse_args = {}
         self._set_personal_direction(random.uniform(0.7 * math.pi, 1.3 * math.pi))
 
-    def press(self, point: Point) -> bool:
+    def press(self, point: Point) -> Optional[PressedType]:
         """Handle pressing interaction by checking if the point is within the circle's radius."""
         delta = point - self._center
         if delta.distance() < self._radius:
-            self._bias = delta
-            return True
-        return False
+            self._position_bias = delta
+            return self._pressed_type
+        return None
 
-    def move(self, point: Point):
+    def move(self, point: Point, radius=0.0):
         """Update the direction of the consonant when moved."""
-        point -= self._bias
+        point -= self._position_bias
         self.set_direction(point.direction())
 
     def _update_properties_after_resizing(self, scale: float, outer_circle: OuterCircle, inner_circle: InnerCircle) -> None:

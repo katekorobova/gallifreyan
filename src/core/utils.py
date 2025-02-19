@@ -15,9 +15,9 @@ from ..config import (LINE_WIDTHS, MIN_LINE_WIDTH, DEFAULT_HALF_LINE_DISTANCE, M
 # =============================================
 class PressedType(Enum):
     """Enumeration for different types of pressed elements."""
-    PARENT = auto()
-    BORDER = auto()
-    INNER = auto()
+    SELF = auto()
+    OUTER_CIRCLE = auto()
+    INNER_CIRCLE = auto()
     CHILD = auto()
 
 

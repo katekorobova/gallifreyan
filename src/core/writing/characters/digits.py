@@ -11,7 +11,7 @@ from PIL import Image
 from ....config import SYLLABLE_COLOR, SYLLABLE_BG, WORD_IMAGE_RADIUS, DIGIT_SCALE_MIN, DIGIT_SCALE_MAX
 from ....core.tools import AnimationProperties
 from ....core.utils import Point, PressedType, create_empty_image, ensure_min_radius
-from ....core.writing.characters import Character, CharacterType
+from ....core.writing.characters import CharacterType, InteractiveCharacter
 from ....core.writing.common.circles import DistanceInfo, InnerCircle, BorderInfo
 
 
@@ -21,7 +21,7 @@ class DigitType(str, Enum):
     LINE = 'l'
 
 
-class Digit(Character, ABC):
+class Digit(InteractiveCharacter, ABC):
     IMAGE_CENTER = Point(WORD_IMAGE_RADIUS, WORD_IMAGE_RADIUS)
     color = SYLLABLE_COLOR
     background = SYLLABLE_BG
@@ -45,9 +45,6 @@ class Digit(Character, ABC):
         self._mask_image, self._mask_draw = create_empty_image(self.IMAGE_CENTER, '1')
         self._image_ready = False
 
-        self._pressed_type: Optional[PressedType] = None
-        self._distance_bias = 0.0
-
     @staticmethod
     def get_digit(text: str, border: str, digit_type_code: str) -> Digit:
         """Factory method to create a vowel instance based on the given type code."""
@@ -61,19 +58,19 @@ class Digit(Character, ABC):
         return digit_classes[digit_type](text, border)
 
     @abstractmethod
-    def press(self, point: Point) -> bool:
+    def press(self, point: Point) -> Optional[PressedType]:
         """Handle a press event at a given point."""
         distance = point.distance()
         if not self.inner_circle.inside_circle(distance) and self.inner_circle.on_circle(distance):
             self._distance_bias = distance - self.inner_circle.radius
-            self._pressed_type = PressedType.INNER
-            return True
-        return False
+            self._pressed_type = PressedType.INNER_CIRCLE
+            return self._pressed_type
+        return None
 
     @abstractmethod
-    def move(self, point: Point) -> None:
+    def move(self, point: Point, radius=0.0) -> None:
         """Handle a move event to a given point."""
-        if self._pressed_type == PressedType.INNER:
+        if self._pressed_type == PressedType.INNER_CIRCLE:
             self._adjust_scale(point)
 
     def update_inner_radius(self, base_inner_radius: float, base_stripe_width: float) -> None:
@@ -174,21 +171,21 @@ class CircularDigit(Digit):
         self._pressed_circle: Optional[_DigitCircle] = None
         self._bias = Point()
 
-    def press(self, point: Point) -> bool:
-        if super().press(point):
-            return True
+    def press(self, point: Point) -> Optional[PressedType]:
+        return super().press(point) or self._handle_child_press(point)
 
+    def _handle_child_press(self, point: Point) -> Optional[PressedType]:
         for circle in reversed(self.circles):
             delta = point - circle.center
             if delta.distance() < circle.radius:
                 self._bias = delta
-                self._pressed_type = PressedType.CHILD
                 self._pressed_circle = circle
-                return True
-        return False
+                self._pressed_type = PressedType.CHILD
+                return self._pressed_type
+        return None
 
-    def move(self, point: Point):
-        super().move(point)
+    def move(self, point: Point, radius=0.0):
+        super().move(point, radius)
         if self._pressed_type == PressedType.CHILD:
             point -= self._bias
             self._pressed_circle.set_direction(point.direction())
@@ -266,19 +263,19 @@ class LineDigit(Digit):
         return (self.inner_circle.radius < rotated.x < self.outer_radius and
                 -half_distance < rotated.y < half_distance)
 
-    def press(self, point: Point) -> bool:
-        if super().press(point):
-            return True
+    def press(self, point: Point) -> Optional[PressedType]:
+        return super().press(point) or self._handle_child_press(point)
 
+    def _handle_child_press(self, point: Point) -> Optional[PressedType]:
         if self._is_within_bounds(point, self.direction):
             self._bias = point - self._end
-            self._pressed_type = PressedType.PARENT
-            return True
-        return False
+            self._pressed_type = PressedType.SELF
+            return self._pressed_type
+        return None
 
-    def move(self, point: Point):
-        super().move(point)
-        if self._pressed_type == PressedType.PARENT:
+    def move(self, point: Point, radius=0.0):
+        super().move(point, radius)
+        if self._pressed_type == PressedType.SELF:
             point -= self._bias
             self.set_direction(point.direction())
 

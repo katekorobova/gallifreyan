@@ -4,6 +4,7 @@ import math
 from abc import ABC
 from enum import Enum
 from itertools import repeat
+from typing import Optional
 
 from PIL import ImageDraw
 
@@ -34,24 +35,22 @@ class Vowel(Letter, ABC):
         self._radius = 0.0
         self._distance = 0.0
         self._center = Point()
-        self._bias = Point()
-        self.pressed_type = PressedType.PARENT
         self._radii = list(repeat(0.0, len(borders)))
         self._ellipse_args: list[dict] = []
 
-    def press(self, point: Point) -> bool:
+    def press(self, point: Point) -> Optional[PressedType]:
         """Press the vowel at a given point."""
         delta = point - self._center
         if delta.distance() < self._radius:
-            self._bias = delta
-            self.pressed_type = PressedType.PARENT
-            return True
-        return False
+            self._position_bias = delta
+            self._pressed_type = PressedType.SELF
+            return self._pressed_type
+        return self._pressed_type
 
-    def move(self, point: Point) -> None:
+    def move(self, point: Point, radius=0.0) -> None:
         """Move the vowel based on the pressed type."""
-        if self.pressed_type == PressedType.PARENT:
-            point -= self._bias
+        if self._pressed_type == PressedType.SELF:
+            point -= self._position_bias
             self.set_direction(point.direction())
 
     def redraw(self, image: ImageDraw.ImageDraw) -> None:

@@ -1,26 +1,23 @@
 from __future__ import annotations
 
 import math
-import random
 from abc import ABC, abstractmethod
+from random import uniform
 from typing import Optional
 
-from PIL import Image
+from PIL.Image import Image
+from PIL.ImageDraw import ImageDraw
 
+from .characters import Letter, Separator, Character
+from .characters.consonants import Consonant
+from .characters.vowels import Vowel, VowelType
 from .common import Interactive
-from ...config import (SYLLABLE_IMAGE_RADIUS, DEFAULT_WORD_RADIUS, SYLLABLE_INITIAL_SCALE_MIN,
-                       SYLLABLE_INITIAL_SCALE_MAX,
-                       SYLLABLE_SCALE_MIN, SYLLABLE_SCALE_MAX,
-                       INNER_CIRCLE_INITIAL_SCALE_MIN, INNER_CIRCLE_INITIAL_SCALE_MAX,
-                       INNER_CIRCLE_SCALE_MIN, INNER_CIRCLE_SCALE_MAX,
-                       SYLLABLE_BG, SYLLABLE_COLOR, ALEPH)
-from ...core import repository
-from ...core.tools import AnimationProperties
-from ...core.utils import Point, PressedType, create_empty_image
-from ...core.writing.characters import Letter, Separator, Character
-from ...core.writing.characters.consonants import Consonant
-from ...core.writing.characters.vowels import Vowel, VowelType
-from ...core.writing.common.circles import OuterCircle, InnerCircle, DistanceInfo
+from .common.circles import OuterCircle, InnerCircle, DistanceInfo
+from .. import repository
+from ..utils import Point, PressedType, create_empty_image
+from ...config import DEFAULT_WORD_RADIUS, SYLLABLE_INITIAL_SCALE_MIN, \
+    SYLLABLE_INITIAL_SCALE_MAX, SYLLABLE_SCALE_MIN, SYLLABLE_SCALE_MAX, INNER_CIRCLE_INITIAL_SCALE_MIN, \
+    INNER_CIRCLE_INITIAL_SCALE_MAX, INNER_CIRCLE_SCALE_MIN, INNER_CIRCLE_SCALE_MAX, SYLLABLE_BG, SYLLABLE_COLOR, ALEPH
 
 
 class AbstractSyllable(ABC):
@@ -81,8 +78,6 @@ class Syllable(AbstractSyllable, Interactive):
     Represents a structured syllable, which may consist of consonants and vowels.
     Manages visual representation and interactive behavior.
     """
-
-    IMAGE_CENTER = Point(SYLLABLE_IMAGE_RADIUS, SYLLABLE_IMAGE_RADIUS)
     background = SYLLABLE_BG
     color = SYLLABLE_COLOR
 
@@ -91,11 +86,11 @@ class Syllable(AbstractSyllable, Interactive):
         super().__init__()
         distance_info = DistanceInfo()
         self.distance_info = distance_info
-        self.outer_circle = OuterCircle(self.IMAGE_CENTER, distance_info)
-        self.inner_circle = InnerCircle(self.IMAGE_CENTER, distance_info)
+        self.outer_circle = OuterCircle(distance_info)
+        self.inner_circle = InnerCircle(distance_info)
 
         # Image-related attributes
-        self._image, self._draw = create_empty_image(self.IMAGE_CENTER)
+        self._image, self._draw = create_empty_image()
         self._image_ready = False
 
         # Core attributes
@@ -106,14 +101,16 @@ class Syllable(AbstractSyllable, Interactive):
         self._update_key_properties()
 
         # Scale, radius, and positioning attributes
-        self.scale = 0.0
+        self._scale = 0.0
+        self._center = Point()
         self._parent_scale = 1.0
-        self._personal_scale = random.uniform(SYLLABLE_INITIAL_SCALE_MIN, SYLLABLE_INITIAL_SCALE_MAX)
-        self.inner_scale = random.uniform(INNER_CIRCLE_INITIAL_SCALE_MIN, INNER_CIRCLE_INITIAL_SCALE_MAX)
-        self._update_properties_after_resizing()
+        self._parent_outer_circle: Optional[OuterCircle] = None
+        self._personal_scale = uniform(SYLLABLE_INITIAL_SCALE_MIN, SYLLABLE_INITIAL_SCALE_MAX)
+        self._inner_scale = uniform(INNER_CIRCLE_INITIAL_SCALE_MIN, INNER_CIRCLE_INITIAL_SCALE_MAX)
+        self._update_after_resizing()
 
-        self.direction = 0
-        self.set_direction(random.uniform(-math.pi, math.pi))
+        self._direction = 0
+        self.set_direction(uniform(-math.pi, math.pi))
 
         # Interaction properties
         self._pressed_letter: Optional[Letter] = None
@@ -126,7 +123,8 @@ class Syllable(AbstractSyllable, Interactive):
         self._following = following
 
     def _update_text(self) -> None:
-        self.text = [item.text for item in [self.first_consonant, self.second_consonant, self.vowel] if item]
+        self.text = ''.join(
+            letter.text for letter in (self.first_consonant, self.second_consonant, self.vowel) if letter)
 
     def _update_key_properties(self) -> None:
         """Update syllable properties such as consonants, letters, and text representation."""
@@ -152,7 +150,7 @@ class Syllable(AbstractSyllable, Interactive):
         else:
             return False
 
-        character.initialize(self.direction, self.scale, self.outer_circle, self.inner_circle)
+        character.initialize(self._direction, self._scale, self.outer_circle, self.inner_circle)
         self._update_key_properties()
         self._image_ready = False
         return True
@@ -176,17 +174,18 @@ class Syllable(AbstractSyllable, Interactive):
     # =============================================
     def press(self, point: Point) -> Optional[PressedType]:
         """Handle press events at a given point."""
-        distance = point.distance()
+        shifted = point - self._center
+        distance = shifted.distance()
         if self.outer_circle.outside_circle(distance):
             return None
 
         return (self._handle_outer_border_press(distance) or
-                self._handle_visible_vowel_press(point) or
-                self._handle_inner_space_press(point, distance) or
+                self._handle_visible_vowel_press(shifted) or
+                self._handle_inner_space_press(shifted, distance) or
                 self._handle_inner_border_press(distance) or
-                self._handle_consonant_press(point) or
-                self._handle_hidden_vowel_press(point) or
-                self._handle_parent_press(point))
+                self._handle_consonant_press(shifted) or
+                self._handle_hidden_vowel_press(shifted) or
+                self._handle_parent_press(shifted))
 
     def _handle_outer_border_press(self, distance: float) -> Optional[PressedType]:
         """Handle press events on the outer border."""
@@ -212,7 +211,7 @@ class Syllable(AbstractSyllable, Interactive):
 
     def _handle_parent_press(self, point: Point) -> Optional[PressedType]:
         """Handle press events for the parent."""
-        self._point_bias = point
+        self._position_bias = point
         self._pressed_type = PressedType.SELF
         return self._pressed_type
 
@@ -243,15 +242,10 @@ class Syllable(AbstractSyllable, Interactive):
     # =============================================
     # Repositioning
     # =============================================
-    def move(self, point: Point, radius=0.0):
+    def move(self, point: Point):
         """Move the object based on the provided point and head syllable's radius."""
-        if radius:
-            shifted = point - Point(math.cos(self.direction) * radius, math.sin(self.direction) * radius)
-            distance = shifted.distance()
-        else:
-            shifted = point
-            distance = point.distance()
-
+        shifted = point - self._center
+        distance = shifted.distance()
         match self._pressed_type:
             case PressedType.INNER_CIRCLE:
                 self._adjust_inner_scale(distance)
@@ -267,64 +261,78 @@ class Syllable(AbstractSyllable, Interactive):
         self._pressed_letter.move(shifted)
         self._image_ready = False
 
+    def _calculate_center(self) -> None:
+        if self._parent_outer_circle:
+            radius = self._parent_outer_circle.radius
+            self._center = Point(math.cos(self._direction) * radius, math.sin(self._direction) * radius)
+        else:
+            self._center = Point()
+
     # =============================================
     # Resizing
     # =============================================
-    def set_scale(self, scale: float):
-        """Set the personal scale of the object and update properties accordingly."""
-        self._personal_scale = scale
-        self._update_properties_after_resizing()
+    def get_scale(self):
+        return self._scale
 
-    def update_scale(self, parent_scale=1.0):
+    def set_parent_outer_circle(self, parent_outer_circle: Optional[OuterCircle]):
+        self._parent_outer_circle = parent_outer_circle
+
+    def set_personal_scale(self, personal_scale: float):
+        """Set the personal scale of the object and update properties accordingly."""
+        self._personal_scale = personal_scale
+        self._update_after_resizing()
+
+    def set_parent_scale(self, parent_scale: float):
         """Update the scale based on the parent scale."""
         self._parent_scale = parent_scale
-        self._update_properties_after_resizing()
+        self._calculate_center()
+        self._update_after_resizing()
 
     def _adjust_scale(self, distance: float):
         """Adjust the outer scale based on the moved distance."""
         new_radius = distance - self._distance_bias
-        self.set_scale(min(max(new_radius / DEFAULT_WORD_RADIUS / self._parent_scale,
-                               SYLLABLE_SCALE_MIN), SYLLABLE_SCALE_MAX))
+        self.set_personal_scale(min(max(new_radius / DEFAULT_WORD_RADIUS / self._parent_scale,
+                                        SYLLABLE_SCALE_MIN), SYLLABLE_SCALE_MAX))
 
     def set_inner_scale(self, scale: float):
         """Set the inner circle scale and update related properties."""
         self._image_ready = False
-        self.inner_scale = scale
-        self.inner_circle.set_radius(self.scale * self.inner_scale * DEFAULT_WORD_RADIUS)
+        self._inner_scale = scale
+        self.inner_circle.set_radius(self._scale * self._inner_scale * DEFAULT_WORD_RADIUS)
         self.inner_circle.create_circle(self.color, self.background)
 
         for consonant in self.consonants:
-            consonant.resize(self.scale, self.outer_circle, self.inner_circle)
+            consonant.resize(self._scale, self.outer_circle, self.inner_circle)
 
         if self.vowel:
-            self.vowel.resize(self.scale, self.outer_circle, self.inner_circle)
+            self.vowel.resize(self._scale, self.outer_circle, self.inner_circle)
 
     def _adjust_inner_scale(self, distance: float):
         """Adjust the inner scale based on the moved distance."""
         new_radius = distance - self._distance_bias
         self.set_inner_scale(min(max(new_radius / self.outer_circle.radius, INNER_CIRCLE_SCALE_MIN), INNER_CIRCLE_SCALE_MAX))
 
-    def _update_properties_after_resizing(self):
+    def _update_after_resizing(self):
         """Update scaling and circle radii, and calculate image properties."""
         self._image_ready = False
-        self.scale = self._parent_scale * self._personal_scale
-        self.distance_info.scale_distance(self.scale)
-        self.outer_circle.scale_borders(self.scale)
-        self.outer_circle.set_radius(self.scale * DEFAULT_WORD_RADIUS)
+        self._scale = self._parent_scale * self._personal_scale
+        self.distance_info.scale_distance(self._scale)
+        self.outer_circle.scale_borders(self._scale)
+        self.outer_circle.set_radius(self._scale * DEFAULT_WORD_RADIUS)
         self.outer_circle.create_circle(self.color, self.background)
 
-        self.inner_circle.scale_borders(self.scale)
-        self.inner_circle.set_radius(self.scale * self.inner_scale * DEFAULT_WORD_RADIUS)
+        self.inner_circle.scale_borders(self._scale)
+        self.inner_circle.set_radius(self._scale * self._inner_scale * DEFAULT_WORD_RADIUS)
         self.inner_circle.create_circle(self.color, self.background)
 
         for consonant in self.consonants:
-            consonant.resize(self.scale, self.outer_circle, self.inner_circle)
+            consonant.resize(self._scale, self.outer_circle, self.inner_circle)
 
         if self.vowel:
-            self.vowel.resize(self.scale, self.outer_circle, self.inner_circle)
+            self.vowel.resize(self._scale, self.outer_circle, self.inner_circle)
 
         if self._following:
-            self._following.update_scale(self.scale)
+            self._following.set_parent_scale(self._scale)
 
     # =============================================
     # Rotation
@@ -332,46 +340,48 @@ class Syllable(AbstractSyllable, Interactive):
     def set_direction(self, direction: float):
         """Set the direction of the object and update letters."""
         self._image_ready = False
-        self.direction = direction
+        self._direction = direction
+        self._calculate_center()
 
         for consonant in self.consonants:
-            consonant.update_direction(direction)
+            consonant.set_parent_direction(direction)
 
         if self.vowel:
-            self.vowel.update_direction(direction)
+            self.vowel.set_parent_direction(direction)
 
     def _adjust_direction(self, point: Point):
         """Adjust the direction of the syllable when moved."""
-        adjusted_point = point - self._point_bias
+        adjusted_point = point - self._position_bias
         self.set_direction(adjusted_point.direction())
 
     # =============================================
     # Drawing
     # =============================================
-    def get_image(self) -> Image:
+    def redraw(self, image: Image, draw: ImageDraw) -> None:
         """Generate the syllable image."""
-        if self._image_ready:
-            return self._image
+        if not self._image_ready:
+            self._create_image()
+        image.paste(self._image, self._center.tuple(), self._image)
 
+    def _create_image(self):
         # Clear the image
         self._draw.rectangle(((0, 0), self._image.size), fill=self.background)
 
         if self.vowel and self.vowel.vowel_type is VowelType.HIDDEN:
-            self.vowel.redraw(self._draw)
+            self.vowel.redraw(self._image, self._draw)
         self._redraw_consonants()
         self.inner_circle.redraw_circle(self._draw)
         if self.vowel and self.vowel.vowel_type is not VowelType.HIDDEN:
-            self.vowel.redraw(self._draw)
+            self.vowel.redraw(self._image, self._draw)
 
         # Paste the outer circle image
         self.outer_circle.paste_circle(self._image)
         self._image_ready = True
-        return self._image
 
     def _redraw_consonants(self):
         """Draw all consonants."""
         for cons in self.consonants:
-            cons.redraw(self._draw)
+            cons.redraw(self._image, self._draw)
 
     def apply_color_changes(self):
         """Update color-dependent arguments."""
@@ -380,24 +390,23 @@ class Syllable(AbstractSyllable, Interactive):
         self.inner_circle.create_circle(self.color, self.background)
 
         for consonant in self.consonants:
-            consonant.update_argument_dictionaries()
+            consonant.apply_color_changes()
 
         if self.vowel:
-            self.vowel.update_argument_dictionaries()
+            self.vowel.apply_color_changes()
 
     # =============================================
     # Animation
     # =============================================
-    def perform_animation(self, direction_sign: int, is_tail: bool):
+    def perform_animation(self, angle: float):
         """Perform an animation step by adjusting directions."""
-        if self.vowel:
-            self.vowel.perform_animation(-direction_sign)
-
+        letter_angle = 2 * angle
         for consonant in self.consonants:
-            consonant.perform_animation(direction_sign)
+            consonant.perform_animation(letter_angle)
+        if self.vowel:
+            self.vowel.perform_animation(-letter_angle)
 
-        if is_tail:
-            delta = direction_sign * 2 * math.pi / AnimationProperties.cycle
-            self.set_direction(self.direction + delta)
+        if self._parent_outer_circle:
+            self.set_direction(self._direction + angle)
         else:
             self._image_ready = False

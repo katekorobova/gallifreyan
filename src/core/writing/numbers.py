@@ -1,21 +1,23 @@
 from __future__ import annotations
 
-import random
 import tkinter as tk
 from dataclasses import dataclass
 from itertools import repeat, count
+from random import uniform
 from typing import Optional
 
-from PIL import Image, ImageTk
+from PIL import ImageTk
+from PIL.Image import Image
+from PIL.ImageDraw import ImageDraw
 
-from .characters import Character, CharacterType, NumberMark, InteractiveCharacter
+from .characters import Character, CharacterType, InteractiveCharacter, TokenType
 from .characters.digits import Digit
-from .common import Interactive
+from .characters.marks import NumberMark
+from .common import CanvasItem
 from .common.circles import OuterCircle, DistanceInfo
 from .words import InteractiveToken
-from ..utils import Point, PressedType, create_empty_image, ensure_min_radius
-from ...config import (SYLLABLE_COLOR, SYLLABLE_BG, DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT,
-                       WORD_IMAGE_RADIUS, DEFAULT_WORD_RADIUS, MINUS_SIGN,
+from ..utils import Point, PressedType, create_empty_image, ensure_min_radius, random_position, IMAGE_CENTER
+from ...config import (SYLLABLE_COLOR, SYLLABLE_BG, WORD_IMAGE_RADIUS, DEFAULT_WORD_RADIUS, MINUS_SIGN,
                        SYLLABLE_INITIAL_SCALE_MIN, SYLLABLE_INITIAL_SCALE_MAX,
                        SYLLABLE_SCALE_MAX, SYLLABLE_SCALE_MIN, NUMBER_BORDERS)
 
@@ -33,36 +35,34 @@ def unique_groups(items: list[NumberGroup]) -> list[NumberGroup]:
     return [item for item in items if not (item in seen or seen.add(item))]
 
 
-class NumberGroup(Interactive):
+class NumberGroup(CanvasItem):
     IMAGE_CENTER = Point(WORD_IMAGE_RADIUS, WORD_IMAGE_RADIUS)
     background = SYLLABLE_BG
     color = SYLLABLE_COLOR
 
-    def __init__(self, digit: Digit = None, minus_sign: NumberMark = None, number_mark: NumberMark = None):
+    def __init__(self, character: Character):
         super().__init__()
         distance_info = DistanceInfo()
         self.distance_info = distance_info
-        self.outer_circle = OuterCircle(self.IMAGE_CENTER, distance_info)
+        self.outer_circle = OuterCircle(distance_info)
         self.outer_circle.initialize(NUMBER_BORDERS)
 
-        self.center = Point(random.randint(DEFAULT_WORD_RADIUS, DEFAULT_CANVAS_WIDTH - DEFAULT_WORD_RADIUS),
-                            random.randint(DEFAULT_WORD_RADIUS, DEFAULT_CANVAS_HEIGHT - DEFAULT_WORD_RADIUS))
-        self.digits = [digit] if digit else []
-        self._minus_sign = minus_sign
-        self._number_mark = number_mark
+        self.center = random_position()
+        self.digits: list[Digit] = []
+        self._minus_sign: Optional[NumberMark] = None
+        self._number_mark: Optional[NumberMark] = None
         self._proper_number = False
-        self._set_proper_number()
-        self._update_text()
 
         # Image-related attributes
-        self._image, self._draw = create_empty_image(self.IMAGE_CENTER)
+        self._image, self._draw = create_empty_image()
         self._image_tk = ImageTk.PhotoImage(image=self._image)
         self._canvas_item_id = None
         self._image_ready = False
 
         # Scale, radius, and positioning attributes
-        self.scale = random.uniform(SYLLABLE_INITIAL_SCALE_MIN, SYLLABLE_INITIAL_SCALE_MAX)
+        self._scale = uniform(SYLLABLE_INITIAL_SCALE_MIN, SYLLABLE_INITIAL_SCALE_MAX)
         self._update_after_resizing()
+        self.add(character)
 
         # Interaction properties
         self._pressed_character: Optional[InteractiveCharacter] = None
@@ -87,18 +87,18 @@ class NumberGroup(Interactive):
                 return False
 
             self.digits.append(character)
-            character.scale_borders(self.scale)
+            character.scale_borders(self._scale)
             self._update_digits()
         elif isinstance(character, NumberMark):
             if character.text == MINUS_SIGN:
                 if self._minus_sign or self.digits or self._number_mark:
                     return False
-                character.update_scale(self.scale)
+                character.initialize_parent(self.outer_circle, self._scale)
                 self._minus_sign = character
             else:
                 if self._number_mark or self._minus_sign and not self.digits:
                     return False
-                character.update_scale(self.scale)
+                character.initialize_parent(self.outer_circle, self._scale)
                 self._number_mark = character
         else:
             return False
@@ -134,7 +134,7 @@ class NumberGroup(Interactive):
 
     def set_scale(self, scale: float):
         """Set the scale of the number group and update properties accordingly."""
-        self.scale = scale
+        self._scale = scale
         self._update_after_resizing()
 
     def _adjust_scale(self, distance: float):
@@ -144,19 +144,19 @@ class NumberGroup(Interactive):
 
     def _update_after_resizing(self):
         """Update properties after resizing."""
-        self.distance_info.scale_distance(self.scale)
-        self.outer_circle.scale_borders(self.scale)
-        self.outer_circle.set_radius(self.scale * DEFAULT_WORD_RADIUS)
+        self.distance_info.scale_distance(self._scale)
+        self.outer_circle.scale_borders(self._scale)
+        self.outer_circle.set_radius(self._scale * DEFAULT_WORD_RADIUS)
         self.outer_circle.create_circle(self.color, self.background)
 
         if self._minus_sign:
-            self._minus_sign.update_scale(self.scale)
+            self._minus_sign.set_parent_scale(self._scale)
 
         if self._number_mark:
-            self._number_mark.update_scale(self.scale)
+            self._number_mark.set_parent_scale(self._scale)
 
         for digit in self.digits:
-            digit.scale_borders(self.scale)
+            digit.scale_borders(self._scale)
         self._update_digits()
         self._image_ready = False
 
@@ -169,7 +169,8 @@ class NumberGroup(Interactive):
         border_space_width = len(double_border_digits) * line_distance
         base_inner_radius = 0.0
         for i, digit in enumerate(reversed(self.digits)):
-            base_stripe_width = ensure_min_radius(self.outer_circle.radius - base_inner_radius - border_space_width) / (len(self.digits) - i + 1)
+            base_stripe_width = ensure_min_radius(
+                self.outer_circle.radius - base_inner_radius - border_space_width) / (len(self.digits) - i + 1)
             digit.update_inner_radius(base_inner_radius, base_stripe_width)
             base_inner_radius = digit.inner_circle.radius
             if digit in double_border_digits:
@@ -223,8 +224,7 @@ class NumberGroup(Interactive):
     def _handle_mark_press(self, number_point: Point, mark: NumberMark) -> Optional[PressedType]:
         """Attempt to press the number mark."""
         if self._proper_number:
-            mark_point = number_point - mark.calculate_position(self.outer_circle.radius)
-            if mark.press(mark_point):
+            if mark.press(number_point):
                 self._pressed_character = mark
                 self._pressed_type = PressedType.CHILD
                 return self._pressed_type
@@ -232,7 +232,7 @@ class NumberGroup(Interactive):
             mark_pressed_type = mark.press(number_point)
             if mark_pressed_type:
                 if mark_pressed_type == PressedType.SELF:
-                    self._point_bias = number_point
+                    self._position_bias = number_point
                     self._pressed_type = PressedType.SELF
                 else:
                     self._pressed_character = mark
@@ -252,13 +252,13 @@ class NumberGroup(Interactive):
     def _handle_parent_press(self, word_point: Point) -> Optional[PressedType]:
         """Handle press events for the parent."""
         self._pressed_type = PressedType.SELF
-        self._point_bias = word_point
+        self._position_bias = word_point
         return self._pressed_type
 
     # =============================================
     # Repositioning
     # =============================================
-    def move(self, point: Point, radius=0.0):
+    def move(self, point: Point):
         """Handle move events."""
         word_point = point - self.center
         distance = word_point.distance()
@@ -266,7 +266,7 @@ class NumberGroup(Interactive):
             case PressedType.OUTER_CIRCLE:
                 self._adjust_scale(distance)
             case PressedType.SELF:
-                self.center = point - self._point_bias
+                self.center = point - self._position_bias
             case PressedType.CHILD:
                 self._move_child(word_point)
             case _:
@@ -275,8 +275,8 @@ class NumberGroup(Interactive):
 
     def _move_child(self, number_point: Point) -> None:
         """Move a pressed child syllable."""
-        self._pressed_character.move(number_point, self.outer_circle.radius)
-        if self._pressed_character.character_type & CharacterType.DIGIT:
+        self._pressed_character.move(number_point)
+        if self._pressed_character.character_type == CharacterType.DIGIT:
             self._update_digits()
 
     # =============================================
@@ -284,8 +284,8 @@ class NumberGroup(Interactive):
     # =============================================
     def _create_circle_args(self, adjusted_radius: float, width: float) -> dict:
         """Generate circle arguments for drawing."""
-        start = self.IMAGE_CENTER.shift(-adjusted_radius).tuple()
-        end = self.IMAGE_CENTER.shift(adjusted_radius).tuple()
+        start = IMAGE_CENTER.shift(-adjusted_radius).tuple()
+        end = IMAGE_CENTER.shift(adjusted_radius).tuple()
         return {'xy': (start, end), 'outline': self.color, 'fill': self.background, 'width': width}
 
     # =============================================
@@ -298,15 +298,13 @@ class NumberGroup(Interactive):
             self._draw.rectangle(((0, 0), self._image.size), fill=self.background)
 
             for digit in reversed(self.digits):
-                digit.paste_image(self._image)
+                digit.redraw(self._image, self._draw)
 
             if self._minus_sign:
-                xy = self._minus_sign.calculate_position(self.outer_circle.radius).tuple()
-                self._minus_sign.paste_image(self._image, xy)
+                self._minus_sign.redraw(self._image, self._draw)
 
             if self._number_mark:
-                xy = self._number_mark.calculate_position(self.outer_circle.radius).tuple()
-                self._number_mark.paste_image(self._image, xy)
+                self._number_mark.redraw(self._image, self._draw)
 
             # Paste the outer circle image
             self.outer_circle.paste_circle(self._image)
@@ -314,17 +312,17 @@ class NumberGroup(Interactive):
             self._draw.rectangle(((0, 0), self._image.size), fill=0)
 
             if self._minus_sign:
-                self._minus_sign.paste_image(self._image, (0, 0))
+                self._minus_sign.redraw(self._image, self._draw)
 
             if self._number_mark:
-                self._number_mark.paste_image(self._image, (0, 0))
+                self._number_mark.redraw(self._image, self._draw)
         self._image_ready = True
 
-    def paste_image(self, image: Image.Image, position: Point):
+    def paste_image(self, image: Image, position: Point):
         """Create and display the number group image on the canvas."""
         if not self._image_ready:
             self._create_image()
-        image.paste(self._image, (self.center - self.IMAGE_CENTER - position).tuple(), self._image)
+        image.paste(self._image, (self.center - IMAGE_CENTER - position).tuple(), self._image)
 
     def put_image(self, canvas: tk.Canvas, to_be_removed: list[int]):
         """Create and display the number group image on the canvas."""
@@ -340,6 +338,9 @@ class NumberGroup(Interactive):
             self._image_tk.paste(self._image)
             self._canvas_item_id = canvas.create_image(self.center.tuple(), image=self._image_tk)
 
+    def redraw(self, image: Image, draw: ImageDraw) -> None:
+        raise NotImplementedError()
+
     def apply_color_changes(self):
         """Apply color changes to the number group."""
         self.outer_circle.create_circle(self.color, self.background)
@@ -351,20 +352,21 @@ class NumberGroup(Interactive):
             self._number_mark.apply_color_changes()
         self._image_ready = False
 
-    def perform_animation(self, direction_sign: int):
+    def perform_animation(self, angle: float):
         """Perform an animation step, changing the digits' directions."""
-        new_direction_sign = direction_sign
-        for digit in self.digits:
-            digit.perform_animation(new_direction_sign)
-            new_direction_sign = -new_direction_sign
+        if self._proper_number:
+            if self._minus_sign:
+                self._minus_sign.perform_animation(angle)
 
-        if self._minus_sign:
-            self._minus_sign.perform_animation(direction_sign)
+            if self._number_mark:
+                self._number_mark.perform_animation(-angle)
 
-        if self._number_mark:
-            self._number_mark.perform_animation(-direction_sign)
+            digit_angle = 2 * angle
+            for digit in self.digits:
+                digit.perform_animation(digit_angle)
+                digit_angle = -digit_angle
 
-        self._image_ready = False
+            self._image_ready = False
 
 
 class Number(InteractiveToken):
@@ -392,7 +394,7 @@ class Number(InteractiveToken):
                 return self._pressed_type
         return None
 
-    def move(self, point: Point, radius=0.0):
+    def move(self, point: Point):
         """Handle move events."""
         self._pressed_group.move(point)
 
@@ -401,7 +403,7 @@ class Number(InteractiveToken):
     # =============================================
     def insert_characters(self, index: int, characters: list[Character]) -> bool:
         """Insert characters at the specified index and update syllables."""
-        if not all(character.character_type & CharacterType.NUMBER for character in characters):
+        if not all(character.character_type.token_type == TokenType.NUMBER for character in characters):
             return False
 
         self._split_group(index)
@@ -492,7 +494,7 @@ class Number(InteractiveToken):
             state.completed = True
             return
 
-        state.group = NumberGroup(minus_sign=minus)
+        state.group = NumberGroup(minus)
         self.groups_by_indices[index] = state.group
 
     def _process_mark(self, index: int, mark: NumberMark, state: _RedistributionState) -> None:
@@ -502,13 +504,13 @@ class Number(InteractiveToken):
                 state.completed = True
                 return
             else:
-                state.group = NumberGroup(number_mark=mark)
+                state.group = NumberGroup(mark)
                 state.group.add(mark)
 
         self.groups_by_indices[index] = state.group
         state.group = None
 
-    def paste_image(self, image: Image.Image, position: Point):
+    def paste_image(self, image: Image, position: Point):
         """Paste the number onto the given image."""
         for group in self.groups:
             group.paste_image(image, position)
@@ -518,6 +520,9 @@ class Number(InteractiveToken):
         for group in self.groups:
             group.put_image(canvas, to_be_removed)
 
+    def redraw(self, image: Image, draw: ImageDraw) -> None:
+        raise NotImplementedError()
+
     def apply_color_changes(self):
         """Apply color changes to the number."""
         for group in self.groups:
@@ -526,8 +531,8 @@ class Number(InteractiveToken):
     # =============================================
     # Animation
     # =============================================
-    def perform_animation(self, direction_sign: int):
+    def perform_animation(self, angle: float):
         """Perform an animation step, changing number groups' directions."""
         for group in self.groups:
-            group.perform_animation(direction_sign)
-            direction_sign = -direction_sign
+            group.perform_animation(angle)
+            angle = -angle

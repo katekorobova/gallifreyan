@@ -1,13 +1,13 @@
 import tkinter as tk
 
-from PIL import Image, ImageTk
+from PIL import ImageTk, Image
 
-from . import DefaultLabel, DefaultWindow, DefaultFrame
+from . import DefaultLabel, DefaultWindow, DefaultFrame, SecondaryLabel
 from ..utils import Point
 from ..writing.characters import CharacterType
-from ...config import (PRESSED_BG, ITEM_BG, PRIMARY_FONT, PADX, PADY,
+from ...config import (PRESSED_BG, ITEM_BG, PADX, PADY,
                        BUTTON_WIDTH, BUTTON_HEIGHT, BUTTON_IMAGE_SIZE,
-                       TEXT_COLOR, DISABLED_TEXT_COLOR, LABEL_TEXT_COLOR, SEPARATOR, SPACE)
+                       TEXT_COLOR, DISABLED_TEXT_COLOR, LABEL_TEXT_COLOR, SEPARATOR, SPACE, PRIMARY_FONT)
 from ...core import repository
 
 BORDER_FILE_PATH = 'src/assets/images/borders/{}.png'
@@ -100,7 +100,7 @@ class ColumnFrame(DefaultFrame):
             button = CharacterButton(self, entry, character)
             button.grid(row=i, column=1, sticky=tk.NSEW)
 
-            description = DefaultLabel(self, text=description)
+            description = SecondaryLabel(self, text=description)
             description.grid(row=i, column=2, sticky=tk.W)
 
             if character in rep.disabled:
@@ -154,6 +154,28 @@ class NumbersWindow(DefaultWindow):
         if position:
             self.place(position)
 
+class PunctuationWindow(DefaultWindow):
+    """A frame containing buttons for special characters."""
+
+    def __init__(self, win: tk.Tk, entry: tk.Entry, position: Point = None):
+        super().__init__(win, 'Punctuation')
+        marks_column = ColumnFrame(CharacterType.PUNCTUATION_MARK, self, entry)
+        marks_column.grid(row=0, column=1, padx=padx, pady=PADY, sticky=tk.NSEW)
+
+        if position:
+            self.place(position)
+
+    def _create_table(self, characters: list[tuple[str, str]], entry: tk.Entry) -> tk.Frame:
+        """Creates and places buttons for special characters."""
+        table = DefaultFrame(self)
+        for i, (character, description) in enumerate(characters):
+            button = CharacterButton(table, entry, character)
+            label = DefaultLabel(table, text=description)
+
+            button.grid(row=i, column=0, sticky=tk.NSEW)
+            label.grid(row=i, column=1, sticky=tk.W)
+        return table
+
 
 class SpecialCharactersWindow(DefaultWindow):
     """A frame containing buttons for special characters."""
@@ -171,7 +193,7 @@ class SpecialCharactersWindow(DefaultWindow):
         table = DefaultFrame(self)
         for i, (character, description) in enumerate(characters):
             button = CharacterButton(table, entry, character)
-            label = DefaultLabel(table, text=description)
+            label = SecondaryLabel(table, text=description)
 
             button.grid(row=i, column=0, sticky=tk.NSEW)
             label.grid(row=i, column=1, sticky=tk.W)

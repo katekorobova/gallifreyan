@@ -1,22 +1,21 @@
-import math
-import random
 import tkinter as tk
-from abc import ABC
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from itertools import count, repeat
 from typing import Optional
 
-from PIL import ImageTk, Image
+from PIL import ImageTk
+from PIL.Image import Image
+from PIL.ImageDraw import ImageDraw
 
-from .characters import Character, Separator, CharacterType
-from .common import Interactive
-from ..utils import Point, PressedType, create_empty_image
-from ...config import (WORD_BG, WORD_COLOR, DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT,
-                       WORD_IMAGE_RADIUS, DEFAULT_WORD_RADIUS,
+from .characters import Character, Separator, CharacterType, TokenType
+from .characters.vowels import Vowel
+from .common import CanvasItem
+from .common.circles import OuterCircle, DistanceInfo
+from .syllables import Consonant, Syllable, SeparatorSyllable, AbstractSyllable
+from ..utils import Point, PressedType, create_empty_image, random_position, IMAGE_CENTER
+from ...config import (WORD_BG, WORD_COLOR, WORD_IMAGE_RADIUS, DEFAULT_WORD_RADIUS,
                        OUTER_CIRCLE_SCALE_MIN, OUTER_CIRCLE_SCALE_MAX, WORD_BORDERS)
-from ...core.writing.characters.vowels import Vowel
-from ...core.writing.common.circles import OuterCircle, DistanceInfo
-from ...core.writing.syllables import Consonant, Syllable, SeparatorSyllable, AbstractSyllable
 
 
 @dataclass
@@ -40,6 +39,7 @@ class Token(ABC):
         self.characters: list[Character] = []
         self.text = ''
 
+    @abstractmethod
     def insert_characters(self, index: int, characters: list[Character]) -> bool:
         """Insert characters at the specified index."""
         self.characters[index:index] = characters
@@ -60,18 +60,6 @@ class Token(ABC):
         """Update the word's text representation."""
         self.text = ''.join(character.text for character in self.characters)
 
-    def paste_image(self, image: Image.Image, position: Point) -> None:
-        """Retrieve the generated image, creating it if necessary."""
-
-    def put_image(self, canvas: tk.Canvas, to_be_removed: list[int]) -> None:
-        """Create and display the word image on the canvas."""
-
-    def apply_color_changes(self) -> None:
-        """Apply color changes to the image and its syllables."""
-
-    def perform_animation(self, direction_sign: int) -> None:
-        """Perform an animation step."""
-
 
 class SpaceToken(Token):
     """Represents a word consisting only of space characters."""
@@ -90,12 +78,16 @@ class SpaceToken(Token):
         return super().insert_characters(index, characters)
 
 
-class InteractiveToken(Token, Interactive, ABC):
+class InteractiveToken(Token, CanvasItem, ABC):
     """Abstract class representing a token with interactive properties."""
 
     def __init__(self):
         Token.__init__(self)
-        Interactive.__init__(self)
+        CanvasItem.__init__(self)
+
+    @abstractmethod
+    def perform_animation(self, angle: float) -> None:
+        """Perform an animation step."""
 
 
 class Word(InteractiveToken):
@@ -110,15 +102,14 @@ class Word(InteractiveToken):
 
         distance_info = DistanceInfo()
         self.distance_info = distance_info
-        self.outer_circle = OuterCircle(self.IMAGE_CENTER, distance_info)
+        self.outer_circle = OuterCircle(distance_info)
         self.outer_circle.initialize(WORD_BORDERS)
 
         self.outer_circle_scale = OUTER_CIRCLE_SCALE_MIN
-        self.center = Point(random.randint(DEFAULT_WORD_RADIUS, DEFAULT_CANVAS_WIDTH - DEFAULT_WORD_RADIUS),
-                            random.randint(DEFAULT_WORD_RADIUS, DEFAULT_CANVAS_HEIGHT - DEFAULT_WORD_RADIUS))
+        self.center = random_position()
 
         # Image-related attributes
-        self._image, self._draw = create_empty_image(self.IMAGE_CENTER)
+        self._image, self._draw = create_empty_image()
         self._image_tk = ImageTk.PhotoImage(image=self._image)
         self._image_ready = False
         self.canvas_item_id: Optional[int] = None
@@ -138,7 +129,7 @@ class Word(InteractiveToken):
     # =============================================
     def update_properties_after_resizing(self):
         """Update properties based on the head syllable scale."""
-        head_scale = self.head.scale
+        head_scale = self.head.get_scale()
         self.distance_info.scale_distance(head_scale)
         self.outer_circle.scale_borders(head_scale)
         self.outer_circle.set_radius(self.outer_circle_scale * head_scale * DEFAULT_WORD_RADIUS)
@@ -148,12 +139,17 @@ class Word(InteractiveToken):
         """Organize characters into syllables and update relationships."""
         self.syllables = unique_syllables(self.syllables_by_indices)
         if self.syllables:
-            for i in reversed(range(0, len(self.syllables) - 1)):
-                self.syllables[i].set_following(self.syllables[i + 1])
-            self.syllables[-1].set_following(None)
             self.head = self.syllables[0]
             self.tail = self.syllables[1:]
-            self.head.update_scale()
+
+            for i in range(0, len(self.syllables) - 1):
+                self.syllables[i].set_following(self.syllables[i + 1])
+            self.syllables[-1].set_following(None)
+
+            self.head.set_parent_outer_circle(None)
+            for syllable in self.tail:
+                syllable.set_parent_outer_circle(self.head.outer_circle)
+            self.head.set_parent_scale(1.0)
             self.update_properties_after_resizing()
         else:
             self.head = None
@@ -191,10 +187,7 @@ class Word(InteractiveToken):
     def _handle_tail_press(self, word_point: Point) -> Optional[PressedType]:
         """Attempt to press a non-head syllable."""
         for syllable in reversed(self.tail):
-            head_radius = self.head.outer_circle.radius
-            offset_point = word_point - Point(math.cos(syllable.direction) * head_radius,
-                                              math.sin(syllable.direction) * head_radius)
-            if syllable.press(offset_point):
+            if syllable.press(word_point):
                 self._pressed_syllable = syllable
                 self._pressed_type = PressedType.CHILD
                 return self._pressed_type
@@ -206,7 +199,7 @@ class Word(InteractiveToken):
         if head_pressed_type:
             if head_pressed_type == PressedType.SELF:
                 self._pressed_type = PressedType.SELF
-                self._point_bias = word_point
+                self._position_bias = word_point
             else:
                 self._pressed_syllable = self.head
                 self._pressed_type = PressedType.CHILD
@@ -215,14 +208,14 @@ class Word(InteractiveToken):
 
     def _handle_parent_press(self, word_point: Point) -> bool:
         """Handle press events for the parent."""
-        self._point_bias = word_point
+        self._position_bias = word_point
         self._pressed_type = PressedType.SELF
         return True
 
     # =============================================
     # Repositioning
     # =============================================
-    def move(self, point: Point, radius=0.0) -> None:
+    def move(self, point: Point) -> None:
         """Handle move events."""
         word_point = point - self.center
         match self._pressed_type:
@@ -231,31 +224,26 @@ class Word(InteractiveToken):
             case PressedType.OUTER_CIRCLE:
                 self._resize(word_point)
             case PressedType.SELF:
-                self.center = point - self._point_bias
+                self.center = point - self._position_bias
             case _:
                 return
         self._image_ready = False
 
     def _move_child(self, word_point: Point) -> None:
         """Move a pressed child syllable."""
+        self._pressed_syllable.move(word_point)
         if self._pressed_syllable is self.head:
-            self.head.move(word_point)
             self.update_properties_after_resizing()
-        else:
-            head_radius = self.head.outer_circle.radius
-            self._pressed_syllable.move(word_point, head_radius)
 
     # =============================================
     # Resizing
     # =============================================
     def _resize(self, word_point: Point) -> None:
         """Resize the word based on movement."""
-        head_scale = self.head.scale
+        head_scale = self.head.get_scale()
         new_radius = word_point.distance() - self._distance_bias
-        self.outer_circle_scale = min(
-            max(new_radius / DEFAULT_WORD_RADIUS / head_scale, OUTER_CIRCLE_SCALE_MIN),
-            OUTER_CIRCLE_SCALE_MAX)
-
+        scale = new_radius / DEFAULT_WORD_RADIUS / head_scale
+        self.outer_circle_scale = min(max(scale, OUTER_CIRCLE_SCALE_MIN), OUTER_CIRCLE_SCALE_MAX)
         self.outer_circle.set_radius(self.outer_circle_scale * head_scale * DEFAULT_WORD_RADIUS)
         self.outer_circle.create_circle(self.color, self.background)
 
@@ -264,7 +252,7 @@ class Word(InteractiveToken):
     # =============================================
     def insert_characters(self, index: int, characters: list[Character]) -> bool:
         """Insert characters at the specified index and update syllables."""
-        if not all(character.character_type & CharacterType.WORD for character in characters):
+        if not all(character.character_type.token_type == TokenType.WORD for character in characters):
             return False
 
         self._split_syllable(index)
@@ -391,11 +379,11 @@ class Word(InteractiveToken):
     # =============================================
     # Drawing
     # =============================================
-    def paste_image(self, image: Image.Image, position: Point):
+    def paste_image(self, image: Image, position: Point):
         """Retrieve the generated image, creating it if necessary."""
         if not self._image_ready:
             self._create_image()
-        image.paste(self._image, (self.center - self.IMAGE_CENTER - position).tuple(), self._image)
+        image.paste(self._image, (self.center - IMAGE_CENTER - position).tuple(), self._image)
 
     def put_image(self, canvas: tk.Canvas, to_be_removed: list[int]):
         """Create and display the word image on the canvas."""
@@ -411,6 +399,9 @@ class Word(InteractiveToken):
             self._image_tk.paste(self._image)
             self.canvas_item_id = canvas.create_image(self.center.tuple(), image=self._image_tk)
 
+    def redraw(self, image: Image, draw: ImageDraw) -> None:
+        raise NotImplementedError()
+
     def _create_image(self):
         """Generate the full word image by assembling syllables and outer elements."""
         if self.head:
@@ -418,13 +409,8 @@ class Word(InteractiveToken):
                 # Clear the image
                 self._draw.rectangle(((0, 0), self._image.size), fill=self.background)
 
-                # Paste the head syllable onto the image
-                self._paste_head()
-
-                # Paste other syllables onto the image
-                head_radius = self.head.scale * DEFAULT_WORD_RADIUS
-                for s in self.tail:
-                    self._paste_tail(s, head_radius)
+                for syllable in self.syllables:
+                    syllable.redraw(self._image, self._draw)
 
                 # Paste the outer circle image
                 self.outer_circle.paste_circle(self._image)
@@ -433,21 +419,9 @@ class Word(InteractiveToken):
                 self._draw.rectangle(((0, 0), self._image.size), fill=0)
 
                 # Paste the head syllable onto the image
-                self._paste_head()
+                self.head.redraw(self._image, self._draw)
 
         self._image_ready = True
-
-    def _paste_head(self):
-        """Paste the head syllable's image onto the word image."""
-        image = self.head.get_image()
-        self._image.paste(image, (self.IMAGE_CENTER - Syllable.IMAGE_CENTER).tuple(), image)
-
-    def _paste_tail(self, syllable: Syllable, radius: float):
-        """Paste a non-head syllable's image at a position on the head syllable's orbit."""
-        image = syllable.get_image()
-        self._image.paste(image, (self.IMAGE_CENTER - Syllable.IMAGE_CENTER +
-                                  Point(math.cos(syllable.direction) * radius,
-                                        math.sin(syllable.direction) * radius)).tuple(), image)
 
     def apply_color_changes(self):
         """Apply color changes to the image and its syllables."""
@@ -459,13 +433,10 @@ class Word(InteractiveToken):
     # =============================================
     # Animation
     # =============================================
-    def perform_animation(self, direction_sign: int):
+    def perform_animation(self, angle: float):
         """Perform an animation step, changing syllables' directions."""
-        if self.head:
-            self.head.perform_animation(direction_sign, False)
-
-            for syllable in self.tail:
-                direction_sign = -direction_sign
-                syllable.perform_animation(direction_sign, True)
-
+        if self.syllables:
+            for syllable in self.syllables:
+                syllable.perform_animation(angle)
+                angle = -angle
             self._image_ready = False

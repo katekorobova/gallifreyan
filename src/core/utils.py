@@ -3,11 +3,13 @@ from __future__ import annotations
 import copy
 import math
 from enum import Enum, auto
+from random import randint
 
 from PIL import Image, ImageDraw
 
 from ..config import (LINE_WIDTHS, MIN_LINE_WIDTH, DEFAULT_HALF_LINE_DISTANCE, MIN_HALF_LINE_DISTANCE,
-                      CANVAS_BG, WORD_BG, SYLLABLE_BG, WORD_COLOR, SYLLABLE_COLOR, VOWEL_COLOR, DOT_COLOR, MIN_RADIUS)
+                      CANVAS_BG, WORD_BG, SYLLABLE_BG, WORD_COLOR, SYLLABLE_COLOR, VOWEL_COLOR, DOT_COLOR, MIN_RADIUS,
+                      DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT, DEFAULT_WORD_RADIUS, WORD_IMAGE_RADIUS)
 
 
 # =============================================
@@ -61,6 +63,9 @@ class Point:
         return round(self.x), round(self.y)
 
 
+IMAGE_CENTER = Point(WORD_IMAGE_RADIUS, WORD_IMAGE_RADIUS)
+
+
 # =============================================
 # Color Scheme
 # =============================================
@@ -79,24 +84,26 @@ class ColorSchemeComponent(Enum):
 ColorScheme = dict[ColorSchemeComponent, str]
 
 _default_color_scheme: ColorScheme = {
-        ColorSchemeComponent.CANVAS_BG: CANVAS_BG,
-        ColorSchemeComponent.WORD_BG: WORD_BG,
-        ColorSchemeComponent.SYLLABLE_BG: SYLLABLE_BG,
-        ColorSchemeComponent.WORD_COLOR: WORD_COLOR,
-        ColorSchemeComponent.SYLLABLE_COLOR: SYLLABLE_COLOR,
-        ColorSchemeComponent.VOWEL_COLOR: VOWEL_COLOR,
-        ColorSchemeComponent.DOT_COLOR: DOT_COLOR
-    }
+    ColorSchemeComponent.CANVAS_BG: CANVAS_BG,
+    ColorSchemeComponent.WORD_BG: WORD_BG,
+    ColorSchemeComponent.SYLLABLE_BG: SYLLABLE_BG,
+    ColorSchemeComponent.WORD_COLOR: WORD_COLOR,
+    ColorSchemeComponent.SYLLABLE_COLOR: SYLLABLE_COLOR,
+    ColorSchemeComponent.VOWEL_COLOR: VOWEL_COLOR,
+    ColorSchemeComponent.DOT_COLOR: DOT_COLOR
+}
 
 
 def get_default_color_scheme() -> ColorScheme:
     """Returns a copy of the default color scheme."""
     return copy.copy(_default_color_scheme)
 
+
 def reset_color_scheme(color_scheme: ColorScheme):
     """Resets the given color scheme to the default values."""
     for key, value in _default_color_scheme.items():
         color_scheme[key] = value
+
 
 # =============================================
 # Utility Functions
@@ -105,15 +112,30 @@ def get_line_width(typ: str, scale: float) -> int:
     """Calculate the line width based on type and scale, ensuring a minimum value."""
     return max(math.ceil(LINE_WIDTHS[typ] * scale), MIN_LINE_WIDTH[typ])
 
+
 def get_half_line_distance(scale: float) -> float:
     """Calculate the scaled half-line distance, ensuring a minimum value."""
     return max(DEFAULT_HALF_LINE_DISTANCE * scale, MIN_HALF_LINE_DISTANCE)
 
-def create_empty_image(image_center: Point, mode: str = 'RGBA') -> tuple[Image.Image, ImageDraw.ImageDraw]:
+
+def create_empty_image(mode: str = 'RGBA') -> tuple[Image.Image, ImageDraw.ImageDraw]:
     """Create an empty image with the specified mode."""
-    image = Image.new(mode, (image_center * 2).tuple())
+    image = Image.new(mode, (IMAGE_CENTER * 2).tuple())
     return image, ImageDraw.Draw(image)
+
 
 def ensure_min_radius(radius: float):
     """Calculate a  radius with constraints."""
     return max(radius, MIN_RADIUS)
+
+
+def random_position():
+    return Point(randint(DEFAULT_WORD_RADIUS, DEFAULT_CANVAS_WIDTH - DEFAULT_WORD_RADIUS),
+                 randint(DEFAULT_WORD_RADIUS, DEFAULT_CANVAS_HEIGHT - DEFAULT_WORD_RADIUS))
+
+
+def get_bounds(center: Point, radius: float) -> tuple[tuple[int, int], tuple[int, int]]:
+    """Calculate bounding box for an ellipse."""
+    start = center.shift(-radius).tuple()
+    end = center.shift(radius).tuple()
+    return start, end

@@ -6,12 +6,13 @@ from enum import Enum
 from itertools import repeat
 from typing import Optional
 
-from PIL import ImageDraw
+from PIL.Image import Image
+from PIL.ImageDraw import ImageDraw
 
+from . import Letter, CharacterType
+from ..common.circles import OuterCircle, InnerCircle
+from ...utils import Point, PressedType, get_line_width, get_half_line_distance, IMAGE_CENTER
 from ....config import VOWEL_COLOR, MIN_RADIUS, SYLLABLE_BG
-from ....core.utils import Point, PressedType, get_line_width, get_half_line_distance
-from ....core.writing.characters import Letter, CharacterType
-from ....core.writing.common.circles import OuterCircle, InnerCircle
 
 
 class VowelType(str, Enum):
@@ -47,24 +48,24 @@ class Vowel(Letter, ABC):
             return self._pressed_type
         return None
 
-    def move(self, point: Point, radius=0.0) -> None:
+    def move(self, point: Point) -> None:
         """Move the vowel based on the pressed type."""
         if self._pressed_type == PressedType.SELF:
             point -= self._position_bias
             self.set_direction(point.direction())
 
-    def redraw(self, image: ImageDraw.ImageDraw) -> None:
+    def redraw(self, image: Image, draw: ImageDraw) -> None:
         """Draw the vowel on the given image."""
         for args in self._ellipse_args:
-            image.ellipse(**args)
+            draw.ellipse(**args)
 
-    def update_argument_dictionaries(self) -> None:
+    def _update_argument_dictionaries(self) -> None:
         """Update argument dictionaries for drawing ellipses."""
         self._ellipse_args = []
         for width, half_width, radius in zip(self.line_widths, self.half_line_widths, self._radii):
             adjusted_radius = radius + half_width
-            start = (self.IMAGE_CENTER + self._center).shift(-adjusted_radius).tuple()
-            end = (self.IMAGE_CENTER + self._center).shift(adjusted_radius).tuple()
+            start = (IMAGE_CENTER + self._center).shift(-adjusted_radius).tuple()
+            end = (IMAGE_CENTER + self._center).shift(adjusted_radius).tuple()
             self._ellipse_args.append({'xy': (start, end), 'outline': self.color,
                                        'fill': self.background, 'width': width})
 

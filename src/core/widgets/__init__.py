@@ -39,8 +39,7 @@ class DefaultLabel(tk.Label):
 class SecondaryLabel(tk.Label):
     """A label with a predefined style but a different font."""
     def __init__(self, master: tk.Misc, text: str):
-        super().__init__(master, text=text, font=SECONDARY_FONT,
-                         bg=master['bg'], fg=LABEL_TEXT_COLOR)
+        super().__init__(master, text=text, font=SECONDARY_FONT, bg=master['bg'], fg=LABEL_TEXT_COLOR)
 
 
 class DefaultCanvas(tk.Canvas):

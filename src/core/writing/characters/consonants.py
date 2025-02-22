@@ -1,18 +1,19 @@
 from __future__ import annotations
 
 import math
-import random
 from abc import ABC
 from collections import Counter
 from enum import Enum
+from random import uniform
 from typing import Optional
 
-from PIL import ImageDraw
+from PIL.Image import Image
+from PIL.ImageDraw import ImageDraw
 
+from . import Letter, CharacterType
+from ..common.circles import OuterCircle, InnerCircle
+from ...utils import Point, get_line_width, PressedType, IMAGE_CENTER, get_bounds
 from ....config import SYLLABLE_BG, SYLLABLE_COLOR, DOT_COLOR, DEFAULT_DOT_RADIUS, MIN_RADIUS
-from ....core.utils import Point, get_line_width, PressedType
-from ....core.writing.characters import Letter, CharacterType
-from ....core.writing.common.circles import OuterCircle, InnerCircle
 
 
 class ConsonantType(Enum):
@@ -147,7 +148,7 @@ class LineBasedConsonant(Consonant, ABC):
         rotated = Point(math.cos(angle) * distance, math.sin(angle) * distance)
         return 0 < rotated.x < self._distance and -self._half_line_distance < rotated.y < self._half_line_distance
 
-    def move(self, point: Point, radius=0.0):
+    def move(self, point: Point):
         """Move the line based on interaction."""
         point -= self._position_bias
         self.set_direction(point.direction() + (-self.ANGLE if self._pressed_id else self.ANGLE))
@@ -165,17 +166,17 @@ class LineBasedConsonant(Consonant, ABC):
         super()._update_properties_after_rotation()
         self._calculate_endpoints()
 
-    def update_argument_dictionaries(self):
+    def _update_argument_dictionaries(self):
         """Update dictionary arguments used for drawing lines."""
         self._line_args = [
-            {'xy': (self.IMAGE_CENTER.tuple(), (self.IMAGE_CENTER + end).tuple()),
+            {'xy': (IMAGE_CENTER.tuple(), (IMAGE_CENTER + end).tuple()),
              'fill': self.color, 'width': self._line_width}
             for end in self._ends]
 
-    def redraw(self, image: ImageDraw.ImageDraw):
+    def redraw(self, image: Image, draw: ImageDraw):
         """Draw the consonant as a line."""
         for line_arg in self._line_args:
-            image.line(**line_arg)
+            draw.line(**line_arg)
 
 
 class BentLineConsonant(LineBasedConsonant):
@@ -196,7 +197,7 @@ class RadialLineConsonant(LineBasedConsonant):
 
         self._end = Point()
         self._polygon_args = {}
-        self._set_personal_direction(random.uniform(0.7 * math.pi, 1.3 * math.pi))
+        self._set_personal_direction(uniform(0.7 * math.pi, 1.3 * math.pi))
 
     def press(self, point: Point) -> Optional[PressedType]:
         """Check if a point interacts with this consonant."""
@@ -205,7 +206,7 @@ class RadialLineConsonant(LineBasedConsonant):
             return self._pressed_type
         return None
 
-    def move(self, point: Point, radius=0.0):
+    def move(self, point: Point):
         """Update direction based on moved point."""
         point -= self._position_bias
         self.set_direction(point.direction())
@@ -220,21 +221,21 @@ class RadialLineConsonant(LineBasedConsonant):
         super()._update_properties_after_rotation()
         self._end = self._calculate_endpoint(self.direction)
 
-    def update_argument_dictionaries(self):
+    def _update_argument_dictionaries(self):
         """Update dictionary arguments used for drawing the radial line."""
         if len(self.borders) == 1:
             self._polygon_args = {}
             self._line_args = [{
-                'xy': (self.IMAGE_CENTER.tuple(), (self.IMAGE_CENTER + self._end).tuple()),
+                'xy': (IMAGE_CENTER.tuple(), (IMAGE_CENTER + self._end).tuple()),
                 'fill': self.color, 'width': self.line_widths[0]}]
         else:
             d = Point(math.cos(self.direction + math.pi / 2) * self._half_line_distance,
                       math.sin(self.direction + math.pi / 2) * self._half_line_distance)
 
-            start1 = (self.IMAGE_CENTER - d).tuple()
-            end1 = (self.IMAGE_CENTER + self._end - d).tuple()
-            start2 = (self.IMAGE_CENTER + d).tuple()
-            end2 = (self.IMAGE_CENTER + self._end + d).tuple()
+            start1 = (IMAGE_CENTER - d).tuple()
+            end1 = (IMAGE_CENTER + self._end - d).tuple()
+            start2 = (IMAGE_CENTER + d).tuple()
+            end2 = (IMAGE_CENTER + self._end + d).tuple()
 
             self._polygon_args = {
                 'xy': (start1, end1, end2, start2),
@@ -265,34 +266,34 @@ class DiametricalLineConsonant(LineBasedConsonant):
         super()._update_properties_after_rotation()
         self._calculate_endpoints()
 
-    def update_argument_dictionaries(self):
+    def _update_argument_dictionaries(self):
         """Update drawing arguments for lines and polygons."""
         if len(self.borders) == 1:
             self._polygon_args = {}
 
-            start = (self.IMAGE_CENTER + self._ends[0]).tuple()
-            end = (self.IMAGE_CENTER + self._ends[1]).tuple()
+            start = (IMAGE_CENTER + self._ends[0]).tuple()
+            end = (IMAGE_CENTER + self._ends[1]).tuple()
             self._line_args = [{'xy': (start, end), 'fill': self.color, 'width': self.line_widths[0]}]
         else:
             d = Point(math.cos(self.direction) * self._half_line_distance,
                       math.sin(self.direction) * self._half_line_distance)
 
-            start1 = (self.IMAGE_CENTER + self._ends[0] - d).tuple()
-            end1 = (self.IMAGE_CENTER + self._ends[1] - d).tuple()
-            start2 = (self.IMAGE_CENTER + self._ends[0] + d).tuple()
-            end2 = (self.IMAGE_CENTER + self._ends[1] + d).tuple()
+            start1 = (IMAGE_CENTER + self._ends[0] - d).tuple()
+            end1 = (IMAGE_CENTER + self._ends[1] - d).tuple()
+            start2 = (IMAGE_CENTER + self._ends[0] + d).tuple()
+            end2 = (IMAGE_CENTER + self._ends[1] + d).tuple()
 
             self._polygon_args = {'xy': (start1, end1, end2, start2),
                                   'outline': self.background, 'fill': self.background}
             self._line_args = [{'xy': (start1, end1), 'fill': self.color, 'width': self.line_widths[0]},
                                {'xy': (start2, end2), 'fill': self.color, 'width': self.line_widths[1]}]
 
-    def redraw(self, image: ImageDraw.ImageDraw):
+    def redraw(self, image: Image, draw: ImageDraw):
         """Draw the consonant."""
         if self._polygon_args:
-            image.polygon(**self._polygon_args)
+            draw.polygon(**self._polygon_args)
 
-        super().redraw(image)
+        super().redraw(image, draw)
 
 
 class AngleBasedConsonant(LineBasedConsonant, ABC):
@@ -310,24 +311,24 @@ class AngleBasedConsonant(LineBasedConsonant, ABC):
         super()._update_properties_after_resizing(scale, outer_circle, inner_circle)
         self._radius = inner_circle.radius + 2 * self._half_line_distance
 
-    def update_argument_dictionaries(self):
+    def _update_argument_dictionaries(self):
         """Update the argument dictionary for arc drawing."""
-        super().update_argument_dictionaries()
+        super()._update_argument_dictionaries()
         adjusted_radius = self._radius + self._half_line_width
-        start = self.IMAGE_CENTER.shift(-adjusted_radius).tuple()
-        end = self.IMAGE_CENTER.shift(adjusted_radius).tuple()
+        start = IMAGE_CENTER.shift(-adjusted_radius).tuple()
+        end = IMAGE_CENTER.shift(adjusted_radius).tuple()
         start_angle = math.degrees(self.direction - self.ANGLE)
         end_angle = math.degrees(self.direction + self.ANGLE)
 
-        self._arc_args = {'xy': (start, end),'start': start_angle, 'end': end_angle,
+        self._arc_args = {'xy': (start, end), 'start': start_angle, 'end': end_angle,
                           'fill': self.color, 'width': self._line_width}
 
-    def redraw(self, image: ImageDraw.ImageDraw):
+    def redraw(self, image: Image, draw: ImageDraw):
         """Draw a consonant with an arc."""
-        super().redraw(image)
+        super().redraw(image, draw)
 
         if self._arc_args:
-            image.arc(**self._arc_args)
+            draw.arc(**self._arc_args)
 
 
 class StraightAngleConsonant(AngleBasedConsonant):
@@ -378,12 +379,6 @@ class DotConsonant(Consonant, ABC):
         self._distance = max((outer_radius + inner_radius) / 2, MIN_RADIUS)
         self._radius = max(scale * DEFAULT_DOT_RADIUS, MIN_RADIUS)
 
-    def _get_bounds(self, center: Point) -> tuple[tuple[int, int], tuple[int, int]]:
-        """Calculate bounding box for an ellipse."""
-        start = (self.IMAGE_CENTER + center).shift(-self._radius).tuple()
-        end = (self.IMAGE_CENTER + center).shift(self._radius).tuple()
-        return start, end
-
 
 class DoubleDotConsonant(DotConsonant, ABC):
     """Represents a consonant with two dots."""
@@ -409,7 +404,7 @@ class DoubleDotConsonant(DotConsonant, ABC):
                 return self._pressed_type
         return None
 
-    def move(self, point: Point, radius=0.0):
+    def move(self, point: Point):
         """Move the consonant based on the given point, updating its direction."""
         point -= self._position_bias
         direction = point.direction()
@@ -436,10 +431,10 @@ class DoubleDotConsonant(DotConsonant, ABC):
             Point(math.cos(self.direction + self.ANGLE) * self._distance,
                   math.sin(self.direction + self.ANGLE) * self._distance))
 
-    def redraw(self, image: ImageDraw.ImageDraw):
+    def redraw(self, image: Image, draw: ImageDraw):
         """Draw the two dots representing the consonant on the given image."""
         for args in self._ellipse_args:
-            image.ellipse(**args)
+            draw.ellipse(**args)
 
 
 class MatchingDotsConsonant(DoubleDotConsonant):
@@ -449,11 +444,10 @@ class MatchingDotsConsonant(DoubleDotConsonant):
         """Initialize a MatchingDotsConsonant with given text and borders."""
         super().__init__(text, borders, ConsonantType.MATCHING_DOTS)
 
-    def update_argument_dictionaries(self):
+    def _update_argument_dictionaries(self):
         """Update the argument dictionaries used for drawing the dots."""
-        self._ellipse_args = [{'xy': self._get_bounds(center), 'outline': self.color,
-                               'fill': self.background, 'width': self._line_width}
-                              for center in self._centers]
+        self._ellipse_args = [{'xy': get_bounds(IMAGE_CENTER + center, self._radius), 'outline': self.color,
+                               'fill': self.background, 'width': self._line_width} for center in self._centers]
 
 
 class DifferentDotsConsonant(DoubleDotConsonant):
@@ -463,11 +457,11 @@ class DifferentDotsConsonant(DoubleDotConsonant):
         """Initializes a DifferentDotsConsonant with given text and borders."""
         super().__init__(text, borders, ConsonantType.DIFFERENT_DOTS)
 
-    def update_argument_dictionaries(self):
+    def _update_argument_dictionaries(self):
         """Updates the argument dictionaries used for drawing the different dots."""
         self._ellipse_args = [
-            {'xy': self._get_bounds(self._centers[0]), 'fill': self.color},
-            {'xy': self._get_bounds(self._centers[1]), 'outline': self.color,
+            {'xy': get_bounds(IMAGE_CENTER + self._centers[0], self._radius), 'fill': self.color},
+            {'xy': get_bounds(IMAGE_CENTER + self._centers[1], self._radius), 'outline': self.color,
              'fill': self.background, 'width': self._line_width}]
 
 
@@ -488,7 +482,7 @@ class SingleDotConsonant(DotConsonant, ABC):
             return self._pressed_type
         return None
 
-    def move(self, point: Point, radius=0.0):
+    def move(self, point: Point):
         """Update the direction of the consonant when moved."""
         point -= self._position_bias
         self.set_direction(point.direction())
@@ -508,10 +502,10 @@ class SingleDotConsonant(DotConsonant, ABC):
         self._center = Point(math.cos(self.direction) * self._distance,
                              math.sin(self.direction) * self._distance)
 
-    def redraw(self, image: ImageDraw.ImageDraw):
+    def redraw(self, image: Image, draw: ImageDraw):
         """Redraw the consonant on the given image."""
         if self._ellipse_args:
-            image.ellipse(**self._ellipse_args)
+            draw.ellipse(**self._ellipse_args)
 
 
 class HollowDotConsonant(SingleDotConsonant):
@@ -521,9 +515,9 @@ class HollowDotConsonant(SingleDotConsonant):
         """Initialize a hollow dot consonant."""
         super().__init__(text, borders, ConsonantType.HOLLOW_DOT)
 
-    def update_argument_dictionaries(self):
+    def _update_argument_dictionaries(self):
         """Update the drawing arguments for rendering the hollow dot."""
-        self._ellipse_args = {'xy': self._get_bounds(self._center), 'outline': self.color,
+        self._ellipse_args = {'xy': get_bounds(IMAGE_CENTER + self._center, self._radius), 'outline': self.color,
                               'fill': self.background, 'width': self._line_width}
 
 
@@ -534,9 +528,9 @@ class SolidDotConsonant(SingleDotConsonant):
         """Initialize a solid dot consonant."""
         super().__init__(text, borders, ConsonantType.SOLID_DOT)
 
-    def update_argument_dictionaries(self):
+    def _update_argument_dictionaries(self):
         """Update the drawing arguments for rendering the solid dot."""
-        self._ellipse_args = {'xy': self._get_bounds(self._center), 'fill': self.color}
+        self._ellipse_args = {'xy': get_bounds(IMAGE_CENTER + self._center, self._radius), 'fill': self.color}
 
 
 class CircularConsonant(Consonant):
@@ -551,7 +545,7 @@ class CircularConsonant(Consonant):
         self._radius = 0.0
         self._center = Point()
         self._ellipse_args = {}
-        self._set_personal_direction(random.uniform(0.7 * math.pi, 1.3 * math.pi))
+        self._set_personal_direction(uniform(0.7 * math.pi, 1.3 * math.pi))
 
     def press(self, point: Point) -> Optional[PressedType]:
         """Handle pressing interaction by checking if the point is within the circle's radius."""
@@ -561,12 +555,13 @@ class CircularConsonant(Consonant):
             return self._pressed_type
         return None
 
-    def move(self, point: Point, radius=0.0):
+    def move(self, point: Point):
         """Update the direction of the consonant when moved."""
         point -= self._position_bias
         self.set_direction(point.direction())
 
-    def _update_properties_after_resizing(self, scale: float, outer_circle: OuterCircle, inner_circle: InnerCircle) -> None:
+    def _update_properties_after_resizing(self, scale: float, outer_circle: OuterCircle,
+                                          inner_circle: InnerCircle) -> None:
         """Update the properties of the consonant after resizing."""
         super()._update_properties_after_resizing(scale, outer_circle, inner_circle)
         self._line_width = min(self.line_widths)
@@ -592,15 +587,15 @@ class CircularConsonant(Consonant):
         self._center = Point(math.cos(self.direction) * self._distance,
                              math.sin(self.direction) * self._distance)
 
-    def update_argument_dictionaries(self) -> None:
+    def _update_argument_dictionaries(self) -> None:
         """Update the drawing arguments for rendering the circle."""
         adjusted_radius = self._radius + self._half_line_width
-        start = (self.IMAGE_CENTER + self._center).shift(-adjusted_radius).tuple()
-        end = (self.IMAGE_CENTER + self._center).shift(adjusted_radius).tuple()
+        start = (IMAGE_CENTER + self._center).shift(-adjusted_radius).tuple()
+        end = (IMAGE_CENTER + self._center).shift(adjusted_radius).tuple()
         self._ellipse_args = {'xy': (start, end), 'outline': self.color,
                               'fill': self.background, 'width': self._line_width}
 
-    def redraw(self, image: ImageDraw.ImageDraw) -> None:
+    def redraw(self, image: Image, draw: ImageDraw) -> None:
         """Draw the consonant as a circle on the given image."""
         if self._ellipse_args:
-            image.ellipse(**self._ellipse_args)
+            draw.ellipse(**self._ellipse_args)

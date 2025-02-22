@@ -4,9 +4,9 @@ import copy
 import tkinter as tk
 from typing import Optional
 
-from PIL import Image
+from PIL.Image import Image
 
-from .config import WINDOW_BG, PADX, PADY, SCREEN_OFFSET_X, SCREEN_OFFSET_Y
+from .config import WINDOW_BG, PADX, PADY, SCREEN_OFFSET_RIGHT, SCREEN_OFFSET_TOP
 from .core import repository
 from .core.tools import AnimationProperties
 from .core.tools.colorscheme import (ColorSchemeWindow, ColorScheme, ColorSchemeComponent)
@@ -14,11 +14,13 @@ from .core.tools.export import ProgressWindow, save_image
 from .core.utils import get_default_color_scheme, Point
 from .core.widgets.animation import AnimationWindow
 from .core.widgets.canvas import CanvasFrame
-from .core.widgets.keyboard import SpecialCharactersWindow, ConsonantsWindow, NumbersWindow, VowelsWindow
+from .core.widgets.keyboard import (ConsonantsWindow, VowelsWindow,
+                                    NumbersWindow, PunctuationWindow, SpecialCharactersWindow)
 from .core.writing.characters.consonants import Consonant, DotConsonant
 from .core.writing.characters.digits import Digit
+from .core.writing.characters.marks import Mark
 from .core.writing.characters.vowels import Vowel
-from .core.writing.numbers import NumberGroup, NumberMark
+from .core.writing.numbers import NumberGroup
 from .core.writing.syllables import Syllable
 from .core.writing.words import Word
 
@@ -44,6 +46,7 @@ class App(tk.Tk):
         self._consonants_window: Optional[ConsonantsWindow] = None
         self._vowels_window: Optional[VowelsWindow] = None
         self._numbers_window: Optional[NumbersWindow] = None
+        self._punctuation_window: Optional[PunctuationWindow] = None
         self._special_characters_window: Optional[SpecialCharactersWindow] = None
         self._animation_window: Optional[AnimationWindow] = None
         self._place_tool_windows()
@@ -63,6 +66,7 @@ class App(tk.Tk):
         tools_menu.add_command(label="Consonants", command=self._open_consonants_window)
         tools_menu.add_command(label="Vowels", command=self._open_vowels_window)
         tools_menu.add_command(label="Numbers", command=self._open_numbers_window)
+        tools_menu.add_command(label="Punctuation", command=self._open_punctuation_window)
         tools_menu.add_command(label="Special Characters", command=self._open_special_characters_window)
         tools_menu.add_separator()
 
@@ -104,6 +108,12 @@ class App(tk.Tk):
         else:
             self._numbers_window = NumbersWindow(self, self.canvas_frame.entry)
 
+    def _open_punctuation_window(self):
+        if self._punctuation_window and self._punctuation_window.winfo_exists():
+            self._punctuation_window.focus()
+        else:
+            self._punctuation_window = PunctuationWindow(self, self.canvas_frame.entry)
+
     def _open_special_characters_window(self):
         if self._special_characters_window and self._special_characters_window.winfo_exists():
             self._special_characters_window.focus()
@@ -135,14 +145,14 @@ class App(tk.Tk):
         DotConsonant.background = syllable_background
         NumberGroup.background = syllable_background
         Digit.background = syllable_background
-        NumberMark.background = syllable_background
+        Mark.background = syllable_background
 
         Word.color = word_color
         Syllable.color = syllable_color
         Consonant.color = syllable_color
         NumberGroup.color = syllable_color
         Digit.color = syllable_color
-        NumberMark.color = syllable_color
+        Mark.color = syllable_color
 
         Vowel.color = vowel_color
         DotConsonant.color = dot_color
@@ -153,7 +163,7 @@ class App(tk.Tk):
     def _place_tool_windows(self):
         """Initialize the tool windows."""
         self.update_idletasks()
-        start_x, start_y = self.winfo_screenwidth() - SCREEN_OFFSET_X, SCREEN_OFFSET_Y
+        start_x, start_y = self.winfo_screenwidth() - SCREEN_OFFSET_RIGHT, SCREEN_OFFSET_TOP
 
         position = Point(start_x, start_y)
         self._vowels_window = VowelsWindow(self, self.canvas_frame.entry, position=position)
@@ -163,12 +173,16 @@ class App(tk.Tk):
 
         start_y = position.y
         position.x = start_x
+        self._punctuation_window = PunctuationWindow(self, self.canvas_frame.entry, position=position)
+
+        position.y = start_y
         self._numbers_window = NumbersWindow(self, self.canvas_frame.entry, position=position)
 
+        start_x = position.x
         position.y = start_y
         self._special_characters_window = SpecialCharactersWindow(self, self.canvas_frame.entry, position=position)
 
-        position.y = start_y
+        position.x = start_x
         self._animation_window = AnimationWindow(self, self._set_animation_state, position=position)
 
     def _animation_loop(self):
@@ -195,7 +209,7 @@ class App(tk.Tk):
         animation_enabled = self._animation_enabled
         self._set_animation_state(False)
 
-        def save_png(image: Image.Image, filename: str):
+        def save_png(image: Image, filename: str):
             bbox = image.getchannel("A").getbbox()
             cropped_image = image.crop(bbox)
             cropped_image.save(filename)
@@ -209,11 +223,10 @@ class App(tk.Tk):
     def _save_gif(self):
         """Save the current canvas content as an animated GIF."""
         progress_window: Optional[ProgressWindow] = None
-
         animation_enabled = self._animation_enabled
         self._set_animation_state(False)
 
-        def save_gif(image: Image.Image, filename: str):
+        def save_gif(image: Image, filename: str):
             nonlocal progress_window
             progress_window = ProgressWindow(self)
 

@@ -72,8 +72,6 @@ MIN_HALF_LINE_DISTANCE = 2
 
 WORD_IMAGE_RADIUS = math.ceil((DEFAULT_WORD_RADIUS * OUTER_CIRCLE_SCALE_MAX
                                + 4 * DEFAULT_HALF_LINE_DISTANCE) * SYLLABLE_SCALE_MAX)
-SYLLABLE_IMAGE_RADIUS = math.ceil((DEFAULT_WORD_RADIUS
-                                   + 4 * DEFAULT_HALF_LINE_DISTANCE) * SYLLABLE_SCALE_MAX)
 
 # =============================================
 # Line Width Constants
@@ -104,6 +102,6 @@ SEPARATOR = '|'
 SPACE = ' '
 MINUS_SIGN = '-'
 
-SCREEN_OFFSET_X = 8
-SCREEN_OFFSET_Y = 24
+SCREEN_OFFSET_RIGHT = 8
+SCREEN_OFFSET_TOP = 24
 TITLE_BAR_HEIGHT = 32

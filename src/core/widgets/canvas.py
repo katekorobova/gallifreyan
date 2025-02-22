@@ -2,7 +2,7 @@ import logging
 import tkinter as tk
 from typing import Optional
 
-from PIL import Image
+from PIL.Image import Image
 
 from . import DefaultFrame, DefaultLabel, DefaultCanvas
 from ..utils import Point
@@ -46,7 +46,7 @@ class CanvasFrame(DefaultFrame):
         self.canvas.configure(bg=bg)
         self.label.configure(bg=bg)
 
-    def get_image(self) -> Optional[Image.Image]:
+    def get_image(self) -> Optional[Image]:
         bbox = self.canvas.bbox('all')
         if not bbox:
             return None

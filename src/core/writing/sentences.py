@@ -1,55 +1,50 @@
+import math
 from itertools import repeat, takewhile
 from tkinter import Canvas, Event
 from typing import Optional
 
 from PIL import Image
 
-from .characters import CharacterType, Character, Separator, Space, CharacterInfo
+from .characters import CharacterType, Character, Separator, Space, CharacterInfo, TokenType
 from .characters.consonants import Consonant
 from .characters.digits import Digit
+from .characters.marks import PunctuationMark
 from .characters.vowels import Vowel
 from .numbers import Number, NumberMark
+from .punctuation import PunctuationToken
 from .words import Word, SpaceToken, Token, InteractiveToken
 from .. import repository
+from ..tools import AnimationProperties
 from ..utils import Point
 
 
 def get_character(text: str, character_info: CharacterInfo) -> Character:
     """Create a Character instance based on its type and properties."""
-    typ = character_info.character_type
-    match typ:
-        case CharacterType.CONSONANT:
-            return Consonant.get_consonant(text, *character_info.properties)
-        case CharacterType.VOWEL:
-            return Vowel.get_vowel(text, *character_info.properties)
-        case CharacterType.SEPARATOR:
-            return Separator(text)
-        case CharacterType.SPACE:
-            return Space(text)
-        case CharacterType.DIGIT:
-            return Digit.get_digit(text, *character_info.properties)
-        case CharacterType.NUMBER_MARK:
-            return NumberMark(text, *character_info.properties)
-        case _:
-            raise ValueError(f"Unable to create a character of type: '{typ}' (symbol='{text}')")
+    character_type = character_info.character_type
+    character_factories = {
+        CharacterType.CONSONANT: Consonant.get_consonant,
+        CharacterType.VOWEL: Vowel.get_vowel,
+        CharacterType.SEPARATOR: Separator,
+        CharacterType.SPACE: Space,
+        CharacterType.DIGIT: Digit.get_digit,
+        CharacterType.NUMBER_MARK: NumberMark,
+        CharacterType.PUNCTUATION_MARK: PunctuationMark,
+    }
+    return character_factories[character_type](text, *character_info.properties)
 
-def determine_type(character: Character) -> CharacterType:
-    general_types = {CharacterType.WORD, CharacterType.NUMBER, CharacterType.SPACE}
-    return next(typ for typ in general_types if typ & character.character_type)
-
-def split_into_groups(characters: list[Character]) -> list[tuple[list[Character], CharacterType]]:
+def split_into_groups(characters: list[Character]) -> list[tuple[list[Character], TokenType]]:
     """Split a list of characters into groups with types."""
-    groups: list[tuple[list[Character], CharacterType]] = []
+    groups: list[tuple[list[Character], TokenType]] = []
     current_group = []
-    current_type = CharacterType.WORD
+    current_type = TokenType.WORD
     for character in characters:
-        general_type = determine_type(character)
-        if general_type & current_type:
+        token_type = character.character_type.token_type
+        if token_type == current_type:
             current_group.append(character)
         else:
             if current_group:
                 groups.append((current_group, current_type))
-            current_type = general_type
+            current_type = token_type
             current_group = [character]
 
     if current_group:
@@ -161,7 +156,7 @@ class Sentence:
         else:
             self._insert_multiple_tokens(index, groups_with_types)
 
-    def _insert_single_token(self, index: int, group_characters: list[Character], group_type: CharacterType):
+    def _insert_single_token(self, index: int, group_characters: list[Character], group_type: TokenType):
         """Insert a single token at the specified index, merging with adjacent words if possible."""
         group_length = len(group_characters)
         preceding_token = self.tokens_by_indices[index - 1] if index > 0 else None
@@ -178,7 +173,7 @@ class Sentence:
             self.tokens_by_indices[index:index] = repeat(token, group_length)
             self._absorb_nones(index + group_length, token)
 
-    def _insert_multiple_tokens(self, index: int, groups_with_types: list[tuple[list[Character], CharacterType]]):
+    def _insert_multiple_tokens(self, index: int, groups_with_types: list[tuple[list[Character], TokenType]]):
         """Insert multiple words at the specified index."""
         self._split_token(index)
         preceding_token = self.tokens_by_indices[index - 1] if index > 0 else None
@@ -223,19 +218,22 @@ class Sentence:
                     else:
                         break
 
-    def _new_token(self, group_characters: list[Character], group_type: CharacterType) -> Token:
+    def _new_token(self, group_characters: list[Character], token_type: TokenType) -> Token:
         """Create a new token from the given characters."""
-        match group_type:
-            case CharacterType.SPACE:
+        match token_type:
+            case TokenType.SPACE:
                 token = SpaceToken(group_characters)
-            case CharacterType.WORD:
+            case TokenType.WORD:
                 token = Word(group_characters)
                 self.visible_tokens.append(token)
-            case CharacterType.NUMBER:
+            case TokenType.NUMBER:
                 token = Number(group_characters)
                 self.visible_tokens.append(token)
+            case TokenType.PUNCTUATION:
+                token = PunctuationToken(group_characters)
+                self.visible_tokens.append(token)
             case _:
-                raise ValueError(f"No such word type: '{group_type}'")
+                raise ValueError(f"No such word type: '{token_type}'")
         return token
 
     def _absorb_nones(self, index: int, preceding_token: Token):
@@ -251,7 +249,7 @@ class Sentence:
                 index - self.tokens_by_indices.index(preceding_token), remaining_characters):
             token = preceding_token
         else:
-            token_type = determine_type(self.characters[index])
+            token_type = self.characters[index].character_type.token_type
             token = self._new_token(remaining_characters, token_type)
 
         self.tokens_by_indices[index: index + remaining_length] = repeat(token, remaining_length)
@@ -285,7 +283,7 @@ class Sentence:
     # =============================================
     def perform_animation(self):
         """Apply animation effects to the sentence."""
-        direction_sign = 1
+        angle = 2 * math.pi / AnimationProperties.cycle
         for token in self.visible_tokens:
-            token.perform_animation(direction_sign)
-            direction_sign = -direction_sign
+            token.perform_animation(angle)
+            angle = -angle

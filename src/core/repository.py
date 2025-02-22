@@ -13,6 +13,7 @@ class _CharacterRepository:
     CONSONANTS_FILE = 'src/config/consonants.json'
     VOWELS_FILE = 'src/config/vowels.json'
     DIGITS_FILE = 'src/config/digits.json'
+    PUNCTUATION_MARKS_FILE = 'src/config/punctuation_marks.json'
     NUMBER_MARKS_FILE = 'src/config/number_marks.json'
 
     def __init__(self):
@@ -33,6 +34,7 @@ class _CharacterRepository:
         self._load_table(CharacterType.CONSONANT)
         self._load_table(CharacterType.VOWEL)
         self._load_table(CharacterType.DIGIT)
+        self._load_column(CharacterType.PUNCTUATION_MARK)
         self._load_column(CharacterType.NUMBER_MARK)
 
     def _load_table(self, character_type: CharacterType) -> None:
@@ -60,7 +62,7 @@ class _CharacterRepository:
 
         for row, border in zip(table, borders):
             for character, typ in zip(row, types):
-                self._add_character_info(character, character_type, [border, typ])
+                self.all[character] = CharacterInfo(character_type, [border, typ])
 
         self.disabled |= set(disabled)
         self.tables[character_type] = table
@@ -69,6 +71,8 @@ class _CharacterRepository:
 
     def _load_column(self, character_type: CharacterType) -> None:
         match character_type:
+            case CharacterType.PUNCTUATION_MARK:
+                file_path = self.PUNCTUATION_MARKS_FILE
             case CharacterType.NUMBER_MARK:
                 file_path = self.NUMBER_MARKS_FILE
             case _:
@@ -83,22 +87,12 @@ class _CharacterRepository:
         disabled = data['disabled']
 
         for character, border in zip(column, borders):
-            self._add_character_info(character, character_type, [border])
+            self.all[character] = CharacterInfo(character_type, [border])
 
         self.disabled |= set(disabled)
         self.columns[character_type] = column
         self.borders[character_type] = borders
         self.descriptions[character_type] = descriptions
-
-    def _add_character_info(self, character, character_type, properties):
-        if character in self.all:
-            character_info = self.all[character]
-            if properties == character_info.properties:
-                self.all[character].character_type |= character_type
-            else:
-                raise ValueError(f"Character '{character}' defined twice with different properties")
-        else:
-            self.all[character] = CharacterInfo(character_type, properties)
 
 
 def initialize():

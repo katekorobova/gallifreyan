@@ -1,6 +1,10 @@
+import tkinter as tk
 from abc import ABC, abstractmethod
 from itertools import repeat
 from typing import Optional
+
+from PIL.Image import Image
+from PIL.ImageDraw import ImageDraw
 
 from ...utils import get_half_line_distance, get_line_width, PressedType, Point
 
@@ -37,5 +41,23 @@ class Interactive(ABC):
         """Handle a press event at a given point."""
 
     @abstractmethod
-    def move(self, point: Point, radius=0.0):
+    def move(self, point: Point):
         """Handle a move event to a given point."""
+
+    @abstractmethod
+    def redraw(self, image: Image, draw: ImageDraw) -> None:
+        """Redraw the component on the given image."""
+
+    @abstractmethod
+    def apply_color_changes(self) -> None:
+        """Apply color changes to the component."""
+
+
+class CanvasItem(Interactive):
+
+    @abstractmethod
+    def put_image(self, canvas: tk.Canvas, to_be_removed: list[int]) -> None:
+        """Display the image on the canvas."""
+
+    def paste_image(self, image: Image, position: Point):
+        """Paste the image onto the given image for export."""

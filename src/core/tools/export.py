@@ -2,15 +2,15 @@ import tkinter as tk
 from tkinter import messagebox, filedialog
 from typing import Callable, Optional
 
-from PIL import Image
+from PIL.Image import Image
 
 from . import AnimationProperties
 
 SAVE_ERROR = "Save Error"
 
 
-def save_image(image: Optional[Image.Image], name: str, extension: str,
-               callback: Callable[[Image.Image, str], None]) -> None:
+def save_image(image: Optional[Image], name: str, extension: str,
+               callback: Callable[[Image, str], None]) -> None:
     """Generic method to save the current canvas content as an image."""
     try:
         if not image:

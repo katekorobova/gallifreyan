@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 import math
-import random
 from abc import ABC, abstractmethod
 from enum import Enum
+from random import uniform
 from typing import Optional
 
-from PIL import Image
+from PIL.Image import Image
+from PIL.ImageDraw import ImageDraw
 
-from ....config import SYLLABLE_COLOR, SYLLABLE_BG, WORD_IMAGE_RADIUS, DIGIT_SCALE_MIN, DIGIT_SCALE_MAX
-from ....core.tools import AnimationProperties
-from ....core.utils import Point, PressedType, create_empty_image, ensure_min_radius
-from ....core.writing.characters import CharacterType, InteractiveCharacter
-from ....core.writing.common.circles import DistanceInfo, InnerCircle, BorderInfo
+from . import CharacterType, InteractiveCharacter
+from ..common.circles import DistanceInfo, InnerCircle, BorderInfo
+from ...utils import Point, PressedType, create_empty_image, ensure_min_radius, IMAGE_CENTER, get_bounds
+from ....config import SYLLABLE_COLOR, SYLLABLE_BG, DIGIT_SCALE_MIN, DIGIT_SCALE_MAX
 
 
 class DigitType(str, Enum):
@@ -22,7 +22,6 @@ class DigitType(str, Enum):
 
 
 class Digit(InteractiveCharacter, ABC):
-    IMAGE_CENTER = Point(WORD_IMAGE_RADIUS, WORD_IMAGE_RADIUS)
     color = SYLLABLE_COLOR
     background = SYLLABLE_BG
 
@@ -32,17 +31,17 @@ class Digit(InteractiveCharacter, ABC):
 
         distance_info = DistanceInfo()
         self.distance_info = distance_info
-        self.inner_circle = InnerCircle(self.IMAGE_CENTER, distance_info)
+        self.inner_circle = InnerCircle(distance_info)
         self.inner_circle.initialize(borders)
 
-        self.scale = 1.0
-        self.outer_radius = 0.0
-        self.base_inner_radius = 0.0
-        self.base_stripe_width = 0.0
+        self._scale = 1.0
+        self._outer_radius = 0.0
+        self._base_inner_radius = 0.0
+        self._base_stripe_width = 0.0
 
         # Image-related attributes
-        self._image, self._draw = create_empty_image(self.IMAGE_CENTER)
-        self._mask_image, self._mask_draw = create_empty_image(self.IMAGE_CENTER, '1')
+        self._image, self._draw = create_empty_image()
+        self._mask_image, self._mask_draw = create_empty_image('1')
         self._image_ready = False
 
     @staticmethod
@@ -68,16 +67,16 @@ class Digit(InteractiveCharacter, ABC):
         return None
 
     @abstractmethod
-    def move(self, point: Point, radius=0.0) -> None:
+    def move(self, point: Point) -> None:
         """Handle a move event to a given point."""
         if self._pressed_type == PressedType.INNER_CIRCLE:
             self._adjust_scale(point)
 
     def update_inner_radius(self, base_inner_radius: float, base_stripe_width: float) -> None:
         """Resize the inner circle based on the number's scale."""
-        self.base_inner_radius = base_inner_radius
-        self.base_stripe_width = base_stripe_width
-        inner_radius = base_inner_radius + base_stripe_width * self.scale
+        self._base_inner_radius = base_inner_radius
+        self._base_stripe_width = base_stripe_width
+        inner_radius = base_inner_radius + base_stripe_width * self._scale
         if self.inner_circle.num_borders() > 1:
             inner_radius += 2 * self.distance_info.half_distance
         self.inner_circle.set_radius(inner_radius)
@@ -87,9 +86,9 @@ class Digit(InteractiveCharacter, ABC):
         self._image_ready = False
 
     def update_outer_radius(self, outer_radius: float, border_info: BorderInfo) -> None:
-        self.outer_radius = outer_radius
+        self._outer_radius = outer_radius
 
-    def paste_image(self, image: Image.Image) -> None:
+    def redraw(self, image: Image, draw: ImageDraw) -> None:
         if not self._image_ready:
             self._create_image()
         image.paste(self._image, mask=self._mask_image)
@@ -108,17 +107,17 @@ class Digit(InteractiveCharacter, ABC):
         self.distance_info.scale_distance(scale)
         self.inner_circle.scale_borders(scale)
 
-    def set_scale(self, scale: float):
+    def _set_scale(self, scale: float):
         """Set the inner circle scale and update related properties."""
-        self.scale = scale
+        self._scale = scale
 
     def _adjust_scale(self, point: Point):
         """Adjust the inner scale based on the moved distance."""
         distance = point.distance()
-        new_stripe_width = distance - self._distance_bias - self.base_inner_radius
+        new_stripe_width = distance - self._distance_bias - self._base_inner_radius
         if self.inner_circle.num_borders() > 1:
             new_stripe_width -= 2 * self.distance_info.half_distance
-        self.set_scale(min(max(new_stripe_width / self.base_stripe_width, DIGIT_SCALE_MIN), DIGIT_SCALE_MAX))
+        self._set_scale(min(max(new_stripe_width / self._base_stripe_width, DIGIT_SCALE_MIN), DIGIT_SCALE_MAX))
 
     def apply_color_changes(self):
         self.inner_circle.create_circle(self.color, self.background)
@@ -128,7 +127,8 @@ class Digit(InteractiveCharacter, ABC):
     def _update_argument_dictionaries(self) -> None:
         pass
 
-    def perform_animation(self, direction_sign: int) -> None:
+    @abstractmethod
+    def perform_animation(self, angle: float) -> None:
         pass
 
 
@@ -136,7 +136,7 @@ class _DigitCircle:
     def __init__(self):
         self.distance = 0.0
         self.center = Point()
-        self.direction = random.uniform(0, 2 * math.pi)
+        self.direction = uniform(0, 2 * math.pi)
 
         self.radius = 0.0
         self.radii = [0.0]
@@ -184,8 +184,8 @@ class CircularDigit(Digit):
                 return self._pressed_type
         return None
 
-    def move(self, point: Point, radius=0.0):
-        super().move(point, radius)
+    def move(self, point: Point):
+        super().move(point)
         if self._pressed_type == PressedType.CHILD:
             point -= self._bias
             self._pressed_circle.set_direction(point.direction())
@@ -215,16 +215,10 @@ class CircularDigit(Digit):
 
         self._update_argument_dictionaries()
 
-    def _get_bounds(self, center: Point, radius: float) -> tuple[tuple[int, int], tuple[int, int]]:
-        """Calculate bounding box for an ellipse."""
-        start = (self.IMAGE_CENTER + center).shift(-radius).tuple()
-        end = (self.IMAGE_CENTER + center).shift(radius).tuple()
-        return start, end
-
     def _update_argument_dictionaries(self):
         widths = self.inner_circle.border_info.line_widths
         half_widths = self.inner_circle.border_info.half_line_widths
-        self._ellipse_args = [{'xy': self._get_bounds(circle.center, radius + half_width),
+        self._ellipse_args = [{'xy': get_bounds(IMAGE_CENTER + circle.center, radius + half_width),
                                'outline': self.color, 'fill': self.background, 'width': width}
                               for circle, width, half_width in zip(self.circles, widths, half_widths)
                               for radius in circle.radii]
@@ -234,11 +228,10 @@ class CircularDigit(Digit):
         for args in self._ellipse_args:
             self._draw.ellipse(**args)
 
-    def perform_animation(self, direction_sign: int):
-        delta = 2 * math.pi / AnimationProperties.cycle
+    def perform_animation(self, angle: float):
         for i, circle in enumerate(self.circles):
-            circle.set_direction(circle.direction + direction_sign * 2 * delta)
-            direction_sign = -direction_sign
+            circle.set_direction(circle.direction + angle)
+            angle = -angle
 
         self._update_argument_dictionaries()
         self._image_ready = False
@@ -247,7 +240,7 @@ class CircularDigit(Digit):
 class LineDigit(Digit):
     def __init__(self, text: str, borders: str):
         super().__init__(text, borders, DigitType.LINE)
-        self.direction = random.uniform(0, 2 * math.pi)
+        self.direction = uniform(0, 2 * math.pi)
 
         self._end = Point()
         self._bias = Point()
@@ -260,7 +253,7 @@ class LineDigit(Digit):
         angle = point.direction() - base_angle
         rotated = Point(math.cos(angle) * distance, math.sin(angle) * distance)
         half_distance = self.distance_info.half_distance
-        return (self.inner_circle.radius < rotated.x < self.outer_radius and
+        return (self.inner_circle.radius < rotated.x < self._outer_radius and
                 -half_distance < rotated.y < half_distance)
 
     def press(self, point: Point) -> Optional[PressedType]:
@@ -273,8 +266,8 @@ class LineDigit(Digit):
             return self._pressed_type
         return None
 
-    def move(self, point: Point, radius=0.0):
-        super().move(point, radius)
+    def move(self, point: Point):
+        super().move(point)
         if self._pressed_type == PressedType.SELF:
             point -= self._bias
             self.set_direction(point.direction())
@@ -294,8 +287,8 @@ class LineDigit(Digit):
 
     def _calculate_endpoint(self) -> None:
         """Helper method to calculate an endpoint given an angle."""
-        self._end = Point(math.cos(self.direction) * self.outer_radius,
-                          math.sin(self.direction) * self.outer_radius)
+        self._end = Point(math.cos(self.direction) * self._outer_radius,
+                          math.sin(self.direction) * self._outer_radius)
 
     def _update_argument_dictionaries(self):
         line_widths = self.inner_circle.border_info.line_widths
@@ -303,10 +296,10 @@ class LineDigit(Digit):
             half_distance = self.distance_info.half_distance
             d = Point(math.cos(self.direction + math.pi / 2) * half_distance,
                       math.sin(self.direction + math.pi / 2) * half_distance)
-            start1 = (self.IMAGE_CENTER + d).tuple()
-            end1 = (self.IMAGE_CENTER + self._end + d).tuple()
-            start2 = (self.IMAGE_CENTER - d).tuple()
-            end2 = (self.IMAGE_CENTER + self._end - d).tuple()
+            start1 = (IMAGE_CENTER + d).tuple()
+            end1 = (IMAGE_CENTER + self._end + d).tuple()
+            start2 = (IMAGE_CENTER - d).tuple()
+            end2 = (IMAGE_CENTER + self._end - d).tuple()
 
             self._draw.polygon(xy=(start1, end1, end2, start2), outline=self.background, fill=self.background)
             self._draw.line(xy=(start1, end1), fill=self.color, width=line_widths[0])
@@ -318,7 +311,7 @@ class LineDigit(Digit):
                                {'xy': (start2, end2), 'fill': self.color, 'width': line_widths[1]}]
         else:
             self._polygon_args = {}
-            self._line_args = [{'xy': (self.IMAGE_CENTER.tuple(), (self.IMAGE_CENTER + self._end).tuple()),
+            self._line_args = [{'xy': (IMAGE_CENTER.tuple(), (IMAGE_CENTER + self._end).tuple()),
                                 'fill': self.color, 'width': line_widths[0]}]
 
     def _redraw_decorations(self):
@@ -330,6 +323,5 @@ class LineDigit(Digit):
             self._draw.line(**line_arg)
 
 
-    def perform_animation(self, direction_sign: int):
-        delta = direction_sign * 2 * math.pi / AnimationProperties.cycle
-        self.set_direction(self.direction + 2 * delta)
+    def perform_animation(self, angle: float):
+        self.set_direction(self.direction + angle)

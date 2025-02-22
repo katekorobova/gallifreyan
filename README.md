@@ -3,7 +3,14 @@ A graphics editor for visualizing sentences in Doctor's Cot Gallifreyan, a writi
 
 🔗 [Learn more about Doctor's Cot Gallifreyan](https://doctorscotgallifreyan.com/)
 
-## ✨ New Feature: Number Support! 🔢🎉
+## 2025-02-22:‼️Punctuation Support Was Added
+The editor now supports punctuation marks!
+
+Refer to this [guide](https://static1.squarespace.com/static/515b022be4b0acd8bab2c6bc/t/51644bfde4b09f77f2932692/1365527549377/PunctuationTable.jpg) to better understand punctuation in Doctor's Cot.
+
+<img alt="Punctuation Example" src="https://www.dropbox.com/scl/fi/ebbeesbrgsng6ox1aqlwy/punctuation.png?rlkey=29oh0tq002kqxmp0k1d11hc19&st=f5tvy2hd&raw=1" width="500">
+
+## 2025-02-19: 🔢 Number Support Was Added
 The editor now supports numbers!
 
 Refer to this [guide](https://static1.squarespace.com/static/515b022be4b0acd8bab2c6bc/t/51d3757fe4b04fe3f5d38a6d/1372812671986/NumbersGuide.jpg) to better understand number visualization.
@@ -13,19 +20,19 @@ Refer to this [guide](https://static1.squarespace.com/static/515b022be4b0acd8bab
 ## Features
 
 ### 🔠 Multiple-Token Support
-Enter and visualize entire sentences, including words and numbers, in Doctor's Cot Gallifreyan.
+Enter and visualize entire sentences, including words, numbers, and punctuation marks, in Doctor's Cot Gallifreyan.
 
 🔗 [Guide to the Writing System](https://doctorscotgallifreyan.com/learn-the-system)
 
-<img alt="256 Butterflies Example" src="https://www.dropbox.com/scl/fi/r2n6yg0l48wrqb99hu3w1/256_butterflies.png?rlkey=p02oq7g6ga3qp42jp6gnrp04y&st=kdlow32m&raw=1" width="500">
+<img alt="^256 Butterflies! Example" src="https://www.dropbox.com/scl/fi/bk5csxnqq6br0lt9nav95/256_butterflies.png?rlkey=kmzjx9dfccedqmb150nfnlsdg&st=81i54aia&raw=1" width="500">
 
 ### ✏️ Resizable Elements
 - Resize words by dragging the outer border of the largest syllable.
 - Adjust the word’s outer circle by dragging its border.
 - Resize a syllable - along with all consecutive syllables -  by dragging its outer border.
-- Resize a number or a number mark by dragging its outer border.
+- Resize a number or a mark by dragging its outer border.
 - Resize digits by dragging their inner borders.
-- Resize inner circles of syllables or number marks by dragging their borders.
+- Resize inner circles of syllables or marks by dragging their borders.
 
 <img alt="Word Resizing" src="https://www.dropbox.com/scl/fi/jvqk5vktuc8ibfspjn9r8/word_resizing.gif?rlkey=tntx6v1sstgwuvkmy16l197pz&st=jumhnkqh&raw=1" width="500"> <img alt="Number Resizing" src="https://www.dropbox.com/scl/fi/jz74gef6cb677cmk2lu4y/number_resizing.gif?rlkey=22mdfh8oiy5dynbf3831gzuvr&st=acnomg0x&raw=1" width="500">
 

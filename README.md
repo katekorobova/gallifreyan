@@ -60,11 +60,6 @@ Drag various components, like words, syllables, vowels, consonants, numbers, dig
 
 <img alt="Color Scheme Selector" src="https://www.dropbox.com/scl/fi/cstj7cn8f5falhcuyh206/color_scheme_selector.png?rlkey=07sd6abnp14drlfax6edum8pp&st=hut6nwkm&raw=1" width="500">
 
-## 🚀 Future Plans
-✅ **Punctuation Support**: Visualizing punctuation marks (coming soon!)
-
-❌ **SVG Export**: Planned, but unlikely to be implemented.
-
 ## 🛠️ How to Run
 Ensure **Python 3.10+** is installed.
 

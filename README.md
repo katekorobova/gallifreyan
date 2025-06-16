@@ -1,19 +1,32 @@
 # Gallifreyan
 A graphics editor for visualizing sentences in Doctor's Cot Gallifreyan, a writing system created by Brittany Goodman and inspired by the fictional Gallifreyan language from *Doctor Who*.
 
-🔗 [Learn more about Doctor's Cot Gallifreyan](https://doctorscotgallifreyan.com/)
+🔗 [Official Website (now archived)](https://doctorscotgallifreyan.com/)
+
+## 2025-06-16: 🔗 Updated Resources
+Unfortunately, the original domain has expired, but here are some archived and recovered resources:
+
+**Archived Website**
+- [Wayback Machine Snapshot](https://web.archive.org/web/20250117191430/https://doctorscotgallifreyan.com/)
+
+**Recovered Guides**
+- [Sentence Structure](https://www.dropbox.com/scl/fi/zo8yb7f3vdy4g61d4q0g7/GallifreyanMasterTableSentence.jpg?rlkey=5i4v6va8zreh9k2u7g5v2roi0&st=79btoueb&raw=1)
+- [IPA Guide](https://www.dropbox.com/scl/fi/n09nkt0o8g2cnv12ta0ei/DoctorsCotSystem2.0MasterTable_IPA.jpg?rlkey=2sck3vyia8vglrclhxjdiib11&st=73b2l3zx&raw=1)
+- [American English Guide](https://www.dropbox.com/scl/fi/pwurou4r5don1ehxcs6ha/DoctorsCotSystem2.0MasterTable_English.jpg?rlkey=yx0mgsvpkl71c23atix29anix&st=6zwhgmta&raw=1)
+- [Numbers Guide](https://www.dropbox.com/scl/fi/wap2h6nzp5dbtpcyyqb3c/NumbersGuide.jpg?rlkey=obhm9r1d70bcte3h52u71h64f&st=ymogzwgg&raw=1)
+- [Punctuation Table](https://www.dropbox.com/scl/fi/lcey0x1l043ia764l9bmq/PunctuationTable.jpg?rlkey=knv3hb15wm00gmd5ml92a0xq6&st=ti465ea2&raw=1)
 
 ## 2025-02-22:‼️Punctuation Support Was Added
 The editor now supports punctuation marks!
 
-Refer to this [guide](https://static1.squarespace.com/static/515b022be4b0acd8bab2c6bc/t/51644bfde4b09f77f2932692/1365527549377/PunctuationTable.jpg) to better understand punctuation in Doctor's Cot.
+Refer to this [guide](https://www.dropbox.com/scl/fi/lcey0x1l043ia764l9bmq/PunctuationTable.jpg?rlkey=knv3hb15wm00gmd5ml92a0xq6&st=ti465ea2&raw=1) to better understand punctuation in Doctor's Cot.
 
 <img alt="Punctuation Example" src="https://www.dropbox.com/scl/fi/ebbeesbrgsng6ox1aqlwy/punctuation.png?rlkey=29oh0tq002kqxmp0k1d11hc19&st=f5tvy2hd&raw=1" width="500">
 
 ## 2025-02-19: 🔢 Number Support Was Added
 The editor now supports numbers!
 
-Refer to this [guide](https://static1.squarespace.com/static/515b022be4b0acd8bab2c6bc/t/51d3757fe4b04fe3f5d38a6d/1372812671986/NumbersGuide.jpg) to better understand number visualization.
+Refer to this [guide](https://www.dropbox.com/scl/fi/wap2h6nzp5dbtpcyyqb3c/NumbersGuide.jpg?rlkey=obhm9r1d70bcte3h52u71h64f&st=ymogzwgg&raw=1) to better understand number visualization.
 
 <img alt="Number Example" src="https://www.dropbox.com/scl/fi/rkjx1o7d5sfxeznndv61p/number.png?rlkey=78v93m6uruqx4zju30mcanmbr&st=k7vfdhmw&raw=1" width="500">
 
@@ -22,7 +35,7 @@ Refer to this [guide](https://static1.squarespace.com/static/515b022be4b0acd8bab
 ### 🔠 Multiple-Token Support
 Enter and visualize entire sentences, including words, numbers, and punctuation marks, in Doctor's Cot Gallifreyan.
 
-🔗 [Guide to the Writing System](https://doctorscotgallifreyan.com/learn-the-system)
+🔗 [Guide to the Writing System](https://doctorscotgallifreyan.com/learn-the-system) ([Backup Link](https://web.archive.org/web/20240220184555/http://doctorscotgallifreyan.com/learn-the-system))
 
 <img alt="^256 Butterflies! Example" src="https://www.dropbox.com/scl/fi/bk5csxnqq6br0lt9nav95/256_butterflies.png?rlkey=kmzjx9dfccedqmb150nfnlsdg&st=81i54aia&raw=1" width="500">
 
